@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -378,6 +380,17 @@ class SettingsScreen extends ConsumerWidget {
                   onChanged: (v) => set((x) => x.copyWith(glass: v)),
                 ),
               ),
+              if (Platform.isMacOS)
+                _Tile(
+                  title: 'Живая чёлка',
+                  subtitle:
+                      'На MacBook с вырезом: что играет — вокруг камеры, '
+                      'наведи мышь для кнопок',
+                  trailing: Switch(
+                    value: s.notchIsland,
+                    onChanged: (v) => set((x) => x.copyWith(notchIsland: v)),
+                  ),
+                ),
               _Tile(
                 title: 'Меньше анимаций',
                 subtitle:

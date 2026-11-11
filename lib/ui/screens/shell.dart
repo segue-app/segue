@@ -4,6 +4,7 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/settings/settings.dart';
+import '../../core/integrations/notch.dart';
 import '../../core/integrations/updates.dart';
 
 import 'package:flutter/services.dart';
@@ -72,6 +73,20 @@ class _ShellState extends ConsumerState<Shell> {
       fireImmediately: true,
     );
     HardwareKeyboard.instance.addHandler(_onKey);
+    // MacBook notch: now playing in the colours of the cover.
+    if (NotchBridge.supported) {
+      final notch = NotchBridge(ref.read(playerProvider))..attach();
+      ref.listenManual(
+        currentColorsProvider,
+        (_, c) => notch.accent = c.accent,
+        fireImmediately: true,
+      );
+      ref.listenManual(
+        settingsProvider.select((s) => s.notchIsland),
+        (_, on) => notch.setEnabled(on),
+        fireImmediately: true,
+      );
+    }
     // segue://pair links: a QR scanned with the phone's camera app.
     final links = AppLinks();
     _links = links.uriLinkStream.listen(_onLink);

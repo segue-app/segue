@@ -45,6 +45,7 @@ class AppSettings {
     this.depth3d = true,
     this.fadeSeconds = 0,
     this.lyricsTranslate = false,
+    this.notchIsland = true,
   });
 
   /// Take the accent colour from the playing track's cover.
@@ -89,6 +90,9 @@ class AppSettings {
   /// Show a translation under each lyrics line.
   final bool lyricsTranslate;
 
+  /// MacBooks: now playing around the camera notch.
+  final bool notchIsland;
+
   static const fonts = [
     'Manrope',
     'Inter',
@@ -129,6 +133,7 @@ class AppSettings {
     bool? depth3d,
     double? fadeSeconds,
     bool? lyricsTranslate,
+    bool? notchIsland,
   }) => AppSettings(
     accentFromCover: accentFromCover ?? this.accentFromCover,
     accent: accent ?? this.accent,
@@ -150,6 +155,7 @@ class AppSettings {
     depth3d: depth3d ?? this.depth3d,
     fadeSeconds: fadeSeconds ?? this.fadeSeconds,
     lyricsTranslate: lyricsTranslate ?? this.lyricsTranslate,
+    notchIsland: notchIsland ?? this.notchIsland,
   );
 
   Map<String, Object> toJson() => {
@@ -173,6 +179,7 @@ class AppSettings {
     'depth3d': depth3d,
     'fadeSeconds': fadeSeconds,
     'lyricsTranslate': lyricsTranslate,
+    'notchIsland': notchIsland,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> j) {
@@ -204,6 +211,7 @@ class AppSettings {
       depth3d: pick('depth3d', d.depth3d),
       fadeSeconds: num_('fadeSeconds', d.fadeSeconds),
       lyricsTranslate: pick('lyricsTranslate', d.lyricsTranslate),
+      notchIsland: pick('notchIsland', d.notchIsland),
     );
   }
 }

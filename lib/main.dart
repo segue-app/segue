@@ -108,12 +108,14 @@ Future<void> main() async {
   unawaited(sync.start().catchError((Object e) => debugPrint('sync off: $e')));
   // The relay doesn't wait for Bonjour (which can hang on some networks),
   // only for this device's name, and not for long.
-  unawaited(() async {
-    for (var i = 0; i < 30 && !sync.ready.value; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    }
-    await relay.start();
-  }().catchError((Object e) => debugPrint('relay off: $e')));
+  unawaited(
+    () async {
+      for (var i = 0; i < 30 && !sync.ready.value; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      await relay.start();
+    }().catchError((Object e) => debugPrint('relay off: $e')),
+  );
 
   runApp(
     ProviderScope(
