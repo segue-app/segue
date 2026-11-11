@@ -154,7 +154,7 @@ class Relay {
     return token;
   }
 
-  static Future<String> _hash(String s) async {
+  static Future<String> hash(String s) async {
     final h = await Sha256().hash(utf8.encode(s));
     return h.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
@@ -216,7 +216,7 @@ class Relay {
     _running = true;
     final token = groupToken();
     _key = await _groupKey(token);
-    _base = 'segue/v1/${(await _hash('segue-topic:$token')).substring(0, 24)}';
+    _base = 'segue/v1/${(await hash('segue-topic:$token')).substring(0, 24)}';
     await Future.wait([for (final host in brokers) _connect(host)]);
 
     _libSub = library.changes.listen((_) => _scheduleLibrary());
@@ -487,7 +487,7 @@ class Relay {
       all['history'] = history.sublist(history.length - 400);
     }
     final blob = gzip.encode(utf8.encode(jsonEncode(all)));
-    final rev = _randomId(16);
+    final rev = randomId(16);
     final n = (blob.length / _chunk).ceil().clamp(1, 1 << 20);
     for (var i = 0; i < n; i++) {
       final part = blob.sublist(i * _chunk, min((i + 1) * _chunk, blob.length));
@@ -551,7 +551,7 @@ class Relay {
       '$_base/c/$id',
       await _sealJson({
         'op': op,
-        'id': _randomId(12),
+        'id': randomId(12),
         'from': _me,
         'fromName': deviceName(),
         ...?args,
@@ -621,7 +621,7 @@ class Relay {
 
   static const _alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-  static String _randomId(int n) {
+  static String randomId(int n) {
     final r = Random.secure();
     return String.fromCharCodes(
       List.generate(
@@ -641,9 +641,18 @@ class Relay {
     return c;
   }
 
-  static Future<(String topic, SecretKey key)> _inviteKeys(String code) async {
+  static Future<(String topic, SecretKey key)> _inviteKeys(String code) =>
+      codeKeys(code, 'invite', 'segue/v1/i');
+
+  /// Topic and key for something shared by a short code (invites, listening
+  /// together).
+  static Future<(String topic, SecretKey key)> codeKeys(
+    String code,
+    String purpose,
+    String prefix,
+  ) async {
     final topic =
-        'segue/v1/i/${(await _hash('segue-invite:$code')).substring(0, 24)}';
+        '$prefix/${(await hash('segue-$purpose:$code')).substring(0, 24)}';
     // Slow on purpose: guessing codes offline must not pay off.
     final key =
         await Pbkdf2(
@@ -652,7 +661,7 @@ class Relay {
           bits: 256,
         ).deriveKey(
           secretKey: SecretKey(utf8.encode(code)),
-          nonce: utf8.encode('segue-invite-v1'),
+          nonce: utf8.encode('segue-$purpose-v1'),
         );
     return (topic, key);
   }
@@ -660,7 +669,7 @@ class Relay {
   /// Opens an invite for 10 minutes. Another device that enters the code
   /// (or scans it) joins this group, on any network.
   Future<String> openInvite() async {
-    final code = _randomId(8);
+    final code = randomId(8);
     inviteCode.value = code;
     final (topic, key) = await _inviteKeys(code);
     final sealed = await seal(

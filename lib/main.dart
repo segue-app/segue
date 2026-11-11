@@ -19,6 +19,7 @@ import 'core/import/playlist_importer.dart';
 import 'core/sources/match_source.dart';
 import 'core/settings/settings.dart';
 import 'core/sync/connect.dart';
+import 'core/sync/jam.dart';
 import 'core/sync/relay.dart';
 import 'core/sync/sync.dart';
 import 'core/sync/sync_service.dart';
@@ -103,6 +104,11 @@ Future<void> main() async {
     deviceName: () => sync.deviceName,
   );
   final connect = Connect(sync: sync, relay: relay, library: library);
+  final jam = JamService(
+    player: handler,
+    deviceId: library.deviceId,
+    name: () => sync.deviceName,
+  );
   // Local network first (it also finds out this device's name), then the
   // internet relay. Neither may block the app from opening.
   unawaited(sync.start().catchError((Object e) => debugPrint('sync off: $e')));
@@ -126,6 +132,7 @@ Future<void> main() async {
         importerProvider.overrideWithValue(importer),
         syncProvider.overrideWithValue(sync),
         connectProvider.overrideWithValue(connect),
+        jamProvider.overrideWithValue(jam),
         downloadsProvider.overrideWithValue(downloads),
         catalogProvider.overrideWithValue(catalog),
         waveProvider.overrideWithValue(Wave(catalog, library, handler)),

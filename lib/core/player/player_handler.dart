@@ -23,6 +23,7 @@ abstract interface class PlaybackControl {
   Future<void> skipToPrevious();
   Future<void> skipToQueueItem(int index);
   Future<void> setVolume(double volume);
+  Future<void> addNext(Track track);
 
   /// Fires when what others see changes: track, play/pause, seek, volume,
   /// queue.
@@ -194,6 +195,7 @@ class SegueAudioHandler extends BaseAudioHandler
     waveTitle.value = title;
   }
 
+  @override
   Future<void> addNext(Track t) async {
     _tracks.insert(_index + 1, t);
     _queueChanged();

@@ -78,7 +78,6 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     // Watch the item so the track updates with it.
     final track = item == null ? null : player.current;
     final likedKeys = ref.watch(likedKeysProvider);
-    final hasPeers = ref.watch(peersProvider).isNotEmpty;
     final settings = ref.watch(settingsProvider);
     // Fetching here also preloads lyrics before they're opened.
     final lyricsState = track == null ? null : ref.watch(lyricsProvider(track));
@@ -131,9 +130,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                           ? null
                           : () => showTrackActions(context, ref, track),
                       // Only with somewhere to send the music to.
-                      onDevices: hasPeers
-                          ? () => showHandoffSheet(context, ref)
-                          : null,
+                      onDevices: () => showHandoffSheet(context, ref),
                       lyricsOn: showLyrics,
                       // Grey and inert when the track has no lyrics.
                       onLyrics: hasLyrics

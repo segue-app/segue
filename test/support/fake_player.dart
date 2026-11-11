@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:segue/core/models/track.dart';
 import 'package:segue/core/player/player_handler.dart';
 
 /// A player that records what it was told to do.
@@ -44,6 +45,16 @@ class FakePlayer implements PlaybackControl {
   Future<void> seek(Duration p) async {
     calls.add('seek ${p.inSeconds}');
     state = {...state, 'positionMs': p.inMilliseconds};
+    _c.add(null);
+  }
+
+  @override
+  Future<void> addNext(Track t) async {
+    calls.add('add ${t.id}');
+    final q = List.of(state['queue'] as List);
+    final i = state['index'] as int;
+    q.insert(i + 1, t.toJson());
+    state = {...state, 'queue': q};
     _c.add(null);
   }
 

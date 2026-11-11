@@ -14,6 +14,7 @@ import '../../core/sync/relay.dart';
 import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import '../widgets/artwork.dart';
+import '../widgets/jam_sheet.dart';
 import '../widgets/motion.dart';
 
 IconData platformIcon(String os) => switch (os) {
@@ -834,6 +835,17 @@ class _WhereToPlay extends ConsumerWidget {
                       style: TextStyle(color: SegueColors.textDim),
                     ),
                   ),
+                const Divider(color: SegueColors.line, height: 20),
+                tile(
+                  icon: Icons.groups_rounded,
+                  title: 'Слушать вместе с друзьями',
+                  subtitle: 'Одна музыка у всех, в любой сети',
+                  active: false,
+                  onTap: () {
+                    Navigator.pop(context);
+                    showJamSheet(context);
+                  },
+                ),
               ],
             ),
           ),

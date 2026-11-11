@@ -40,6 +40,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="segue" android:host="pair" />
+                <data android:scheme="segue" android:host="jam" />
             </intent-filter>
         </activity>
         <!-- Background playback and media controls (audio_service). -->

@@ -5,6 +5,7 @@ import '../../core/player/player.dart';
 import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import 'artwork.dart';
+import 'jam_sheet.dart';
 
 /// The play queue: drag to reorder, swipe to remove, tap to jump.
 Future<void> showQueueSheet(BuildContext context) => showModalBottomSheet<void>(
@@ -51,6 +52,14 @@ class _Queue extends ConsumerWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Слушать вместе',
+                    onPressed: () {
+                      Navigator.pop(context);
+                      showJamSheet(context);
+                    },
+                    icon: const Icon(Icons.groups_rounded),
                   ),
                   if (wave != null)
                     Container(

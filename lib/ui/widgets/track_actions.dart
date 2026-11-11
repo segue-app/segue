@@ -7,6 +7,7 @@ import '../../core/library/library.dart';
 import '../../core/models/track.dart';
 import '../../core/player/player.dart';
 import '../../core/player/trims.dart';
+import '../../core/sync/jam.dart';
 import '../theme/theme.dart';
 import '../app_nav.dart';
 import 'artwork.dart';
@@ -128,6 +129,17 @@ Future<void> showTrackActions(
                 },
               ),
             ],
+            if (ref.read(jamProvider).active &&
+                !ref.read(jamProvider).isHost.value)
+              _Action(
+                icon: Icons.groups_rounded,
+                label: 'В совместную очередь',
+                onTap: () {
+                  ref.read(jamProvider).suggest(track);
+                  Navigator.pop(sheet);
+                  _toast(context, 'Отправлено: сыграет следующим у всех');
+                },
+              ),
             _Action(
               icon: Icons.playlist_play_rounded,
               label: 'Играть следующим',

@@ -22,6 +22,8 @@ import '../widgets/collection.dart';
 import '../widgets/import_dialog.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/remote_bar.dart';
+import '../widgets/jam_sheet.dart';
+import '../../core/sync/jam.dart';
 import '../../core/sync/connect.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav.dart';
@@ -53,6 +55,7 @@ class _ShellState extends ConsumerState<Shell> {
   StreamSubscription<String>? _errors;
   StreamSubscription<String>? _handoffs;
   StreamSubscription<String>? _relayHandoffs;
+  StreamSubscription<String>? _jamEvents;
   StreamSubscription<String>? _downloadErrors;
 
   @override
@@ -127,6 +130,9 @@ class _ShellState extends ConsumerState<Shell> {
       if (!mounted) return;
       _toast(msg);
     });
+    _jamEvents = ref.read(jamProvider).events.stream.listen((e) {
+      if (mounted) _toast(e);
+    });
     _relayHandoffs = ref.read(connectProvider).relay.incoming.stream.listen((
       from,
     ) {
@@ -152,7 +158,7 @@ class _ShellState extends ConsumerState<Shell> {
       // is otherwise allowed to grow as tall as the screen).
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [const RemoteBar(), bottom],
+        children: [const JamBar(), const RemoteBar(), bottom],
       ),
     ),
   );
@@ -165,6 +171,16 @@ class _ShellState extends ConsumerState<Shell> {
   NotchBridge? _notch;
 
   Future<void> _onLink(Uri uri) async {
+    if (uri.scheme == 'segue' && uri.host == 'jam') {
+      _toast('Подключаемся к совместному прослушиванию…');
+      try {
+        final host = await ref.read(jamProvider).join(uri.toString());
+        _toast('Слушаешь вместе с $host');
+      } catch (e) {
+        _toast('$e'.replaceFirst('Bad state: ', ''));
+      }
+      return;
+    }
     if (uri.scheme != 'segue' || uri.host != 'pair') return;
     final connect = ref.read(connectProvider);
     _toast('Связываем устройства…');
@@ -245,6 +261,7 @@ class _ShellState extends ConsumerState<Shell> {
     _errors?.cancel();
     _handoffs?.cancel();
     _relayHandoffs?.cancel();
+    _jamEvents?.cancel();
     _links?.cancel();
     _notch?.dispose();
     _downloadErrors?.cancel();
