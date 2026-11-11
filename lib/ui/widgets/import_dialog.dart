@@ -6,6 +6,7 @@ import '../../core/import/import.dart';
 import '../../core/import/playlist_importer.dart';
 import '../../core/library/library.dart';
 import '../theme/theme.dart';
+import 'library_import_sheet.dart';
 import 'track_actions.dart';
 
 /// Paste a playlist link from Spotify, Yandex Music, YouTube or SoundCloud;
@@ -182,6 +183,15 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
         ),
       ),
       actions: [
+        TextButton(
+          onPressed: _busy
+              ? null
+              : () {
+                  Navigator.pop(context);
+                  showLibraryImport(context);
+                },
+          child: const Text('Всю библиотеку…'),
+        ),
         TextButton(
           onPressed: _busy ? null : () => Navigator.pop(context),
           child: const Text('Отмена'),

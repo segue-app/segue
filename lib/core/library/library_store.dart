@@ -269,6 +269,43 @@ class LibraryStore {
     _changed();
   }
 
+  /// Likes many tracks at once (an imported library), keeping their order:
+  /// [newestFirst] the way services list them. Already liked ones are left
+  /// as they are. Returns how many were added.
+  int likeMany(List<Track> newestFirst) {
+    final have = likedKeys();
+    final fresh = [
+      for (final t in newestFirst)
+        if (!have.contains(t.key)) t,
+    ];
+    if (fresh.isEmpty) return 0;
+    _db.execute('BEGIN');
+    try {
+      // Older than anything liked so far, newest of them first.
+      final oldest = _db
+          .select('SELECT MIN(liked_at) AS m FROM likes')
+          .first['m'];
+      final base =
+          (oldest as int? ?? DateTime.now().millisecondsSinceEpoch) - 1;
+      for (final (i, t) in fresh.indexed) {
+        _saveTrack(t);
+        _db.execute(
+          'INSERT INTO likes (track_key, liked_at, deleted, updated_at, seq) '
+          'VALUES (?, ?, 0, ?, ?) ON CONFLICT(track_key) DO UPDATE SET '
+          'deleted = 0, liked_at = excluded.liked_at, '
+          'updated_at = excluded.updated_at, seq = excluded.seq',
+          [t.key, base - i, _now, _nextSeq],
+        );
+      }
+      _db.execute('COMMIT');
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
+    _changed();
+    return fresh.length;
+  }
+
   List<Track> likedTracks() => _tracks(
     'SELECT t.json FROM likes l JOIN tracks t ON t.key = l.track_key '
     'WHERE l.deleted = 0 ORDER BY l.liked_at DESC',

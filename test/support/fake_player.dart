@@ -71,4 +71,3 @@ class FakePlayer implements PlaybackControl {
     _c.add(null);
   }
 }
-
