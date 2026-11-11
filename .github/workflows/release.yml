@@ -54,12 +54,16 @@ jobs:
           path: segue-windows-x64.zip
 
   linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # GitHub's runners sometimes lose DNS for the Ubuntu mirrors; don't let
+    # that hold the whole release for an hour.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config \
+          APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          sudo apt-get $APT update
+          sudo apt-get $APT install -y clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libmpv-dev
       - uses: subosito/flutter-action@v2
         with:
@@ -89,6 +93,8 @@ jobs:
 
   release:
     needs: [android, windows, linux, macos]
+    # Publish whatever was built, even if one platform failed.
+    if: ${{ !cancelled() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.macos.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v5
