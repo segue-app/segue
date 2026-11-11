@@ -37,6 +37,16 @@ import 'playlist_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 
+/// Whether a text field has the keyboard (then keys are text, not
+/// shortcuts). The focused element is a Focus inside the EditableText, so
+/// look up the tree.
+bool isTyping() {
+  final ctx = FocusManager.instance.primaryFocus?.context;
+  return ctx != null &&
+      (ctx.widget is EditableText ||
+          ctx.findAncestorWidgetOfExactType<EditableText>() != null);
+}
+
 /// App frame: tabs (Home, Search, Library) each with their own navigation
 /// stack, the mini player, and a sidebar on wide screens or a bottom bar
 /// on phones.
@@ -210,8 +220,8 @@ class _ShellState extends ConsumerState<Shell> {
   /// field is never intercepted.
   bool _onKey(KeyEvent e) {
     if (e is KeyUpEvent) return false;
-    final focus = FocusManager.instance.primaryFocus?.context?.widget;
-    if (focus is EditableText) return false;
+    // Typing in any text field: keys are text, not shortcuts.
+    if (isTyping()) return false;
     final player = ref.read(playerProvider);
     final keys = HardwareKeyboard.instance;
     final mod = keys.isMetaPressed || keys.isControlPressed;
