@@ -89,8 +89,12 @@ class SyncService {
 
   bool _applyingRemote = false;
 
+  /// Becomes true once the name is known and the server is up.
+  final ready = ValueNotifier<bool>(false);
+
   Future<void> start() async {
     deviceName = await _deviceName();
+    ready.value = true;
     _server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
     _server!.listen(_handle, onError: (_) {});
     if (enableDiscovery) await _startBonjour();

@@ -105,13 +105,15 @@ Future<void> main() async {
   final connect = Connect(sync: sync, relay: relay, library: library);
   // Local network first (it also finds out this device's name), then the
   // internet relay. Neither may block the app from opening.
-  unawaited(
-    sync
-        .start()
-        .catchError((Object e) => debugPrint('sync off: $e'))
-        .then((_) => relay.start())
-        .catchError((Object e) => debugPrint('relay off: $e')),
-  );
+  unawaited(sync.start().catchError((Object e) => debugPrint('sync off: $e')));
+  // The relay doesn't wait for Bonjour (which can hang on some networks),
+  // only for this device's name, and not for long.
+  unawaited(() async {
+    for (var i = 0; i < 30 && !sync.ready.value; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    await relay.start();
+  }().catchError((Object e) => debugPrint('relay off: $e')));
 
   runApp(
     ProviderScope(

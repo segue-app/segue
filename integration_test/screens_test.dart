@@ -242,6 +242,7 @@ void main() {
     await settle(tester, 1);
     await tester.tap(find.text('Добавить устройство'));
     await settle(tester, 4);
+    expect(find.text('Код для другого устройства'), findsOneWidget);
     await shot(tester, '06e_devices_code');
     await phoneRelay.join(connect.inviteCode.value!);
     // The phone plays (muted); this device stops, so the remote bar shows.

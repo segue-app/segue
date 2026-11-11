@@ -181,6 +181,14 @@ class _ThisDevice extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connect = ref.read(connectProvider);
+    // Listens itself: as a const child it isn't rebuilt by the screen.
+    return ListenableBuilder(
+      listenable: Listenable.merge([connect.inviteCode, connect.changes]),
+      builder: (context, _) => _build(context, ref, connect),
+    );
+  }
+
+  Widget _build(BuildContext context, WidgetRef ref, Connect connect) {
     final code = connect.inviteCode.value;
     final accent = ref.watch(currentColorsProvider).accent;
     return _Card(
