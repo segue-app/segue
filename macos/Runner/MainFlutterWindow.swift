@@ -39,9 +39,6 @@ final class NotchModel: ObservableObject {
   @Published var enabled = true
   @Published var liked = false
 
-  /// Line of lyrics being sung now ("" when none).
-  @Published var lyric = ""
-
   /// Set when the music plays on another device ("на iPhone").
   @Published var device = ""
 
@@ -53,13 +50,16 @@ final class NotchModel: ObservableObject {
   @Published var swipe: CGFloat = 0
 
   var open: Bool { expanded || hovering }
-  var visible: Bool { enabled && hasTrack }
+  /// Paused for a while: the notch steps back until music plays again.
+  @Published var resting = false
+
+  var visible: Bool { enabled && hasTrack && !resting }
 
   /// Size of the black shape right now.
   var shapeSize: CGSize {
     if !visible { return CGSize(width: notchWidth, height: notchHeight) }
     if open {
-      return CGSize(width: 440, height: notchHeight + (lyric.isEmpty ? 142 : 170))
+      return CGSize(width: 440, height: notchHeight + 142)
     }
     // Collapsed: a little wider than the notch, cover left, bars right.
     return CGSize(width: notchWidth + 84, height: notchHeight)
@@ -176,8 +176,14 @@ final class NotchController {
     p.hidesOnDeactivate = false
     let host = HoverHostingView(rootView: NotchView(model: model))
     host.onHover = { [weak self] inside in
+      guard let self = self else { return }
+      // A light tap on the trackpad as the island opens.
+      if inside && !self.model.open && self.model.visible {
+        NSHapticFeedbackManager.defaultPerformer.perform(
+          .levelChange, performanceTime: .now)
+      }
       withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
-        self?.model.hovering = inside
+        self.model.hovering = inside
       }
     }
     host.onScroll = { [weak self] e in self?.scrolled(e) }
@@ -220,6 +226,7 @@ final class NotchController {
       model.title = title
       model.artist = a["artist"] as? String ?? ""
       model.playing = a["playing"] as? Bool ?? false
+      trackPause()
       model.position = (a["position"] as? Double) ?? 0
       model.duration = (a["duration"] as? Double) ?? 0
       model.positionAt = Date()
@@ -245,11 +252,6 @@ final class NotchController {
       withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
         model.expanded = a["value"] as? Bool ?? false
       }
-    case "lyric":
-      withAnimation(.easeOut(duration: 0.3)) {
-        model.lyric = a["line"] as? String ?? ""
-      }
-      if currentOpen { place() }
     default:
       break
     }
@@ -260,6 +262,32 @@ final class NotchController {
   private var swipeAccum: CGFloat = 0
   private var swipeDone = false
   private var volumeWork: DispatchWorkItem?
+  private var restWork: DispatchWorkItem?
+
+  /// Hides the notch after a pause of a few seconds; shows it on play.
+  private func trackPause() {
+    restWork?.cancel()
+    if model.playing {
+      if model.resting {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+          model.resting = false
+        }
+      }
+      return
+    }
+    let work = DispatchWorkItem { [weak self] in
+      guard let self = self, !self.model.playing, !self.model.hovering else { return }
+      withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+        self.model.resting = true
+      }
+      // Let the shape shrink into the notch, then take the window away.
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        if self?.model.resting == true { self?.place() }
+      }
+    }
+    restWork = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
+  }
 
   private func scrolled(_ e: NSEvent) {
     let dx = e.scrollingDeltaX, dy = e.scrollingDeltaY
@@ -501,18 +529,6 @@ struct NotchView: View {
         .buttonStyle(.plain)
       }
       Seeker(model: model).padding(.top, 10)
-      if !model.lyric.isEmpty {
-        Text(model.lyric)
-          .font(.system(size: 13, weight: .semibold))
-          .foregroundColor(model.accent)
-          .lineLimit(1)
-          .frame(maxWidth: .infinity)
-          .padding(.top, 8)
-          .id(model.lyric)
-          .transition(.asymmetric(
-            insertion: .move(edge: .bottom).combined(with: .opacity),
-            removal: .opacity))
-      }
       HStack(spacing: 18) {
         button("backward.fill", "prev", size: 16)
         button(model.playing ? "pause.fill" : "play.fill", "toggle", size: 24)

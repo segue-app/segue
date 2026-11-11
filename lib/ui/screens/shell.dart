@@ -4,7 +4,6 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 
 import 'now_playing_screen.dart';
-import '../../core/lyrics/lyrics.dart';
 
 import '../../core/settings/settings.dart';
 import '../../core/integrations/notch.dart';
@@ -84,7 +83,6 @@ class _ShellState extends ConsumerState<Shell> {
         ref.read(playerProvider),
         isLiked: library.isLiked,
         toggleLike: (t) => library.setLiked(t, !library.isLiked(t)),
-        lyricsFor: (t) => ref.read(lyricsProvider(t).future),
         onOpen: () {
           final nav = Navigator.of(context, rootNavigator: true);
           if (topRouteName(nav) != NowPlayingScreen.routeName) {

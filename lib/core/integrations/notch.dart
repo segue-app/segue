@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../lyrics/lyrics.dart';
 import '../models/track.dart';
 import '../player/player_handler.dart';
 import '../sync/relay.dart';
@@ -20,7 +19,6 @@ class NotchBridge {
     this.player, {
     required this.isLiked,
     required this.toggleLike,
-    required this.lyricsFor,
     required this.onOpen,
     required this.remote,
     required this.remoteCommand,
@@ -30,7 +28,6 @@ class NotchBridge {
   final SegueAudioHandler player;
   final bool Function(Track track) isLiked;
   final void Function(Track track) toggleLike;
-  final Future<Lyrics?> Function(Track track) lyricsFor;
   final VoidCallback onOpen;
 
   /// The other device playing now, while this one isn't.
@@ -44,10 +41,7 @@ class NotchBridge {
   static bool get supported => Platform.isMacOS;
 
   Color _accent = const Color(0xFFFF9A76);
-  Timer? _debounce, _lyricTimer;
-  Lyrics? _lyrics;
-  String? _lyricsKey;
-  String _line = '';
+  Timer? _debounce;
 
   void attach() {
     if (!supported) return;
@@ -61,15 +55,9 @@ class NotchBridge {
     });
     player.stateChanges.listen((_) => refresh());
     player.mediaItem.listen((_) => refresh());
-    // The sung line moves on between player events.
-    _lyricTimer = Timer.periodic(
-      const Duration(milliseconds: 300),
-      (_) => _sendLyric(),
-    );
   }
 
   void dispose() {
-    _lyricTimer?.cancel();
     _debounce?.cancel();
   }
 
@@ -193,37 +181,5 @@ class NotchBridge {
     } catch (e) {
       debugPrint('notch: $e');
     }
-    _loadLyrics(t);
-  }
-
-  void _loadLyrics(Track? t) {
-    final key = t?.key;
-    if (key == _lyricsKey) return;
-    _lyricsKey = key;
-    _lyrics = null;
-    if (t == null) return;
-    lyricsFor(t)
-        .then((l) {
-          if (_lyricsKey == key) _lyrics = l;
-        })
-        .catchError((Object _) {});
-  }
-
-  Future<void> _sendLyric() async {
-    final l = _lyrics;
-    var line = '';
-    if (l != null && l.synced) {
-      final now = _now();
-      // A touch early, like the lyrics view: reading lags behind hearing.
-      final i = l.lineAt(
-        Duration(milliseconds: (now.position * 1000).round() + 150),
-      );
-      if (i >= 0) line = l.lines[i].text.trim();
-    }
-    if (line == _line) return;
-    _line = line;
-    try {
-      await _channel.invokeMethod('lyric', {'line': line});
-    } catch (_) {}
   }
 }
