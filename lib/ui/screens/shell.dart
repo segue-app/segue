@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
-
 
 import '../../core/settings/settings.dart';
 import '../../core/integrations/updates.dart';
@@ -18,6 +18,8 @@ import '../app_nav.dart';
 import '../widgets/collection.dart';
 import '../widgets/import_dialog.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/remote_bar.dart';
+import '../../core/sync/connect.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav.dart';
 import '../widgets/track_actions.dart';
@@ -47,6 +49,7 @@ class _ShellState extends ConsumerState<Shell> {
   final _navigators = List.generate(5, (_) => GlobalKey<NavigatorState>());
   StreamSubscription<String>? _errors;
   StreamSubscription<String>? _handoffs;
+  StreamSubscription<String>? _relayHandoffs;
   StreamSubscription<String>? _downloadErrors;
 
   @override
@@ -69,6 +72,12 @@ class _ShellState extends ConsumerState<Shell> {
       fireImmediately: true,
     );
     HardwareKeyboard.instance.addHandler(_onKey);
+    // segue://pair links: a QR scanned with the phone's camera app.
+    final links = AppLinks();
+    _links = links.uriLinkStream.listen(_onLink);
+    links.getInitialLink().then((u) {
+      if (u != null) _onLink(u);
+    }).ignore();
     // A newer release on GitHub: say so once, quietly.
     ref.listenManual(updateProvider, (_, next) {
       final u = next.value;
@@ -81,6 +90,11 @@ class _ShellState extends ConsumerState<Shell> {
     _downloadErrors = ref.read(downloadsProvider).errors.stream.listen((msg) {
       if (!mounted) return;
       _toast(msg);
+    });
+    _relayHandoffs = ref.read(connectProvider).relay.incoming.stream.listen((
+      from,
+    ) {
+      if (mounted) _toast('Продолжаем музыку с «$from»');
     });
     _handoffs = ref.read(syncProvider).incomingHandoff.stream.listen((from) {
       if (!mounted) return;
@@ -102,7 +116,7 @@ class _ShellState extends ConsumerState<Shell> {
       // is otherwise allowed to grow as tall as the screen).
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [bottom],
+        children: [const RemoteBar(), bottom],
       ),
     ),
   );
@@ -110,6 +124,24 @@ class _ShellState extends ConsumerState<Shell> {
   void _toast(String msg) => _messenger.currentState
     ?..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(msg)));
+
+  StreamSubscription<Uri>? _links;
+
+  Future<void> _onLink(Uri uri) async {
+    if (uri.scheme != 'segue' || uri.host != 'pair') return;
+    final connect = ref.read(connectProvider);
+    _toast('Связываем устройства…');
+    // Right after launch the relay may still be connecting.
+    for (var i = 0; i < 20 && !connect.relay.connected.value; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    try {
+      final name = await connect.join(uri.toString());
+      _toast('Готово: связано с «$name». Музыка уже едет');
+    } catch (e) {
+      _toast('$e');
+    }
+  }
 
   /// Keyboard shortcuts (see the list in Settings). Typing in a text
   /// field is never intercepted.
@@ -175,6 +207,8 @@ class _ShellState extends ConsumerState<Shell> {
     HardwareKeyboard.instance.removeHandler(_onKey);
     _errors?.cancel();
     _handoffs?.cancel();
+    _relayHandoffs?.cancel();
+    _links?.cancel();
     _downloadErrors?.cancel();
     super.dispose();
   }

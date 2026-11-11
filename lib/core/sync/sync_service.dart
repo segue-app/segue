@@ -300,11 +300,12 @@ class SyncService {
     throw SyncException('Код не подошёл ни одному устройству рядом');
   }
 
-  /// Shows a code on this device for 3 minutes.
-  String openPairing() {
-    final code = (Random.secure().nextInt(900000) + 100000).toString();
+  /// Accepts [code] (or a new 6-digit one) from nearby devices for
+  /// 10 minutes.
+  String openPairing([String? code]) {
+    code ??= (Random.secure().nextInt(900000) + 100000).toString();
     pairingCode.value = code;
-    _codeExpires = DateTime.now().add(const Duration(minutes: 3));
+    _codeExpires = DateTime.now().add(const Duration(minutes: 10));
     return code;
   }
 
@@ -604,7 +605,7 @@ class SyncService {
     final code = pairingCode.value;
     if (code == null ||
         DateTime.now().isAfter(_codeExpires) ||
-        j['code'] != code) {
+        _norm(j['code'] as String? ?? '') != _norm(code)) {
       res.statusCode = 403;
       return res.close();
     }
@@ -627,6 +628,9 @@ class SyncService {
       'token': token,
     });
   }
+
+  static String _norm(String c) =>
+      c.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '');
 
   Future<void> _json(HttpResponse res, Object body) async {
     res.headers.contentType = ContentType.json;

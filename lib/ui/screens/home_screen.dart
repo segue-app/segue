@@ -19,7 +19,6 @@ import '../theme/theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/collection.dart';
 import '../widgets/import_dialog.dart';
-import '../../core/sync/sync.dart';
 import 'devices_screen.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav.dart';
@@ -191,10 +190,7 @@ class _Welcome extends StatelessWidget {
                   ),
                 ),
                 PressScale(
-                  onTap: () => showJoinByCode(
-                    context,
-                    ProviderScope.containerOf(context).read(syncProvider),
-                  ),
+                  onTap: () => showJoinDialog(context),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,

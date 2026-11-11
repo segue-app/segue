@@ -719,15 +719,22 @@ class _RoundIcon extends StatelessWidget {
         onTap: onTap,
         scale: 0.86,
         child: ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: Container(
-              width: size,
-              height: size,
-              color: Colors.white.withValues(alpha: 0.08),
-              child: Icon(icon, size: size * 0.55, color: color),
-            ),
-          ),
+          child: lightEffects
+              ? Container(
+                  width: size,
+                  height: size,
+                  color: Colors.white.withValues(alpha: 0.12),
+                  child: Icon(icon, size: size * 0.55, color: color),
+                )
+              : BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    width: size,
+                    height: size,
+                    color: Colors.white.withValues(alpha: 0.08),
+                    child: Icon(icon, size: size * 0.55, color: color),
+                  ),
+                ),
         ),
       ),
     );

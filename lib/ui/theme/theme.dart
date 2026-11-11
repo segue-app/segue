@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -14,6 +16,13 @@ abstract final class SegueColors {
 }
 
 /// Shared motion values so every animation feels like the same app.
+/// Android phones and Windows / Linux PCs vary a lot in GPU power (and
+/// often render through slower GPU paths): there, live blurs
+/// (frosted glass, blurred lyric lines) are swapped for flat tints and
+/// the animated backgrounds run at 30 fps. Everything else is the same.
+final bool lightEffects =
+    Platform.isAndroid || Platform.isWindows || Platform.isLinux;
+
 abstract final class SegueMotion {
   static const fast = Duration(milliseconds: 180);
   static const medium = Duration(milliseconds: 380);

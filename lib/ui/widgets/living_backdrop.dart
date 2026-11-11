@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../core/settings/settings.dart';
+import '../theme/theme.dart';
 
 /// Animated background built from the cover's colours (not the image):
 /// soft colour clouds drift, swirl and breathe over a deep base, like a
@@ -84,8 +85,16 @@ class _LivingBackdropState extends State<LivingBackdrop>
       BackdropStyle.calm => 0.35,
       BackdropStyle.plain => 0.0,
     };
-    setState(() => _t += dt * _speed * widget.speed * styleSpeed);
+    _t += dt * _speed * widget.speed * styleSpeed;
+    // Clouds drift slowly: 30 frames a second look the same and cost half.
+    if (lightEffects && (_frame++).isOdd) return;
+    _repaint.value++;
   }
+
+  int _frame = 0;
+
+  /// Repaints only the clouds, never the screen built on top of them.
+  final _repaint = ValueNotifier(0);
 
   static double _distance(Color a, Color b) =>
       (a.r - b.r).abs() + (a.g - b.g).abs() + (a.b - b.b).abs();
@@ -93,40 +102,36 @@ class _LivingBackdropState extends State<LivingBackdrop>
   @override
   void dispose() {
     _ticker.dispose();
+    _repaint.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _CloudsPainter(
-        t: _t,
-        colors: List.of(_colors),
-        base: _base,
-        intensity: switch (widget.style) {
-          BackdropStyle.living => widget.intensity,
-          BackdropStyle.calm => widget.intensity * 0.6,
-          BackdropStyle.plain => 0,
-        },
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: _CloudsPainter(this, _repaint),
+        child: const SizedBox.expand(),
       ),
-      child: const SizedBox.expand(),
     );
   }
+
+  double get _intensity => switch (widget.style) {
+    BackdropStyle.living => widget.intensity,
+    BackdropStyle.calm => widget.intensity * 0.6,
+    BackdropStyle.plain => 0,
+  };
 }
 
 class _CloudsPainter extends CustomPainter {
-  _CloudsPainter({
-    required this.t,
-    required this.colors,
-    required this.base,
-    required this.intensity,
-  });
+  _CloudsPainter(this.s, Listenable repaint) : super(repaint: repaint);
 
-  final double intensity;
+  final _LivingBackdropState s;
 
-  final double t;
-  final List<Color> colors;
-  final Color base;
+  double get intensity => s._intensity;
+  double get t => s._t;
+  List<Color> get colors => s._colors;
+  Color get base => s._base;
 
   // Per cloud: start x, start y (0..1), orbit size, orbit speeds x/y,
   // radius (share of the longest side), phase.
@@ -187,5 +192,5 @@ class _CloudsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_CloudsPainter old) => true;
+  bool shouldRepaint(_CloudsPainter old) => old.s != s;
 }

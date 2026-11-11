@@ -31,27 +31,31 @@ class LyricsView extends ConsumerWidget {
     final translation = ref.watch(settingsProvider).lyricsTranslate
         ? ref.watch(lyricsTranslationProvider(track)).value
         : null;
-    return DefaultTextStyle.merge(
-      style: TextStyle(fontSize: size),
-      child: lyrics.when(
-        loading: () => const Center(
-          child: SizedBox.square(
-            dimension: 26,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-              color: Colors.white70,
+    // Its own layer: the word fill repaints every frame, the rest of the
+    // player doesn't have to.
+    return RepaintBoundary(
+      child: DefaultTextStyle.merge(
+        style: TextStyle(fontSize: size),
+        child: lyrics.when(
+          loading: () => const Center(
+            child: SizedBox.square(
+              dimension: 26,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: Colors.white70,
+              ),
             ),
           ),
+          error: (_, _) => const _Message('Не получилось загрузить текст'),
+          data: (l) => l == null || l.lines.isEmpty
+              ? const _Message('Текст для этого трека не найден')
+              : _Lines(
+                  lyrics: l,
+                  translation: translation?.length == l.lines.length
+                      ? translation
+                      : null,
+                ),
         ),
-        error: (_, _) => const _Message('Не получилось загрузить текст'),
-        data: (l) => l == null || l.lines.isEmpty
-            ? const _Message('Текст для этого трека не найден')
-            : _Lines(
-                lyrics: l,
-                translation: translation?.length == l.lines.length
-                    ? translation
-                    : null,
-              ),
       ),
     );
   }
@@ -309,7 +313,8 @@ class _Line extends StatelessWidget {
     final isCurrent = index == current;
     final distance = (index - current).abs();
     // Further lines: dimmer and softer, like depth of field.
-    final blur = isCurrent || !settings.lyricsBlur
+    // Blurring each line is too heavy for many Android phones.
+    final blur = isCurrent || !settings.lyricsBlur || lightEffects
         ? 0.0
         : math.min(distance * 0.8, 2.6);
     final opacity = isCurrent ? 1.0 : (index < current ? 0.3 : 0.48);

@@ -29,6 +29,8 @@ import 'package:segue/core/sources/music_source.dart';
 import 'package:segue/core/sources/soundcloud_source.dart';
 import 'package:segue/core/sources/sources.dart';
 import 'package:segue/core/sources/youtube_source.dart';
+import 'package:segue/core/sync/connect.dart';
+import 'package:segue/core/sync/relay.dart';
 import 'package:segue/core/sync/sync.dart';
 import 'package:segue/core/sync/sync_service.dart';
 import 'package:segue/main.dart';
@@ -132,6 +134,23 @@ void main() {
       true,
     );
 
+    // Internet relay for both "devices" (the real public brokers).
+    final phonePlayer = SegueAudioHandler(sources)..setVolume(0);
+    final relay = Relay(
+      library: library,
+      player: handler,
+      deviceName: () => 'MacBook',
+    );
+    final phoneRelay = Relay(
+      library: phoneLibrary,
+      player: phonePlayer,
+      deviceName: () => 'iPhone',
+      platform: 'ios',
+    );
+    await relay.start();
+    await phoneRelay.start();
+    final connect = Connect(sync: sync, relay: relay, library: library);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -139,6 +158,7 @@ void main() {
           playerProvider.overrideWithValue(handler),
           libraryProvider.overrideWithValue(library),
           syncProvider.overrideWithValue(sync),
+          connectProvider.overrideWithValue(connect),
           downloadsProvider.overrideWithValue(downloads),
           waveProvider.overrideWithValue(Wave(Catalog(), library, handler)),
           lastFmProvider.overrideWithValue(LastFm(library)),
@@ -217,19 +237,58 @@ void main() {
     await settle(tester, 10);
     await shot(tester, '06d_imported_playing');
 
-    // Devices: show a code, pair the "phone", sync.
+    // Devices: show a code, the "phone" joins over the internet relay.
     await tester.tap(find.text('Устройства').first);
     await settle(tester, 1);
-    await tester.tap(find.text('Показать код'));
-    await settle(tester, 1);
+    await tester.tap(find.text('Добавить устройство'));
+    await settle(tester, 4);
     await shot(tester, '06e_devices_code');
-    final dev = await phone.probe('127.0.0.1', sync.port);
-    await phone.pair(dev, sync.pairingCode.value!);
-    await sync.probe('127.0.0.1', phone.port); // "seen on the network"
-    await phone.syncWith(phoneLibrary.peers().single.id);
+    await phoneRelay.join(connect.inviteCode.value!);
+    // The phone plays (muted); this device stops, so the remote bar shows.
+    await handler.pause();
+    unawaited(
+      phonePlayer.playList([
+        const Track(
+          id: 'kJQP7kiw5Fk',
+          source: SourceKind.youtube,
+          title: 'Despacito',
+          artist: 'Luis Fonsi',
+          artworkUrl: 'https://i.ytimg.com/vi/kJQP7kiw5Fk/hq720.jpg',
+          duration: Duration(minutes: 4, seconds: 41),
+        ),
+      ], 0),
+    );
+    // Wait for the phone's like and its playback to come over the relay.
+    for (var i = 0; i < 60; i++) {
+      final phoneNow = relay.devices.value[phoneLibrary.deviceId];
+      if (phoneNow?.playing == true &&
+          library.likedKeys().contains('youtube:kJQP7kiw5Fk')) {
+        break;
+      }
+      await settle(tester, 1);
+    }
     await settle(tester, 2);
+    expect(
+      library.isLiked(
+        const Track(
+          id: 'kJQP7kiw5Fk',
+          source: SourceKind.youtube,
+          title: 'Despacito',
+          artist: 'Luis Fonsi',
+        ),
+      ),
+      isTrue,
+      reason: 'the phone\'s like came over the relay',
+    );
     await shot(tester, '06f_devices_paired');
     expect(library.likedKeys(), contains('youtube:kJQP7kiw5Fk'));
+    // Spotify-style remote for what plays on the phone.
+    await tester.tap(find.text('Играет на iPhone').first);
+    await settle(tester, 2);
+    await shot(tester, '06f2_remote_control');
+    await tester.tapAt(const Offset(5, 5));
+    await settle(tester, 1);
+    await phonePlayer.pause();
 
     await tester.tap(find.text('Настройки').first);
     await settle(tester, 2);
@@ -256,6 +315,17 @@ void main() {
     await shot(tester, '06h_desktop_lyrics');
     await tester.tap(find.byIcon(Icons.equalizer_rounded).last);
     await settle(tester, 1);
+    if (find.text('Бас').evaluate().isEmpty) {
+      final texts = find
+          .byType(Text)
+          .evaluate()
+          .map((e) => (e.widget as Text).data)
+          .whereType<String>()
+          .take(60)
+          .join(' | ');
+      // ignore: avoid_print
+      print('DEBUG TEXTS: $texts');
+    }
     await tester.tap(find.text('Бас'));
     await settle(tester, 1);
     await shot(tester, '06i_sound_sheet');
@@ -327,5 +397,5 @@ void main() {
     expect(tester.takeException(), isNull);
     await handler.stop();
     binding.reportData = shots;
-  }, timeout: const Timeout(Duration(minutes: 5)));
+  }, timeout: const Timeout(Duration(minutes: 10)));
 }

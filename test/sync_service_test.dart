@@ -1,28 +1,10 @@
+
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fake_player.dart';
 import 'package:segue/core/library/library_store.dart';
 import 'package:segue/core/models/track.dart';
-import 'package:segue/core/player/player_handler.dart';
 import 'package:segue/core/sync/sync_service.dart';
-
-class _FakePlayer implements PlaybackControl {
-  Map<String, dynamic> state = {
-    'queue': [],
-    'index': -1,
-    'positionMs': 0,
-    'playing': false,
-  };
-  bool paused = false;
-
-  @override
-  Map<String, dynamic> snapshot() => state;
-
-  @override
-  Future<void> restore(Map<String, dynamic> s) async =>
-      state = {...s, 'playing': true};
-
-  @override
-  Future<void> pause() async => paused = true;
-}
 
 Track _t(String id) =>
     Track(id: id, source: SourceKind.youtube, title: 'Song $id', artist: 'A');
@@ -31,11 +13,11 @@ void main() {
   // No TestWidgetsFlutterBinding here: it replaces real HTTP with a stub
   // that answers 400, and these tests talk to real local servers.
   late SyncService laptop, phone;
-  late _FakePlayer laptopPlayer, phonePlayer;
+  late FakePlayer laptopPlayer, phonePlayer;
 
   setUp(() async {
-    laptopPlayer = _FakePlayer();
-    phonePlayer = _FakePlayer();
+    laptopPlayer = FakePlayer();
+    phonePlayer = FakePlayer();
     laptop = SyncService(
       library: LibraryStore.memory(),
       player: laptopPlayer,
@@ -157,7 +139,7 @@ void main() {
   test('group membership spreads: phone learns about the tablet', () async {
     final tablet = SyncService(
       library: LibraryStore.memory(),
-      player: _FakePlayer(),
+      player: FakePlayer(),
       enableDiscovery: false,
     );
     await tablet.start();

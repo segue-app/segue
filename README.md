@@ -35,9 +35,11 @@ codebase.
 - Accent colour, fonts, sizes and motion are all yours to tune
 
 **Your devices**
-- Pair a phone and a computer on the same network with a code or a QR
-- Likes, playlists and history stay in sync
-- Hand playback over from one device to the other
+- Pair a phone and a computer with an 8-character code or a QR — on any
+  network, Wi-Fi or mobile data
+- Likes, playlists (with their tracks) and history stay in sync everywhere
+- Spotify Connect–style: see what plays on which device, move it with one
+  tap, and use your phone as a remote for your computer
 
 **Integrations**
 - Last.fm scrobbling (with your own API key)
@@ -97,8 +99,14 @@ flutter build windows --dart-define=DISCORD_CLIENT_ID=<your id>
   public API; those songs are matched on YouTube when they play.
 - **Lyrics** — [LRCLIB](https://lrclib.net), with word timing estimated when
   the lyrics only have line timing.
-- **Library** — SQLite on the device. Sync uses change counters and
-  last-writer-wins per item, over the local network (Bonjour/mDNS).
+- **Library** — SQLite on the device. Sync merges per item, newest change
+  wins.
+- **Sync** — directly over the local network (Bonjour/mDNS), and across
+  networks through public MQTT brokers (HiveMQ and EMQX at once, so either
+  can be down). Everything sent there is end-to-end encrypted
+  (AES-256-GCM) with a key only your devices share; the brokers see random
+  topic names and ciphertext. Invite codes are stretched with PBKDF2 and
+  expire after 10 minutes.
 - **Nothing is hosted.** Segue talks to the services directly from your
   device; there is no Segue server and no account.
 

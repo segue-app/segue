@@ -11,11 +11,22 @@ import 'audio_fx.dart';
 import 'chunked_source.dart';
 import 'hls_proxy.dart';
 
-/// What device-to-device handoff needs from a player.
+/// What other devices need from a player: hand playback over, and control
+/// it remotely ("Spotify Connect").
 abstract interface class PlaybackControl {
   Map<String, dynamic> snapshot();
   Future<void> restore(Map<String, dynamic> snapshot);
   Future<void> pause();
+  Future<void> play();
+  Future<void> seek(Duration position);
+  Future<void> skipToNext();
+  Future<void> skipToPrevious();
+  Future<void> skipToQueueItem(int index);
+  Future<void> setVolume(double volume);
+
+  /// Fires when what others see changes: track, play/pause, seek, volume,
+  /// queue.
+  Stream<void> get stateChanges;
 }
 
 /// Owns playback and the queue. Exposed to the OS through audio_service, so
@@ -35,7 +46,10 @@ class SegueAudioHandler extends BaseAudioHandler
         ),
       ) {
     final s = _player.stream;
-    s.playing.listen((_) => _broadcastState());
+    s.playing.listen((_) {
+      _broadcastState();
+      _changed();
+    });
     s.buffering.listen((_) => _broadcastState());
     s.completed.listen((done) {
       // The end of a track, not the reset that comes with opening the next.
@@ -133,6 +147,11 @@ class SegueAudioHandler extends BaseAudioHandler
   Future<String>? _copy;
   bool _onCopy = false;
 
+  final _stateChanges = StreamController<void>.broadcast();
+  @override
+  Stream<void> get stateChanges => _stateChanges.stream;
+  void _changed() => _stateChanges.add(null);
+
   /// Bumps on every queue change (order, length or current position).
   final queueVersion = ValueNotifier<int>(0);
 
@@ -146,6 +165,7 @@ class SegueAudioHandler extends BaseAudioHandler
   void _queueChanged() {
     queue.add(_tracks.map(_toMediaItem).toList());
     queueVersion.value++;
+    _changed();
   }
 
   /// Replaces the queue with [list] and starts playing [list[start]].
@@ -286,6 +306,7 @@ class SegueAudioHandler extends BaseAudioHandler
       await _player.open(Media(uri, start: startAt), play: true);
       debugPrint('load ${track.title}: opened in ${sw.elapsedMilliseconds} ms');
       onTrackStarted?.call(track);
+      _changed();
       _prefetchNext();
     } catch (e) {
       if (token != _loadToken) return;
@@ -425,6 +446,8 @@ class SegueAudioHandler extends BaseAudioHandler
     'index': _index,
     'positionMs': _player.state.position.inMilliseconds,
     'playing': _player.state.playing,
+    'volume': volume.value,
+    'durationMs': mediaItem.value?.duration?.inMilliseconds,
   };
 
   /// Continues a [snapshot] taken on another device.
@@ -456,8 +479,10 @@ class SegueAudioHandler extends BaseAudioHandler
   double _edgeGain = 1;
   double _sleepGain = 1;
 
+  @override
   Future<void> setVolume(double v) {
     volume.value = v.clamp(0.0, 1.0);
+    _changed();
     return _applyVolume();
   }
 
@@ -525,6 +550,7 @@ class SegueAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> seek(Duration position) async {
+    Future<void>.delayed(const Duration(milliseconds: 300), _changed);
     final copy = _copy;
     if (copy == null || _onCopy) return _player.seek(position);
     await _seekViaCopy(copy, position);

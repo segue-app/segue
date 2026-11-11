@@ -22,6 +22,17 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>fm.segue.pair</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>segue</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -36,7 +47,7 @@
 		<string>_segue._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Камера нужна, чтобы отсканировать QR-код и подключить это устройство к твоему Segue на другом.</string>
+	<string>Чтобы отсканировать QR-код с другого устройства и связать их.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Segue находит твои другие устройства в этой сети, чтобы синхронизировать библиотеку и передавать музыку между ними.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -54,7 +54,7 @@ class _Bar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final item = ref.watch(currentTrackProvider).value!;
     final colors = ref.watch(currentColorsProvider);
-    final glass = ref.watch(settingsProvider).glass;
+    final glass = ref.watch(settingsProvider).glass && !lightEffects;
 
     return LayoutBuilder(
       builder: (context, box) {

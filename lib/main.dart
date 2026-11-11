@@ -18,6 +18,8 @@ import 'core/local/local_library.dart';
 import 'core/import/playlist_importer.dart';
 import 'core/sources/match_source.dart';
 import 'core/settings/settings.dart';
+import 'core/sync/connect.dart';
+import 'core/sync/relay.dart';
 import 'core/sync/sync.dart';
 import 'core/sync/sync_service.dart';
 import 'core/sources/music_source.dart';
@@ -95,7 +97,21 @@ Future<void> main() async {
   final importer = PlaylistImporter()..soundcloudClientId = soundcloud.clientId;
   final sync = SyncService(library: library, player: handler);
   // Local network sync must never block the app from opening.
-  unawaited(sync.start().catchError((Object e) => debugPrint('sync off: $e')));
+  final relay = Relay(
+    library: library,
+    player: handler,
+    deviceName: () => sync.deviceName,
+  );
+  final connect = Connect(sync: sync, relay: relay, library: library);
+  // Local network first (it also finds out this device's name), then the
+  // internet relay. Neither may block the app from opening.
+  unawaited(
+    sync
+        .start()
+        .catchError((Object e) => debugPrint('sync off: $e'))
+        .then((_) => relay.start())
+        .catchError((Object e) => debugPrint('relay off: $e')),
+  );
 
   runApp(
     ProviderScope(
@@ -105,6 +121,7 @@ Future<void> main() async {
         libraryProvider.overrideWithValue(library),
         importerProvider.overrideWithValue(importer),
         syncProvider.overrideWithValue(sync),
+        connectProvider.overrideWithValue(connect),
         downloadsProvider.overrideWithValue(downloads),
         catalogProvider.overrideWithValue(catalog),
         waveProvider.overrideWithValue(Wave(catalog, library, handler)),

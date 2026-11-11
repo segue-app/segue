@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../theme/theme.dart';
+
 /// Artwork of the "Моя волна" card: glowing colour clouds with layered
 /// waves rolling through them. Calm while idle; while the wave plays the
 /// waves rise, speed up and breathe.
@@ -181,15 +183,17 @@ class _WavePainter extends CustomPainter {
             ],
           ).createShader(Rect.fromLTWH(0, baseY - amp * 1.5, w, h - baseY)),
       );
-      // Glowing crest line.
-      canvas.drawPath(
-        crest,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 6
-          ..color = color.withValues(alpha: 0.25 + 0.25 * e)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-      );
+      // Glowing crest line (the glow is skipped where blurs are costly).
+      if (!lightEffects) {
+        canvas.drawPath(
+          crest,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 6
+            ..color = color.withValues(alpha: 0.25 + 0.25 * e)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+        );
+      }
       canvas.drawPath(
         crest,
         Paint()
