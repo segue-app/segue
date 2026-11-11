@@ -46,6 +46,8 @@ class AppSettings {
     this.fadeSeconds = 0,
     this.lyricsTranslate = false,
     this.notchIsland = true,
+    this.skipIntros = true,
+    this.matchTempo = true,
   });
 
   /// Take the accent colour from the playing track's cover.
@@ -93,6 +95,12 @@ class AppSettings {
   /// MacBooks: now playing around the camera notch.
   final bool notchIsland;
 
+  /// Skip spoken intros / end skits of music videos (SponsorBlock).
+  final bool skipIntros;
+
+  /// Mixes bring the next song to the current tempo, like a DJ.
+  final bool matchTempo;
+
   static const fonts = [
     'Manrope',
     'Inter',
@@ -134,6 +142,8 @@ class AppSettings {
     double? fadeSeconds,
     bool? lyricsTranslate,
     bool? notchIsland,
+    bool? skipIntros,
+    bool? matchTempo,
   }) => AppSettings(
     accentFromCover: accentFromCover ?? this.accentFromCover,
     accent: accent ?? this.accent,
@@ -156,6 +166,8 @@ class AppSettings {
     fadeSeconds: fadeSeconds ?? this.fadeSeconds,
     lyricsTranslate: lyricsTranslate ?? this.lyricsTranslate,
     notchIsland: notchIsland ?? this.notchIsland,
+    skipIntros: skipIntros ?? this.skipIntros,
+    matchTempo: matchTempo ?? this.matchTempo,
   );
 
   Map<String, Object> toJson() => {
@@ -180,6 +192,8 @@ class AppSettings {
     'fadeSeconds': fadeSeconds,
     'lyricsTranslate': lyricsTranslate,
     'notchIsland': notchIsland,
+    'skipIntros': skipIntros,
+    'matchTempo': matchTempo,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> j) {
@@ -212,6 +226,8 @@ class AppSettings {
       fadeSeconds: num_('fadeSeconds', d.fadeSeconds),
       lyricsTranslate: pick('lyricsTranslate', d.lyricsTranslate),
       notchIsland: pick('notchIsland', d.notchIsland),
+      skipIntros: pick('skipIntros', d.skipIntros),
+      matchTempo: pick('matchTempo', d.matchTempo),
     );
   }
 }

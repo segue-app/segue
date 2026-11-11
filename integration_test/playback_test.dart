@@ -13,6 +13,8 @@ import 'package:segue/core/player/player_handler.dart';
 import 'package:segue/core/sources/music_source.dart';
 import 'package:segue/core/sources/soundcloud_source.dart';
 import 'package:segue/core/sources/youtube_source.dart';
+import 'package:segue/core/sources/sponsorblock.dart';
+import 'package:segue/core/catalog/deezer.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -135,4 +137,67 @@ void main() {
     expect(player.index, 1);
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 2)));
+
+  testWidgets('DJ mix: skips the intro, crossfades, matches tempo', (
+    tester,
+  ) async {
+    MediaKit.ensureInitialized();
+    final yt = YouTubeSource();
+    final player = SegueAudioHandler({SourceKind.youtube: yt});
+    await player.setVolume(0); // silent
+    final sb = SponsorBlock();
+    final catalog = Catalog();
+    player
+      ..fadeSeconds = 6
+      ..autoBounds = ((t) => sb.musicBounds(t.id))
+      ..bpmFor = ((t) => catalog.bpm(t.artist, t.title));
+    final a = (await yt.search(
+      'Luis Fonsi Despacito ft. Daddy Yankee',
+      limit: 3,
+    )).firstWhere((t) => t.id == 'kJQP7kiw5Fk');
+    final b = (await yt.search(
+      'Ed Sheeran Shape of You official',
+      limit: 1,
+    )).first;
+    await player.playList([
+      a.copyWithArtist('Luis Fonsi', 'Despacito'),
+      b.copyWithArtist('Ed Sheeran', 'Shape of You'),
+    ], 0);
+    final first = await player.positionStream
+        .firstWhere((p) => p > const Duration(seconds: 1))
+        .timeout(const Duration(seconds: 40));
+    // SponsorBlock: the spoken intro (0:00–0:21) is skipped.
+    expect(first, greaterThan(const Duration(seconds: 20)));
+    // Near the end of the music (4:09 per SponsorBlock), the mix begins.
+    await player.seek(const Duration(seconds: 236));
+    final sw = Stopwatch()..start();
+    while (player.index == 0 && sw.elapsed < const Duration(seconds: 30)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    final switchedAt = sw.elapsedMilliseconds;
+    final speed = double.parse(await player.debugProperty('speed'));
+    await Future<void>.delayed(const Duration(seconds: 8));
+    final later = double.parse(await player.debugProperty('speed'));
+    // ignore: avoid_print
+    print(
+      'MIX switched after ${switchedAt}ms (music ends ~13s after the seek), '
+      'speed at start $speed, 8s later $later',
+    );
+    expect(player.index, 1);
+    expect(switchedAt, lessThan(11000)); // before the old song's music ended
+    expect(speed, lessThan(0.999)); // brought to Despacito's slower tempo
+    expect(later, greaterThan(speed)); // easing back to its own
+    await player.stop();
+  }, timeout: const Timeout(Duration(minutes: 3)));
+}
+
+extension on Track {
+  Track copyWithArtist(String artist, String title) => Track(
+    id: id,
+    source: source,
+    title: title,
+    artist: artist,
+    artworkUrl: artworkUrl,
+    duration: duration,
+  );
 }

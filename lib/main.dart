@@ -25,6 +25,7 @@ import 'core/sync/sync.dart';
 import 'core/sync/sync_service.dart';
 import 'core/sources/music_source.dart';
 import 'core/sources/soundcloud_source.dart';
+import 'core/sources/sponsorblock.dart';
 import 'core/sources/sources.dart';
 import 'core/sources/youtube_source.dart';
 import 'core/library/library.dart';
@@ -93,6 +94,17 @@ Future<void> main() async {
     final trim = trims.of(t);
     return trim == null ? null : (start: trim.start, end: trim.end);
   };
+  // DJ mix: where the music is in music videos (SponsorBlock) and tempos.
+  final sponsorBlock = SponsorBlock();
+  handler.autoBounds = (t) async {
+    final id = switch (t.source) {
+      SourceKind.youtube => t.id,
+      SourceKind.match => match.matched(t)?.id,
+      _ => null,
+    };
+    return id == null ? null : sponsorBlock.musicBounds(id);
+  };
+  handler.bpmFor = (t) => catalog.bpm(t.artist, t.title);
   // Player preferences.
   handler.setVolume(double.tryParse(library.getMeta('volume') ?? '') ?? 1);
   final importer = PlaylistImporter()..soundcloudClientId = soundcloud.clientId;

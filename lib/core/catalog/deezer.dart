@@ -207,6 +207,39 @@ class Catalog {
       trackFrom(t),
   ];
 
+  final _bpm = <String, double?>{};
+
+  /// Tempo of a song (beats per minute), when Deezer knows it; folded into
+  /// 80…160 so half- and double-time readings compare.
+  Future<double?> bpm(String artist, String title) async {
+    final key = '${artist.toLowerCase()}|${title.toLowerCase()}';
+    if (_bpm.containsKey(key)) return _bpm[key];
+    double? out;
+    try {
+      final found = _data(
+        await _get(
+          'search/track?q=${Uri.encodeQueryComponent('$artist $title')}&limit=1',
+        ),
+      );
+      if (found.isNotEmpty) {
+        final t = await _get('track/${found.first['id']}') as Map;
+        var b = (t['bpm'] as num?)?.toDouble() ?? 0;
+        if (b > 0) {
+          while (b > 160) {
+            b /= 2;
+          }
+          while (b < 80) {
+            b *= 2;
+          }
+          out = b;
+        }
+      }
+    } catch (_) {
+      return null; // try again later
+    }
+    return _bpm[key] = out;
+  }
+
   static const genres = <int, String>{
     0: 'Все',
     132: 'Поп',

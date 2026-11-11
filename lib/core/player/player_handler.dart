@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 
@@ -58,6 +60,7 @@ class SegueAudioHandler extends BaseAudioHandler
     });
     s.position.listen((pos) {
       _fadeAt(pos);
+      _maybeMix(pos);
       // A trimmed track ends where its trim says.
       final end = _trimEnd;
       if (end != null && pos >= end && !_loading && !_endedByTrim) {
@@ -249,8 +252,14 @@ class SegueAudioHandler extends BaseAudioHandler
     }
   }
 
-  Future<void> _playIndex(int i, {Duration? startAt}) async {
+  Future<void> _playIndex(
+    int i, {
+    Duration? startAt,
+    bool mixing = false,
+  }) async {
     if (i < 0 || i >= _tracks.length) return;
+    // A skip in the middle of a mix ends it at once.
+    if (!mixing) _stopMix();
     _index = i;
     queueVersion.value++;
     unawaited(_maybeRefill());
@@ -289,6 +298,23 @@ class SegueAudioHandler extends BaseAudioHandler
       }
       // A newer request started while this one was resolving.
       if (token != _loadToken) return;
+      // Where the music itself is (no spoken intro or skit at the end).
+      final auto = skipIntros && autoBounds != null
+          ? await autoBounds!(track)
+                .timeout(const Duration(milliseconds: 700))
+                .catchError((Object _) => null)
+          : null;
+      if (token != _loadToken) return;
+      if (startAt == null && auto?.start != null) startAt = auto!.start;
+      if (_trimEnd == null && auto?.end != null) _trimEnd = auto!.end;
+      _currentUri = uri;
+      _currentHls = info.hls;
+      // In a mix the new song starts silent; the mix fades it in.
+      if (mixing) {
+        _edgeGain = 0;
+        await _applyVolume();
+      }
+      await _setTempo(mixing ? _mixTempo : 1);
       debugPrint('load ${track.title}: ready in ${sw.elapsedMilliseconds} ms');
       if (info.duration != null) {
         mediaItem.add(_toMediaItem(track).copyWith(duration: info.duration));
@@ -310,6 +336,7 @@ class SegueAudioHandler extends BaseAudioHandler
       onTrackStarted?.call(track);
       _changed();
       _prefetchNext();
+      if (mixing) _runMix();
     } catch (e) {
       if (token != _loadToken) return;
       debugPrint('play ${track.title}: $e');
@@ -372,6 +399,9 @@ class SegueAudioHandler extends BaseAudioHandler
             if (info.hls && _resolved.containsKey(track.key)) {
               HlsProxy.instance.prefetch(info.url);
             }
+            // Intro/outro bounds and tempo ready for a smooth mix.
+            if (skipIntros) autoBounds?.call(track).ignore();
+            if (matchTempo && fadeSeconds >= 1) bpmFor?.call(track).ignore();
           },
           onError: (Object _) {
             _resolved.remove(track.key);
@@ -423,10 +453,174 @@ class SegueAudioHandler extends BaseAudioHandler
     if (native is! NativePlayer) return;
     try {
       await native.setProperty('audio-pitch-correction', 'no');
-      await native.setProperty('speed', fx.mpvSpeed.toStringAsFixed(6));
+      await native.setProperty(
+        'speed',
+        (fx.mpvSpeed * _tempo).toStringAsFixed(6),
+      );
       await native.setProperty('af', fx.mpvFilters);
     } catch (e) {
       debugPrint('fx: $e');
+    }
+  }
+
+  // --- DJ mix -----------------------------------------------------------------
+
+  /// Start / end of the music in a track (e.g. SponsorBlock), or null.
+  Future<({Duration? start, Duration? end})?> Function(Track track)? autoBounds;
+
+  /// Tempo of a track in BPM, when known.
+  Future<double?> Function(Track track)? bpmFor;
+
+  /// Skip spoken intros and end skits of music videos.
+  bool skipIntros = true;
+
+  /// Bring the next song to the current one's tempo (±4 %) during a mix.
+  bool matchTempo = true;
+
+  String? _currentUri;
+  bool _currentHls = false;
+
+  /// Playback rate on top of the effects: 1, or a little off while a
+  /// mixed-in song is brought to the previous one's tempo.
+  double _tempo = 1;
+  double _mixTempo = 1;
+  Timer? _tempoEase;
+
+  Player? _tail;
+  Timer? _mix;
+  bool _mixStarting = false;
+
+  Future<void> _setTempo(double t) async {
+    _tempo = t;
+    await _mpv('speed', (_fx.mpvSpeed * t).toStringAsFixed(6));
+  }
+
+  void _maybeMix(Duration pos) {
+    if (fadeSeconds < 1 ||
+        _mix != null ||
+        _mixStarting ||
+        _loading ||
+        sleepAfterTrack.value ||
+        _index >= _tracks.length - 1 ||
+        !_player.state.playing) {
+      return;
+    }
+    final end = _trimEnd ?? mediaItem.value?.duration;
+    if (end == null || end < const Duration(seconds: 30)) return;
+    final left = end - pos;
+    if (left > Duration(milliseconds: (fadeSeconds * 1000).round()) ||
+        left < const Duration(seconds: 1)) {
+      return;
+    }
+    unawaited(_startMix(pos));
+  }
+
+  /// The outgoing song moves to a second player (same moment, same
+  /// sound), the main player starts the next one silently, and [_runMix]
+  /// crosses them over.
+  Future<void> _startMix(Duration pos) async {
+    final uri = _currentUri;
+    if (uri == null) return;
+    _mixStarting = true;
+    try {
+      final tail = _tail ??= Player(
+        configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error),
+      );
+      final native = tail.platform;
+      if (native is NativePlayer) {
+        await native.setProperty('cache-on-disk', 'no');
+        await native.setProperty('audio-pitch-correction', 'no');
+        await native.setProperty(
+          'demuxer-lavf-o',
+          _currentHls ? 'http_persistent=0' : '',
+        );
+        await native.setProperty(
+          'speed',
+          (_fx.mpvSpeed * _tempo).toStringAsFixed(6),
+        );
+        await native.setProperty('af', _fx.mpvFilters);
+      }
+      await tail.setVolume(volume.value * _sleepGain * 100);
+      final from = pos + const Duration(milliseconds: 350);
+      await tail.open(Media(uri, start: from), play: true);
+      await tail.stream.position
+          .firstWhere((p) => p > from)
+          .timeout(const Duration(seconds: 3));
+      // Tempo of the next song against this one's (as it plays now).
+      _mixTempo = 1;
+      final bpm = bpmFor;
+      if (matchTempo && bpm != null) {
+        final next = _tracks[_index + 1];
+        final both =
+            await (
+              bpm(_tracks[_index]).catchError((Object _) => null),
+              bpm(next).catchError((Object _) => null),
+            ).wait.timeout(
+              const Duration(seconds: 2),
+              onTimeout: () => (null, null),
+            );
+        final (a, b) = both;
+        if (a != null && b != null) {
+          _mixTempo = (a * _tempo / b).clamp(0.96, 1.04);
+        }
+      }
+      // From here the tail carries the old song; the main one goes on.
+      _edgeGain = 0;
+      await _applyVolume();
+      await _playIndex(_index + 1, mixing: true);
+    } catch (e) {
+      debugPrint('mix: $e');
+      _stopMix();
+    } finally {
+      _mixStarting = false;
+    }
+  }
+
+  /// Equal-power crossfade: the new song rises while the old one falls.
+  void _runMix() {
+    final tail = _tail;
+    if (tail == null) return;
+    final total = fadeSeconds * 1000;
+    final clock = Stopwatch()..start();
+    _mix?.cancel();
+    _mix = Timer.periodic(const Duration(milliseconds: 50), (t) {
+      final x = (clock.elapsedMilliseconds / total).clamp(0.0, 1.0);
+      _edgeGain = math.sin(x * math.pi / 2);
+      _applyVolume();
+      tail.setVolume(
+        volume.value * _sleepGain * 100 * math.cos(x * math.pi / 2),
+      );
+      if (x >= 1) {
+        t.cancel();
+        _mix = null;
+        tail.stop();
+        _easeTempo();
+      }
+    });
+  }
+
+  /// After a tempo-matched mix, drift back to the song's own tempo.
+  void _easeTempo() {
+    _tempoEase?.cancel();
+    if ((_tempo - 1).abs() < 0.002) return;
+    final from = _tempo;
+    var step = 0;
+    _tempoEase = Timer.periodic(const Duration(milliseconds: 250), (t) {
+      step++;
+      final x = (step / 60).clamp(0.0, 1.0); // ~15 s
+      _setTempo(from + (1 - from) * Curves.easeInOut.transform(x));
+      if (x >= 1) t.cancel();
+    });
+  }
+
+  void _stopMix() {
+    _mix?.cancel();
+    _mix = null;
+    _tempoEase?.cancel();
+    _tail?.stop();
+    if (_edgeGain != 1) {
+      _edgeGain = 1;
+      _applyVolume();
     }
   }
 
@@ -493,6 +687,10 @@ class SegueAudioHandler extends BaseAudioHandler
 
   /// Called on every position update: shapes the volume at track edges.
   void _fadeAt(Duration pos) {
+    // During a mix (or when one will follow) the mix shapes the volume.
+    if (_mix != null || (fadeSeconds >= 1 && _index < _tracks.length - 1)) {
+      return;
+    }
     var gain = 1.0;
     final fade = fadeSeconds;
     final total = _trimEnd ?? mediaItem.value?.duration;

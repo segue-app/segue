@@ -77,6 +77,11 @@ class _ShellState extends ConsumerState<Shell> {
       (_, v) => ref.read(playerProvider).fadeSeconds = v,
       fireImmediately: true,
     );
+    ref.listenManual(settingsProvider, (_, s) {
+      ref.read(playerProvider)
+        ..skipIntros = s.skipIntros
+        ..matchTempo = s.matchTempo;
+    }, fireImmediately: true);
     HardwareKeyboard.instance.addHandler(_onKey);
     // MacBook notch: now playing in the colours of the cover.
     if (NotchBridge.supported) {

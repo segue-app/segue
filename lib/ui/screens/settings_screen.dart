@@ -87,7 +87,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               _Slider(
-                title: 'Плавные переходы',
+                title: 'Сведение треков',
                 value: s.fadeSeconds,
                 min: 0,
                 max: 8,
@@ -96,6 +96,28 @@ class SettingsScreen extends ConsumerWidget {
                     : '${s.fadeSeconds.round()} с',
                 onChanged: (v) =>
                     set((x) => x.copyWith(fadeSeconds: v.roundToDouble())),
+              ),
+              _Tile(
+                title: 'Подстраивать темп',
+                subtitle:
+                    'Как у диджея: следующая песня подгоняется под темп '
+                    'текущей (до ±4%), потом плавно возвращается к своему',
+                trailing: Switch(
+                  value: s.matchTempo,
+                  onChanged: s.fadeSeconds < 1
+                      ? null
+                      : (v) => set((x) => x.copyWith(matchTempo: v)),
+                ),
+              ),
+              _Tile(
+                title: 'Пропускать вступления клипов',
+                subtitle:
+                    'Разговоры в начале и сценки в конце музыкальных видео '
+                    '(по данным SponsorBlock)',
+                trailing: Switch(
+                  value: s.skipIntros,
+                  onChanged: (v) => set((x) => x.copyWith(skipIntros: v)),
+                ),
               ),
               const _Section('Цвет акцента'),
               _Tile(

@@ -39,6 +39,9 @@ class MatchSource implements MusicSource, FileSource {
   Future<StreamInfo> resolveFile(Track track) async =>
       _youtube.resolveFile(await findMatch(track));
 
+  /// The YouTube track [track] was matched to, if it was already.
+  Track? matched(Track track) => _cache[track.key] ?? recall?.call(track.key);
+
   Future<Track> findMatch(Track track) async {
     final cached = _cache[track.key] ?? recall?.call(track.key);
     if (cached != null) return _cache[track.key] = cached;
