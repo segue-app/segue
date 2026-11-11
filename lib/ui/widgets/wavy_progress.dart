@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -43,6 +44,8 @@ class _WavyProgressState extends State<WavyProgress>
   @override
   void didUpdateWidget(WavyProgress old) {
     super.didUpdateWidget(old);
+    final p = _pending;
+    if (p != null && (widget.progress - p).abs() < 0.015) _pending = null;
     if (old.playing != widget.playing) {
       widget.playing
           ? _amplitude.animateTo(1, curve: SegueMotion.ease)
@@ -52,6 +55,7 @@ class _WavyProgressState extends State<WavyProgress>
 
   @override
   void dispose() {
+    _pendingTimer?.cancel();
     _phase.dispose();
     _amplitude.dispose();
     super.dispose();
@@ -60,6 +64,23 @@ class _WavyProgressState extends State<WavyProgress>
   double _fraction(Offset local, double width) =>
       (local.dx / width).clamp(0.0, 1.0);
 
+  /// Where the user just seeked to: shown until the player gets there, so
+  /// the handle doesn't jump back while the new position loads.
+  double? _pending;
+  Timer? _pendingTimer;
+
+  void _seek(double f) {
+    widget.onSeek?.call(f);
+    _pendingTimer?.cancel();
+    _pendingTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _pending = null);
+    });
+    setState(() {
+      _pending = f;
+      _drag = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -67,16 +88,19 @@ class _WavyProgressState extends State<WavyProgress>
         final width = c.maxWidth;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onHorizontalDragStart: (d) =>
+          // Follow the finger from the first touch, not after the drag
+          // threshold.
+          onHorizontalDragDown: (d) =>
               setState(() => _drag = _fraction(d.localPosition, width)),
           onHorizontalDragUpdate: (d) =>
               setState(() => _drag = _fraction(d.localPosition, width)),
           onHorizontalDragEnd: (_) {
-            if (_drag != null) widget.onSeek?.call(_drag!);
-            setState(() => _drag = null);
+            if (_drag != null) _seek(_drag!);
           },
-          onTapUp: (d) =>
-              widget.onSeek?.call(_fraction(d.localPosition, width)),
+          onHorizontalDragCancel: () {
+            // A tap: seek where it landed.
+            if (_drag != null) _seek(_drag!);
+          },
           child: SizedBox(
             height: 32,
             width: width,
@@ -84,7 +108,7 @@ class _WavyProgressState extends State<WavyProgress>
               animation: Listenable.merge([_phase, _amplitude]),
               builder: (context, _) => CustomPaint(
                 painter: _WavePainter(
-                  progress: _drag ?? widget.progress,
+                  progress: _drag ?? _pending ?? widget.progress,
                   phase: _phase.value,
                   amplitude: _amplitude.value,
                   color: widget.color,
@@ -168,4 +192,92 @@ class _WavePainter extends CustomPainter {
       old.amplitude != amplitude ||
       old.color != color ||
       old.dragging != dragging;
+}
+
+/// Thin progress line you can drag to seek (compact mini player).
+class SeekLine extends StatefulWidget {
+  const SeekLine({
+    super.key,
+    required this.progress,
+    required this.color,
+    this.onSeek,
+  });
+
+  final double progress;
+  final Color color;
+  final ValueChanged<double>? onSeek;
+
+  @override
+  State<SeekLine> createState() => _SeekLineState();
+}
+
+class _SeekLineState extends State<SeekLine> {
+  double? _drag;
+  double? _pending;
+  Timer? _pendingTimer;
+
+  @override
+  void didUpdateWidget(SeekLine old) {
+    super.didUpdateWidget(old);
+    final p = _pending;
+    if (p != null && (widget.progress - p).abs() < 0.015) _pending = null;
+  }
+
+  @override
+  void dispose() {
+    _pendingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _seek(double f) {
+    widget.onSeek?.call(f);
+    _pendingTimer?.cancel();
+    _pendingTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _pending = null);
+    });
+    setState(() {
+      _pending = f;
+      _drag = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      double at(Offset p) => (p.dx / c.maxWidth).clamp(0.0, 1.0);
+      final v = _drag ?? _pending ?? widget.progress;
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragDown: widget.onSeek == null
+            ? null
+            : (d) => setState(() => _drag = at(d.localPosition)),
+        onHorizontalDragUpdate: (d) =>
+            setState(() => _drag = at(d.localPosition)),
+        onHorizontalDragEnd: (_) {
+          if (_drag != null) _seek(_drag!);
+        },
+        // A plain tap belongs to the mini player (opens the full one).
+        onHorizontalDragCancel: () => setState(() => _drag = null),
+        // A taller touch area than the line itself.
+        child: SizedBox(
+          height: 18,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              height: _drag != null ? 6 : 3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: v,
+                  minHeight: 6,
+                  backgroundColor: Colors.white.withValues(alpha: 0.1),
+                  color: widget.color,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }

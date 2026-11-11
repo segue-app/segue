@@ -10,7 +10,11 @@ import '../../core/integrations/lastfm.dart';
 import '../../core/integrations/updates.dart';
 import '../../core/settings/settings.dart';
 import '../theme/artwork_colors.dart';
+import 'devices_screen.dart';
+import 'playlist_screen.dart';
 import '../theme/theme.dart';
+import '../widgets/import_dialog.dart';
+import '../widgets/library_import_sheet.dart';
 import '../widgets/living_backdrop.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/motion.dart';
@@ -75,6 +79,31 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              // Moved here from the sidebar: devices and bringing music in.
+              _NavTile(
+                icon: Icons.devices_rounded,
+                title: 'Устройства',
+                subtitle: 'Синхронизация, «Где играть», вход по коду',
+                onTap: () => Navigator.of(context).push(DevicesScreen.route()),
+              ),
+              _NavTile(
+                icon: Icons.link_rounded,
+                title: 'Импорт плейлиста по ссылке',
+                subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud',
+                onTap: () async {
+                  final id = await showImportDialog(context);
+                  if (id != null && context.mounted) {
+                    Navigator.of(context).push(PlaylistScreen.route(id));
+                  }
+                },
+              ),
+              _NavTile(
+                icon: Icons.move_down_rounded,
+                title: 'Перенести всю библиотеку',
+                subtitle: 'Все лайки и плейлисты из Яндекс Музыки или Spotify',
+                onTap: () => showLibraryImport(context),
+              ),
+              const SizedBox(height: 18),
               const _Preview(),
               const _Section('Звук'),
               Container(
@@ -837,4 +866,38 @@ class _About extends ConsumerWidget {
             ),
     );
   }
+}
+
+class _NavTile extends StatelessWidget {
+  const _NavTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      color: Colors.white.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(18),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        leading: Icon(icon),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: SegueColors.textDim),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
+      ),
+    ),
+  );
 }

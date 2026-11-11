@@ -245,11 +245,7 @@ final class NotchController {
       if !model.showVolume, let v = a["volume"] as? Double { model.volume = v }
       loadArtwork(a["artwork"] as? String ?? "")
       if !currentOpen && panel != nil { place() }
-      // A new song once it actually plays: open for a moment to show it.
-      if !title.isEmpty && model.playing && title != lastTitle {
-        lastTitle = title
-        peek()
-      }
+      lastTitle = title
     case "expand":
       // Keeps the island open (screenshots, tests).
       peekWork?.cancel()

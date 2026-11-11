@@ -15,7 +15,6 @@ import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/jam_sheet.dart';
-import '../widgets/motion.dart';
 
 IconData platformIcon(String os) => switch (os) {
   'android' || 'ios' => Icons.smartphone_rounded,
@@ -440,28 +439,25 @@ class _DeviceCard extends ConsumerWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (d.playing) ...[
+                if (d.playing || connect.player?.outputId == d.id)
                   FilledButton.tonalIcon(
                     onPressed: () => run(
-                      () => connect.takeFrom(d.id),
+                      () => connect.player?.outputId == d.id
+                          ? connect.playHere()
+                          : connect.takeFrom(d.id),
                       'Музыка с ${d.name} играет здесь',
                     ),
-                    icon: const Icon(Icons.download_rounded),
+                    icon: const Icon(Icons.headphones_rounded),
                     label: const Text('Слушать здесь'),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () => showRemoteControl(context, d.id),
-                    icon: const Icon(Icons.settings_remote_rounded),
-                    label: const Text('Пульт'),
-                  ),
-                ],
-                if (localPlaying)
+                if (connect.player?.outputId != d.id &&
+                    (localPlaying || connect.player?.current != null))
                   OutlinedButton.icon(
                     onPressed: () => run(
-                      () => connect.handOffTo(d.id),
-                      'Музыка продолжается на ${d.name}',
+                      () => connect.playOn(d.id),
+                      'Играет на ${d.name}. Этот плеер — пульт',
                     ),
-                    icon: const Icon(Icons.upload_rounded),
+                    icon: const Icon(Icons.cast_rounded),
                     label: Text('Включить на ${d.name}'),
                   ),
               ],
@@ -722,7 +718,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
 // --- "where to play" ------------------------------------------------------------
 
-/// Spotify-style device picker: what plays where, and moving it.
+/// Spotify-style device picker: pick where the music plays. Picking another
+/// device moves it there and this player becomes its remote.
 Future<void> showHandoffSheet(BuildContext context, WidgetRef ref) =>
     showModalBottomSheet<void>(
       context: context,
@@ -743,14 +740,26 @@ class _WhereToPlay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connect = ref.read(connectProvider);
+    final player = ref.read(playerProvider);
     final accent = ref.watch(currentColorsProvider).accent;
-    final localPlaying = ref.watch(playingProvider).value ?? false;
     return ListenableBuilder(
-      listenable: connect.changes,
+      listenable: Listenable.merge([connect.changes, player.output]),
       builder: (context, _) {
         final devices = connect.devices().where((d) => d.online).toList();
-        final elsewhere = devices.where((d) => d.playing).firstOrNull;
-        final hereActive = localPlaying || elsewhere == null;
+        final out = player.outputId;
+        final messenger = ScaffoldMessenger.maybeOf(context);
+
+        Future<void> pick(Future<void> Function() f, String done) async {
+          Navigator.pop(context);
+          try {
+            await f();
+            messenger?.showSnackBar(SnackBar(content: Text(done)));
+          } catch (e) {
+            messenger?.showSnackBar(
+              SnackBar(content: Text('Не получилось: $e')),
+            );
+          }
+        }
 
         Widget tile({
           required IconData icon,
@@ -779,7 +788,7 @@ class _WhereToPlay extends ConsumerWidget {
           trailing: active
               ? Icon(Icons.graphic_eq_rounded, color: accent)
               : null,
-          onTap: onTap,
+          onTap: active ? null : onTap,
         );
 
         return SafeArea(
@@ -799,33 +808,29 @@ class _WhereToPlay extends ConsumerWidget {
                 tile(
                   icon: platformIcon(Platform.operatingSystem),
                   title: 'Это устройство',
-                  subtitle: hereActive
-                      ? 'Играет здесь'
-                      : 'Нажми, чтобы слушать здесь',
-                  active: hereActive,
-                  onTap: hereActive
-                      ? null
-                      : () {
-                          Navigator.pop(context);
-                          connect.takeFrom(elsewhere.id);
-                        },
+                  subtitle: out == null
+                      ? 'Музыка играет здесь'
+                      : 'Нажми, чтобы музыка играла здесь',
+                  active: out == null,
+                  onTap: () => pick(
+                    connect.playHere,
+                    'Музыка играет на этом устройстве',
+                  ),
                 ),
                 for (final d in devices)
                   tile(
                     icon: platformIcon(d.platform),
                     title: d.name,
-                    subtitle: d.playing
+                    subtitle: out == d.id
+                        ? 'Играет там · этот плеер — пульт'
+                        : d.playing
                         ? 'Играет: ${remoteTrack(d.remote)?.title ?? ''}'
                         : 'В сети',
-                    active: d.playing && !localPlaying,
-                    onTap: () {
-                      Navigator.pop(context);
-                      if (localPlaying) {
-                        connect.handOffTo(d.id);
-                      } else if (d.playing) {
-                        showRemoteControl(context, d.id);
-                      }
-                    },
+                    active: out == d.id,
+                    onTap: () => pick(
+                      () => connect.playOn(d.id),
+                      'Играет на ${d.name}. Этот плеер — пульт',
+                    ),
                   ),
                 if (devices.isEmpty)
                   const Padding(
@@ -853,218 +858,4 @@ class _WhereToPlay extends ConsumerWidget {
       },
     );
   }
-}
-
-// --- remote control --------------------------------------------------------------
-
-/// A remote for the music playing on another device.
-Future<void> showRemoteControl(BuildContext context, String deviceId) =>
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: SegueColors.surface,
-      showDragHandle: true,
-      constraints: const BoxConstraints(maxWidth: 520),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => RemoteControl(deviceId: deviceId),
-    );
-
-class RemoteControl extends ConsumerStatefulWidget {
-  const RemoteControl({super.key, required this.deviceId});
-  final String deviceId;
-
-  @override
-  ConsumerState<RemoteControl> createState() => _RemoteControlState();
-}
-
-class _RemoteControlState extends ConsumerState<RemoteControl> {
-  Timer? _tick;
-  double? _dragVolume;
-
-  @override
-  void initState() {
-    super.initState();
-    // The position moves on between state messages.
-    _tick = Timer.periodic(
-      const Duration(milliseconds: 500),
-      (_) => setState(() {}),
-    );
-  }
-
-  @override
-  void dispose() {
-    _tick?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final connect = ref.read(connectProvider);
-    final accent = ref.watch(currentColorsProvider).accent;
-    return ListenableBuilder(
-      listenable: connect.relay.devices,
-      builder: (context, _) {
-        final d = connect.relay.devices.value[widget.deviceId];
-        final track = remoteTrack(d);
-        void cmd(String op, [Map<String, dynamic>? a]) =>
-            connect.command(widget.deviceId, op, a);
-        if (d == null || track == null) {
-          return const SizedBox(
-            height: 200,
-            child: Center(child: Text('Там сейчас ничего не играет')),
-          );
-        }
-        final pos = d.position;
-        final total = d.duration;
-        final f = total == null || total.inMilliseconds == 0
-            ? 0.0
-            : (pos.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(platformIcon(d.platform), size: 16, color: accent),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Играет на ${d.name}',
-                      style: TextStyle(
-                        color: accent,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Artwork(url: track.artworkUrl, size: 220, radius: 24),
-                const SizedBox(height: 18),
-                Text(
-                  track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  track.artist,
-                  style: const TextStyle(color: SegueColors.textDim),
-                ),
-                const SizedBox(height: 10),
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 4,
-                    activeTrackColor: accent,
-                    thumbColor: Colors.white,
-                    inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
-                  ),
-                  child: Slider(
-                    value: f,
-                    onChanged: total == null ? null : (_) {},
-                    onChangeEnd: (v) => cmd('seek', {
-                      'ms': (total!.inMilliseconds * v).round(),
-                    }),
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(formatDuration(pos), style: _time),
-                    Text(formatDuration(total), style: _time),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      iconSize: 36,
-                      onPressed: () => cmd('prev'),
-                      icon: const Icon(Icons.skip_previous_rounded),
-                    ),
-                    const SizedBox(width: 12),
-                    PressScale(
-                      onTap: () => cmd(d.playing ? 'pause' : 'play'),
-                      child: Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          color: accent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          d.playing
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          size: 38,
-                          color: SegueColors.ink,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      iconSize: 36,
-                      onPressed: () => cmd('next'),
-                      icon: const Icon(Icons.skip_next_rounded),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.volume_down_rounded,
-                      color: SegueColors.textDim,
-                    ),
-                    Expanded(
-                      child: Slider(
-                        value: _dragVolume ?? d.volume.clamp(0.0, 1.0),
-                        onChanged: (v) => setState(() => _dragVolume = v),
-                        onChangeEnd: (v) {
-                          cmd('volume', {'v': v});
-                          // Keep showing it until their state confirms.
-                          Future<void>.delayed(
-                            const Duration(seconds: 2),
-                            () => mounted
-                                ? setState(() => _dragVolume = null)
-                                : null,
-                          );
-                        },
-                      ),
-                    ),
-                    const Icon(
-                      Icons.volume_up_rounded,
-                      color: SegueColors.textDim,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    connect.takeFrom(widget.deviceId);
-                  },
-                  icon: const Icon(Icons.download_rounded),
-                  label: const Text('Слушать на этом устройстве'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  static const _time = TextStyle(
-    color: SegueColors.textDim,
-    fontSize: 12,
-    fontFeatures: [FontFeature.tabularFigures()],
-  );
 }

@@ -11,6 +11,7 @@ import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:typed_data/typed_buffers.dart';
 
 import '../library/library_store.dart';
+import '../models/track.dart';
 import '../player/player_handler.dart';
 
 /// Another device of this user, as seen through the relay.
@@ -527,6 +528,8 @@ class Relay {
       final from = max(0, index - 10);
       snap['queue'] = queue.sublist(from, min(queue.length, from + 60));
       snap['index'] = index - from;
+      // Remotes pick queue items by their index in the full queue.
+      snap['offset'] = from;
     }
     await _publish(
       '$_base/s/$_me',
@@ -580,6 +583,10 @@ class Relay {
         await player.setVolume((j['v'] as num?)?.toDouble() ?? 1);
       case 'item':
         await player.skipToQueueItem(j['i'] as int? ?? 0);
+      case 'add':
+        await player.addNext(
+          Track.fromJson((j['track'] as Map).cast<String, dynamic>()),
+        );
       case 'giveTo':
         await handOffTo(j['to'] as String);
       case 'restore':

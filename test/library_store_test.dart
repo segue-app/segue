@@ -65,4 +65,17 @@ void main() {
     expect(events.length, 2);
     await sub.cancel();
   });
+
+  test('rows from before change numbers still sync', () {
+    final store = LibraryStore.memory();
+    const t = Track(id: 'old', source: SourceKind.youtube, title: 'Old', artist: 'A');
+    store.setLiked(t, true);
+    // Simulate a library from the first versions: no change numbers.
+    store.debugExecute('UPDATE likes SET seq = 0');
+    store.debugExecute('UPDATE tracks SET seq = 0');
+    final all = store.exportChanges(0);
+    expect((all['likes']! as List), hasLength(1));
+    final other = LibraryStore.memory()..applyChanges(all.cast<String, dynamic>());
+    expect(other.isLiked(t), isTrue);
+  });
 }

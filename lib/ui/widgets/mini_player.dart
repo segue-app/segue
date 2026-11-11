@@ -13,6 +13,7 @@ import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import 'artwork.dart';
 import 'motion.dart';
+import 'output_badge.dart';
 import 'queue_sheet.dart';
 import 'sound_panel.dart';
 import 'track_actions.dart';
@@ -161,6 +162,7 @@ class _TrackInfo extends StatelessWidget {
                     fontSize: 13,
                   ),
                 ),
+                const OutputBadge(size: 11.5),
               ],
             ),
           ),
@@ -210,19 +212,13 @@ class _Compact extends ConsumerWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(end: progress),
-              duration: const Duration(milliseconds: 250),
-              builder: (_, v, _) => LinearProgressIndicator(
-                value: v,
-                minHeight: 3,
-                backgroundColor: Colors.white.withValues(alpha: 0.1),
-                color: accent,
-              ),
-            ),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
+          child: SeekLine(
+            progress: progress,
+            color: accent,
+            onSeek: duration == null || duration == Duration.zero
+                ? null
+                : (f) => player.seek(duration * f),
           ),
         ),
       ],

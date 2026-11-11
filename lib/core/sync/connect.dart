@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../library/library_store.dart';
+import '../player/player_handler.dart';
 import 'relay.dart';
 import 'sync_service.dart';
 
@@ -34,8 +35,94 @@ class MyDevice {
 /// The relay is preferred; the local network keeps working without
 /// internet.
 class Connect {
-  Connect({required this.sync, required this.relay, required this.library}) {
+  Connect({
+    required this.sync,
+    required this.relay,
+    required this.library,
+    this.player,
+  }) {
     library.changes.listen((_) => _peers.value++);
+    relay.devices.addListener(_follow);
+  }
+
+  /// This device's player; becomes a remote while music plays elsewhere.
+  final SegueAudioHandler? player;
+
+  /// Set when the user chose "this device": don't jump to another
+  /// device's music on our own.
+  bool _stayHere = false;
+  Set<String> _wasPlaying = {};
+
+  /// Keeps the remote in step with the device it controls, and becomes a
+  /// remote by itself when another device plays and this one is idle
+  /// (like Spotify showing "playing on…").
+  void _follow() {
+    final p = player;
+    if (p == null) return;
+    final target = p.outputId;
+    if (target != null) {
+      final d = relay.devices.value[target];
+      if (d == null || !d.online) {
+        p.leaveRemote(); // it went away
+        return;
+      }
+      final st = d.state;
+      if (st != null) p.remoteState(st, d.stateAt ?? DateTime.now());
+      return;
+    }
+    // Something new started elsewhere: following it is fine again.
+    final nowPlaying = {
+      for (final d in relay.devices.value.values)
+        if (d.playing) d.id,
+    };
+    if (nowPlaying.difference(_wasPlaying).isNotEmpty) _stayHere = false;
+    _wasPlaying = nowPlaying;
+    if (_stayHere || p.isPlaying) return;
+    for (final d in relay.devices.value.values) {
+      if (d.playing && d.state != null) {
+        _becomeRemote(d.id, d.name);
+        return;
+      }
+    }
+  }
+
+  void _becomeRemote(String id, String name) {
+    final p = player!;
+    p.playOn(id, name, (op, [args]) => relay.command(id, op, args));
+    final d = relay.devices.value[id];
+    if (d?.state != null) p.remoteState(d!.state!, d.stateAt ?? DateTime.now());
+  }
+
+  /// "Где играть" → device [id]: the music moves there (from the moment
+  /// it's at here) and this player becomes its remote.
+  Future<void> playOn(String id) async {
+    final p = player;
+    final d = relay.devices.value[id];
+    if (d == null || !d.online) {
+      // Same Wi-Fi only: the old way, without a remote.
+      await sync.sendPlayback(id);
+      return;
+    }
+    _stayHere = false;
+    if (p != null && p.outputId == id) return;
+    if (p != null && p.outputId != null) {
+      // From one remote device to another: ask that one to pass it on.
+      final from = p.outputId!;
+      await relay.command(from, 'giveTo', {'to': id});
+    } else if (p != null && p.current != null) {
+      await relay.handOffTo(id);
+    }
+    if (p != null) _becomeRemote(id, d.name);
+  }
+
+  /// "Где играть" → this device: the music comes back here.
+  Future<void> playHere() async {
+    _stayHere = true;
+    final p = player;
+    final from = p?.outputId;
+    if (from == null) return;
+    await relay.takeFrom(from); // arrives as a restore, which ends remote
+    p!.leaveRemote();
   }
 
   final _peers = ValueNotifier(0);

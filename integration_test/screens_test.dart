@@ -30,6 +30,7 @@ import 'package:segue/core/sources/soundcloud_source.dart';
 import 'package:segue/core/sources/sources.dart';
 import 'package:segue/core/sources/youtube_source.dart';
 import 'package:segue/core/sync/connect.dart';
+import 'package:segue/core/sync/jam.dart';
 import 'package:segue/core/sync/relay.dart';
 import 'package:segue/core/sync/sync.dart';
 import 'package:segue/core/sync/sync_service.dart';
@@ -149,7 +150,12 @@ void main() {
     );
     await relay.start();
     await phoneRelay.start();
-    final connect = Connect(sync: sync, relay: relay, library: library);
+    final connect = Connect(
+      sync: sync,
+      relay: relay,
+      library: library,
+      player: handler,
+    );
 
     await tester.pumpWidget(
       ProviderScope(
@@ -159,6 +165,13 @@ void main() {
           libraryProvider.overrideWithValue(library),
           syncProvider.overrideWithValue(sync),
           connectProvider.overrideWithValue(connect),
+          jamProvider.overrideWithValue(
+            JamService(
+              player: handler,
+              deviceId: library.deviceId,
+              name: () => 'MacBook',
+            ),
+          ),
           downloadsProvider.overrideWithValue(downloads),
           waveProvider.overrideWithValue(Wave(Catalog(), library, handler)),
           lastFmProvider.overrideWithValue(LastFm(library)),
@@ -222,7 +235,10 @@ void main() {
     await settle(tester, 1);
 
     // Import a Yandex Music playlist and play an imported (matched) track.
-    await tester.tap(find.text('Импорт по ссылке').first);
+    // Import lives in Settings now.
+    await tester.tap(find.text('Настройки').first);
+    await settle(tester, 1);
+    await tester.tap(find.text('Импорт плейлиста по ссылке'));
     await settle(tester, 1);
     await tester.enterText(
       find.byType(TextField).last,
@@ -233,11 +249,13 @@ void main() {
     await tester.tap(find.text('Импортировать'));
     await settle(tester, 6);
     await shot(tester, '06c_imported_playlist');
-    await tester.tap(find.byType(TrackTile).first);
+    await tester.tap(find.byType(TrackTile).first, warnIfMissed: false);
     await settle(tester, 10);
     await shot(tester, '06d_imported_playing');
 
-    // Devices: show a code, the "phone" joins over the internet relay.
+    // Devices (in Settings): show a code, the "phone" joins over the relay.
+    await tester.tap(find.text('Настройки').first);
+    await settle(tester, 1);
     await tester.tap(find.text('Устройства').first);
     await settle(tester, 1);
     await tester.tap(find.text('Добавить устройство'));
@@ -283,13 +301,17 @@ void main() {
     );
     await shot(tester, '06f_devices_paired');
     expect(library.likedKeys(), contains('youtube:kJQP7kiw5Fk'));
-    // Spotify-style remote for what plays on the phone.
-    await tester.tap(find.text('Играет на iPhone').first);
-    await settle(tester, 2);
-    await shot(tester, '06f2_remote_control');
-    await tester.tapAt(const Offset(5, 5));
+    // Spotify-style: this idle Mac becomes the remote for the phone, in
+    // its own player.
+    expect(handler.output.value, 'iPhone');
+    expect(find.text('Играет на iPhone'), findsWidgets);
+    await tester.tap(find.byIcon(Icons.open_in_full_rounded));
+    await settle(tester, 3);
+    await shot(tester, '06f2_remote_player');
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
     await settle(tester, 1);
     await phonePlayer.pause();
+    handler.leaveRemote();
 
     await tester.tap(find.text('Настройки').first);
     await settle(tester, 2);

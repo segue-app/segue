@@ -117,7 +117,12 @@ Future<void> main() async {
     player: handler,
     deviceName: () => sync.deviceName,
   );
-  final connect = Connect(sync: sync, relay: relay, library: library);
+  final connect = Connect(
+    sync: sync,
+    relay: relay,
+    library: library,
+    player: handler,
+  );
   final jam = JamService(
     player: handler,
     deviceId: library.deviceId,

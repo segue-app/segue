@@ -49,7 +49,8 @@ class SegueAudioHandler extends BaseAudioHandler
         ),
       ) {
     final s = _player.stream;
-    s.playing.listen((_) {
+    s.playing.listen((p) {
+      if (_out == null) _playingCtl.add(p);
       _broadcastState();
       _changed();
     });
@@ -59,6 +60,7 @@ class SegueAudioHandler extends BaseAudioHandler
       if (done && !_loading) _trackEnded();
     });
     s.position.listen((pos) {
+      if (_out == null) _positionCtl.add(pos);
       _fadeAt(pos);
       _maybeMix(pos);
       // A trimmed track ends where its trim says.
@@ -127,12 +129,16 @@ class SegueAudioHandler extends BaseAudioHandler
   Track? get current =>
       _index >= 0 && _index < _tracks.length ? _tracks[_index] : null;
 
-  Stream<Duration> get positionStream => _player.stream.position;
+  /// Position of what plays: this device's player, or the device this
+  /// one is a remote for.
+  Stream<Duration> get positionStream => _positionCtl.stream;
+  final _positionCtl = StreamController<Duration>.broadcast();
 
   /// Duration of the current track as published in [mediaItem], which
   /// prefers the source's exact value over the player's estimate.
   Stream<Duration?> get durationStream => mediaItem.map((m) => m?.duration);
-  Stream<bool> get playingStream => _player.stream.playing;
+  Stream<bool> get playingStream => _playingCtl.stream;
+  final _playingCtl = StreamController<bool>.broadcast();
 
   /// Last error message (e.g. a stream that failed to resolve), or null.
   final errors = StreamController<String>.broadcast();
@@ -178,6 +184,19 @@ class SegueAudioHandler extends BaseAudioHandler
     int start, {
     Duration? startAt,
   }) async {
+    if (_out != null) {
+      // Remote: it plays there.
+      final from = start > 50 ? start - 50 : 0;
+      await _out!.send('restore', {
+        'snapshot': {
+          'queue': [for (final t in list.skip(from).take(200)) t.toJson()],
+          'index': start - from,
+          'positionMs': startAt?.inMilliseconds ?? 0,
+          'playing': true,
+        },
+      });
+      return;
+    }
     _refill = null;
     waveTitle.value = null;
     _tracks
@@ -200,6 +219,7 @@ class SegueAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> addNext(Track t) async {
+    if (_out != null) return _out!.send('add', {'track': t.toJson()});
     _tracks.insert(_index + 1, t);
     _queueChanged();
     _prefetchNext();
@@ -649,6 +669,8 @@ class SegueAudioHandler extends BaseAudioHandler
   /// Continues a [snapshot] taken on another device.
   @override
   Future<void> restore(Map<String, dynamic> snap) async {
+    // Music arrives here: this device plays again, it's not a remote.
+    leaveRemote();
     final queue = [
       for (final j in (snap['queue'] as List? ?? const []))
         Track.fromJson((j as Map).cast<String, dynamic>()),
@@ -677,6 +699,10 @@ class SegueAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> setVolume(double v) {
+    if (_out != null) {
+      volume.value = v.clamp(0.0, 1.0);
+      return _out!.send('volume', {'v': volume.value});
+    }
     volume.value = v.clamp(0.0, 1.0);
     _changed();
     return _applyVolume();
@@ -743,13 +769,26 @@ class SegueAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() {
+    if (_out != null) return _remoteSend('play', playing: true);
+    return _player.play();
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() {
+    if (_out != null) return _remoteSend('pause', playing: false);
+    return _player.pause();
+  }
 
   @override
   Future<void> seek(Duration position) async {
+    if (_out != null) {
+      return _remoteSend(
+        'seek',
+        args: {'ms': position.inMilliseconds},
+        at: position,
+      );
+    }
     Future<void>.delayed(const Duration(milliseconds: 300), _changed);
     final copy = _copy;
     if (copy == null || _onCopy) return _player.seek(position);
@@ -778,10 +817,14 @@ class SegueAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> skipToNext() => _playIndex(_index + 1);
+  Future<void> skipToNext() {
+    if (_out != null) return _out!.send('next');
+    return _playIndex(_index + 1);
+  }
 
   @override
   Future<void> skipToPrevious() async {
+    if (_out != null) return _out!.send('prev');
     // Like every player: restart the track unless we're near its start.
     final start = _trimStart ?? Duration.zero;
     if (_player.state.position > start + const Duration(seconds: 3)) {
@@ -792,7 +835,12 @@ class SegueAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> skipToQueueItem(int index) => _playIndex(index);
+  Future<void> skipToQueueItem(int index) {
+    if (_out != null) {
+      return _out!.send('item', {'i': index + _remoteOffset});
+    }
+    return _playIndex(index);
+  }
 
   @override
   Future<void> stop() async {
@@ -802,7 +850,7 @@ class SegueAudioHandler extends BaseAudioHandler
 
   void _broadcastState() {
     final st = _player.state;
-    final playing = st.playing;
+    final playing = _out != null ? _remotePlaying : st.playing;
     playbackState.add(
       playbackState.value.copyWith(
         controls: [
@@ -818,12 +866,140 @@ class SegueAudioHandler extends BaseAudioHandler
                   ? AudioProcessingState.idle
                   : AudioProcessingState.ready),
         playing: playing,
-        updatePosition: st.position,
+        updatePosition: _out != null ? _remotePosition() : st.position,
         bufferedPosition: st.buffer,
         speed: _fx.speed,
         queueIndex: _index < 0 ? null : _index,
       ),
     );
+  }
+
+  // --- remote mode ("Spotify Connect") --------------------------------------
+
+  _Output? _out;
+
+  /// Name of the device the music plays on while this one is its remote;
+  /// null when it plays here.
+  final output = ValueNotifier<String?>(null);
+  String? get outputId => _out?.id;
+
+  bool _remotePlaying = false;
+  int _remotePosMs = 0;
+  DateTime _remoteAt = DateTime(0);
+  int _remoteOffset = 0;
+  Timer? _remoteTick;
+  double _localVolume = 1;
+
+  bool get isPlaying => _out != null ? _remotePlaying : _player.state.playing;
+
+  /// Where playback is now, here or on the device this one controls.
+  Duration get position =>
+      _out != null ? _remotePosition() : _player.state.position;
+
+  /// Becomes the remote for device [id]: this player stops making sound and
+  /// shows what plays there; its buttons control it.
+  void playOn(
+    String id,
+    String name,
+    Future<void> Function(String op, [Map<String, dynamic>? args]) send,
+  ) {
+    if (_out == null) _localVolume = volume.value;
+    _stopMix();
+    _player.pause();
+    _out = _Output(id, send);
+    output.value = name;
+    _remoteTick?.cancel();
+    _remoteTick = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (_remotePlaying) _positionCtl.add(_remotePosition());
+    });
+    _broadcastState();
+  }
+
+  /// Back to playing here (what was loaded stays paused).
+  void leaveRemote() {
+    if (_out == null) return;
+    _out = null;
+    output.value = null;
+    _remoteTick?.cancel();
+    volume.value = _localVolume;
+    _applyVolume();
+    _playingCtl.add(_player.state.playing);
+    _positionCtl.add(_player.state.position);
+    _broadcastState();
+  }
+
+  Duration _remotePosition() {
+    final moving = _remotePlaying
+        ? DateTime.now().difference(_remoteAt).inMilliseconds
+        : 0;
+    final d = mediaItem.value?.duration?.inMilliseconds;
+    final p = _remotePosMs + moving;
+    return Duration(milliseconds: d != null && p > d ? d : p);
+  }
+
+  /// What the device this one controls is doing (from its state message,
+  /// [at] by our clock).
+  void remoteState(Map<String, dynamic> snap, DateTime at) {
+    if (_out == null) return;
+    final queue = [
+      for (final j in (snap['queue'] as List? ?? const []))
+        Track.fromJson((j as Map).cast<String, dynamic>()),
+    ];
+    final index = snap['index'] as int? ?? -1;
+    _remoteOffset = snap['offset'] as int? ?? 0;
+    final changedTrack =
+        index < 0 ||
+        index >= queue.length ||
+        _index < 0 ||
+        _index >= _tracks.length ||
+        _tracks[_index].key != queue[index].key;
+    _tracks
+      ..clear()
+      ..addAll(queue);
+    _index = index;
+    if (queue.isNotEmpty) this.queue.add(queue.map(_toMediaItem).toList());
+    queueVersion.value++;
+    if (index >= 0 && index < queue.length) {
+      final ms = snap['durationMs'] as int?;
+      final item = _toMediaItem(queue[index]);
+      if (changedTrack || mediaItem.value?.id != item.id) {
+        mediaItem.add(
+          ms == null
+              ? item
+              : item.copyWith(duration: Duration(milliseconds: ms)),
+        );
+      }
+    }
+    _remotePlaying = snap['playing'] == true;
+    _remotePosMs = snap['positionMs'] as int? ?? 0;
+    _remoteAt = at;
+    volume.value = (snap['volume'] as num?)?.toDouble() ?? volume.value;
+    _playingCtl.add(_remotePlaying);
+    _positionCtl.add(_remotePosition());
+    _broadcastState();
+  }
+
+  /// Sends [op] and shows its effect right away (the device confirms with
+  /// its next state).
+  Future<void> _remoteSend(
+    String op, {
+    bool? playing,
+    Map<String, dynamic>? args,
+    Duration? at,
+  }) {
+    if (at != null) {
+      _remotePosMs = at.inMilliseconds;
+      _remoteAt = DateTime.now();
+    }
+    if (playing != null) {
+      _remotePosMs = _remotePosition().inMilliseconds;
+      _remoteAt = DateTime.now();
+      _remotePlaying = playing;
+      _playingCtl.add(playing);
+    }
+    _positionCtl.add(_remotePosition());
+    _broadcastState();
+    return _out!.send(op, args);
   }
 
   MediaItem _toMediaItem(Track t) => MediaItem(
@@ -837,4 +1013,10 @@ class SegueAudioHandler extends BaseAudioHandler
               ? Uri.file(t.artworkUrl!)
               : Uri.parse(t.artworkUrl!)),
   );
+}
+
+class _Output {
+  _Output(this.id, this.send);
+  final String id;
+  final Future<void> Function(String op, [Map<String, dynamic>? args]) send;
 }

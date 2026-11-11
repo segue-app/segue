@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 
 import '../models/track.dart';
 import '../player/player_handler.dart';
-import '../sync/relay.dart';
 
 /// Feeds the "living notch" on MacBooks (drawn natively, see
 /// macos/Runner/MainFlutterWindow.swift) and acts on what's done there:
@@ -20,8 +19,6 @@ class NotchBridge {
     required this.isLiked,
     required this.toggleLike,
     required this.onOpen,
-    required this.remote,
-    required this.remoteCommand,
     required this.setVolume,
   });
 
@@ -30,10 +27,6 @@ class NotchBridge {
   final void Function(Track track) toggleLike;
   final VoidCallback onOpen;
 
-  /// The other device playing now, while this one isn't.
-  final RemoteDevice? Function() remote;
-  final void Function(String id, String op, [Map<String, dynamic>? args])
-  remoteCommand;
   final void Function(double volume) setVolume;
 
   static const _channel = MethodChannel('fm.segue/notch');
@@ -55,6 +48,8 @@ class NotchBridge {
     });
     player.stateChanges.listen((_) => refresh());
     player.mediaItem.listen((_) => refresh());
+    player.playingStream.listen((_) => refresh());
+    player.output.addListener(refresh);
   }
 
   void dispose() {
@@ -91,29 +86,11 @@ class NotchBridge {
     _debounce = Timer(const Duration(milliseconds: 120), _send);
   }
 
-  bool get _localPlaying => player.playbackState.value.playing;
-
   void _command(String op, double? value) {
-    final r = _localPlaying ? null : remote();
-    if (r != null && r.track != null) {
-      // Music on another device: the notch is its remote.
-      switch (op) {
-        case 'toggle':
-          remoteCommand(r.id, r.playing ? 'pause' : 'play');
-        case 'next' || 'prev':
-          remoteCommand(r.id, op);
-        case 'seek':
-          remoteCommand(r.id, 'seek', {'ms': ((value ?? 0) * 1000).round()});
-        case 'volume':
-          remoteCommand(r.id, 'volume', {'v': value ?? 1});
-        case 'open':
-          onOpen();
-      }
-      return;
-    }
+    // The player itself forwards to another device while it's a remote.
     switch (op) {
       case 'toggle':
-        _localPlaying ? player.pause() : player.play();
+        player.isPlaying ? player.pause() : player.play();
       case 'next':
         player.skipToNext();
       case 'prev':
@@ -131,61 +108,21 @@ class NotchBridge {
     }
   }
 
-  /// What plays and where: this Mac, or another device while this is idle.
-  ({
-    Track? track,
-    bool playing,
-    double position,
-    double? duration,
-    double volume,
-    String device,
-  })
-  _now() {
-    final r = _localPlaying ? null : remote();
-    if (r != null && r.track != null) {
-      Track? t;
-      try {
-        t = Track.fromJson(r.track!);
-      } catch (_) {}
-      return (
-        track: t,
-        playing: r.playing,
-        position: r.position.inMilliseconds / 1000,
-        duration: r.duration == null ? null : r.duration!.inMilliseconds / 1000,
-        volume: r.volume,
-        device: r.name,
-      );
-    }
-    final snap = player.snapshot();
-    return (
-      track: player.current,
-      playing: snap['playing'] == true,
-      position: ((snap['positionMs'] as int?) ?? 0) / 1000,
-      duration: player.mediaItem.value?.duration == null
-          ? null
-          : player.mediaItem.value!.duration!.inMilliseconds / 1000,
-      volume: player.volume.value,
-      device: '',
-    );
-  }
-
   Future<void> _send() async {
-    final now = _now();
-    final t = now.track;
+    final t = player.current;
+    final item = player.mediaItem.value;
     try {
       await _channel.invokeMethod('update', {
-        'title': t?.title ?? '',
-        'artist': t?.artist ?? '',
-        'artwork': now.device.isEmpty
-            ? player.mediaItem.value?.artUri?.toString() ?? t?.artworkUrl ?? ''
-            : t?.artworkUrl ?? '',
-        'playing': now.playing,
-        'position': now.position,
-        'duration': now.duration ?? 0,
+        'title': item?.title ?? '',
+        'artist': item?.artist ?? '',
+        'artwork': item?.artUri?.toString() ?? '',
+        'playing': player.isPlaying,
+        'position': player.position.inMilliseconds / 1000,
+        'duration': (item?.duration?.inMilliseconds ?? 0) / 1000,
         'accent': _accent.toARGB32() & 0xFFFFFF,
         'liked': t != null && isLiked(t),
-        'device': now.device,
-        'volume': now.volume,
+        'device': player.output.value ?? '',
+        'volume': player.volume.value,
       });
     } catch (e) {
       debugPrint('notch: $e');

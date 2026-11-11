@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/library/library.dart';
@@ -18,6 +19,7 @@ import '../widgets/living_backdrop.dart';
 import '../widgets/lyrics_view.dart';
 import '../../core/lyrics/lyrics.dart';
 import '../widgets/motion.dart';
+import '../widgets/output_badge.dart';
 import '../widgets/play_button.dart';
 import '../widgets/queue_sheet.dart';
 import '../widgets/sound_panel.dart';
@@ -317,6 +319,12 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                                           key: const ValueKey('cover'),
                                           art: art,
                                           playing: playing,
+                                          onNext: ref
+                                              .read(playerProvider)
+                                              .skipToNext,
+                                          onPrevious: ref
+                                              .read(playerProvider)
+                                              .skipToPrevious,
                                         ),
                                 ),
                               ),
@@ -354,13 +362,31 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
 /// The big cover: fills the space it gets, breathes with play/pause and
 /// crossfades between tracks. Hides on tiny windows.
 class _CoverArea extends StatelessWidget {
-  const _CoverArea({super.key, required this.art, required this.playing});
+  const _CoverArea({
+    super.key,
+    required this.art,
+    required this.playing,
+    this.onNext,
+    this.onPrevious,
+  });
 
   final String? art;
   final bool playing;
 
+  /// Swiping the cover sideways skips, like in Yandex Music.
+  final VoidCallback? onNext;
+  final VoidCallback? onPrevious;
+
   @override
   Widget build(BuildContext context) {
+    return _Swipe(
+      onNext: onNext,
+      onPrevious: onPrevious,
+      child: _cover(context),
+    );
+  }
+
+  Widget _cover(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
         final size = math.min(c.maxWidth, c.maxHeight - 32);
@@ -469,6 +495,8 @@ class _TitleRow extends StatelessWidget {
                     ),
                   ),
                 ),
+                // "Играет на Xiaomi" while this player is a remote.
+                const OutputBadge(size: 14),
               ],
             ),
           ),
@@ -756,4 +784,70 @@ class _Time extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     ),
   );
+}
+
+/// The cover follows the finger sideways; let go far enough (or fast) and
+/// the track changes, otherwise it springs back.
+class _Swipe extends StatefulWidget {
+  const _Swipe({required this.child, this.onNext, this.onPrevious});
+
+  final Widget child;
+  final VoidCallback? onNext;
+  final VoidCallback? onPrevious;
+
+  @override
+  State<_Swipe> createState() => _SwipeState();
+}
+
+class _SwipeState extends State<_Swipe> with SingleTickerProviderStateMixin {
+  late final AnimationController _back = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  )..addListener(_springBack);
+
+  void _springBack() => setState(
+    () => _dx = _from * (1 - SegueMotion.spring.transform(_back.value)),
+  );
+
+  double _dx = 0;
+  double _from = 0;
+
+  @override
+  void dispose() {
+    _back.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: (_) => _back.stop(),
+      onHorizontalDragUpdate: (d) => setState(() => _dx += d.delta.dx),
+      onHorizontalDragEnd: (d) {
+        final v = d.primaryVelocity ?? 0;
+        final far = _dx.abs() > width * 0.22 || v.abs() > 700;
+        if (far && (_dx < 0 || v < -700) && widget.onNext != null) {
+          HapticFeedback.selectionClick();
+          widget.onNext!();
+        } else if (far && (_dx > 0 || v > 700) && widget.onPrevious != null) {
+          HapticFeedback.selectionClick();
+          widget.onPrevious!();
+        }
+        _from = _dx;
+        _back.forward(from: 0);
+      },
+      child: Transform.translate(
+        offset: Offset(_dx, 0),
+        child: Transform.rotate(
+          angle: (_dx / width) * 0.12,
+          child: Opacity(
+            opacity: (1 - (_dx.abs() / width) * 0.6).clamp(0.4, 1.0),
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
 }

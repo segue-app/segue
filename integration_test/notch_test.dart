@@ -24,8 +24,6 @@ void main() {
             isLiked: (t) => liked.contains(t.key),
             toggleLike: (t) => liked.add(t.key),
             onOpen: () {},
-            remote: () => null,
-            remoteCommand: (_, _, [_]) {},
             setVolume: (_) {},
           )
           ..attach()

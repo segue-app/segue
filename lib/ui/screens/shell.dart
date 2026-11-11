@@ -19,9 +19,7 @@ import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import '../app_nav.dart';
 import '../widgets/collection.dart';
-import '../widgets/import_dialog.dart';
 import '../widgets/mini_player.dart';
-import '../widgets/remote_bar.dart';
 import '../widgets/jam_sheet.dart';
 import '../../core/sync/jam.dart';
 import '../../core/sync/connect.dart';
@@ -95,7 +93,6 @@ class _ShellState extends ConsumerState<Shell> {
     HardwareKeyboard.instance.addHandler(_onKey);
     // MacBook notch: now playing in the colours of the cover.
     if (NotchBridge.supported) {
-      final connect = ref.read(connectProvider);
       final library = ref.read(libraryProvider);
       final notch = NotchBridge(
         ref.read(playerProvider),
@@ -107,14 +104,11 @@ class _ShellState extends ConsumerState<Shell> {
             nav.push(NowPlayingScreen.route());
           }
         },
-        remote: () => connect.playingElsewhere?.remote,
-        remoteCommand: connect.command,
         setVolume: _volume,
       )..attach();
       _notch = notch;
-      // Likes and other devices' playback change what it shows.
+      // Likes change what it shows.
       library.changes.listen((_) => notch.refresh());
-      connect.relay.devices.addListener(notch.refresh);
       ref.listenManual(
         currentColorsProvider,
         (_, c) => notch.accent = c.accent,
@@ -178,7 +172,7 @@ class _ShellState extends ConsumerState<Shell> {
       // is otherwise allowed to grow as tall as the screen).
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [const JamBar(), const RemoteBar(), bottom],
+        children: [const JamBar(), bottom],
       ),
     ),
   );
@@ -511,94 +505,105 @@ class _Sidebar extends ConsumerWidget {
               padding: EdgeInsets.fromLTRB(22, 24, 24, 20),
               child: _Logo(),
             ),
-            for (final (i, (on, off, label)) in _items.indexed)
-              _SideItem(
-                icon: i == tab ? on : off,
-                label: label,
-                selected: i == tab,
-                onTap: () => onSelect(i),
-              ),
-            _SideItem(
-              icon: Icons.devices_rounded,
-              label: 'Устройства',
-              selected: tab == 3,
-              onTap: onDevices,
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 24, 12, 8),
-              child: Text(
-                'ПЛЕЙЛИСТЫ',
-                style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w800,
-                  color: SegueColors.textDim,
-                ),
-              ),
-            ),
-            _SideItem(
-              icon: Icons.add_rounded,
-              label: 'Новый плейлист',
-              selected: false,
-              onTap: () async {
-                final name = await askPlaylistName(context);
-                if (name == null) return;
-                onPlaylist(ref.read(libraryProvider).createPlaylist(name));
-              },
-            ),
-            _SideItem(
-              icon: Icons.download_rounded,
-              label: 'Импорт по ссылке',
-              selected: false,
-              onTap: () async {
-                final id = await showImportDialog(context);
-                if (id != null) onPlaylist(id);
-              },
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 12),
+            // Where to go.
+            _SideBlock(
+              child: Column(
                 children: [
-                  for (final p in playlists)
-                    PressScale(
-                      scale: 0.97,
-                      onTap: () => onPlaylist(p.id),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 5,
-                        ),
-                        child: Row(
-                          children: [
-                            CoverCollage(
-                              urls: [p.coverUrl],
-                              size: 36,
-                              radius: 9,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                p.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  for (final (i, (on, off, label)) in _items.indexed)
+                    _SideItem(
+                      icon: i == tab ? on : off,
+                      label: label,
+                      selected: i == tab,
+                      onTap: () => onSelect(i),
                     ),
                 ],
               ),
             ),
-            _SideItem(
-              icon: Icons.tune_rounded,
-              label: 'Настройки',
-              selected: tab == 4,
-              onTap: onSettings,
+            const SizedBox(height: 10),
+            // Your music.
+            Expanded(
+              child: _SideBlock(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 4, 4, 2),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Плейлисты',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: SegueColors.textDim,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Новый плейлист',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () async {
+                              final name = await askPlaylistName(context);
+                              if (name == null) return;
+                              onPlaylist(
+                                ref.read(libraryProvider).createPlaylist(name),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.add_rounded,
+                              color: SegueColors.textDim,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        children: [
+                          _PlaylistRow(
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                gradient: likedGradient,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: const Icon(
+                                Icons.favorite_rounded,
+                                size: 18,
+                              ),
+                            ),
+                            title: 'Любимые',
+                            onTap: () => onSelect(2),
+                          ),
+                          for (final p in playlists)
+                            _PlaylistRow(
+                              leading: CoverCollage(
+                                urls: [p.coverUrl],
+                                size: 36,
+                                radius: 9,
+                              ),
+                              title: p.name,
+                              onTap: () => onPlaylist(p.id),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: 10),
+            _SideBlock(
+              child: _SideItem(
+                icon: Icons.tune_rounded,
+                label: 'Настройки',
+                selected: tab == 4 || tab == 3,
+                onTap: onSettings,
+              ),
+            ),
+            const SizedBox(height: 10),
             const SizedBox(height: 10),
           ],
         ),
@@ -684,6 +689,59 @@ class _BreathingState extends State<_Breathing>
   );
 }
 
+/// A soft card that groups sidebar items.
+class _SideBlock extends StatelessWidget {
+  const _SideBlock({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 10),
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.035),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: child,
+  );
+}
+
+class _PlaylistRow extends StatelessWidget {
+  const _PlaylistRow({
+    required this.leading,
+    required this.title,
+    required this.onTap,
+  });
+
+  final Widget leading;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => PressScale(
+    scale: 0.97,
+    hoverRadius: 12,
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _SideItem extends ConsumerWidget {
   const _SideItem({
     required this.icon,
@@ -701,7 +759,7 @@ class _SideItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accent = ref.watch(currentColorsProvider).accent;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       child: PressScale(
         scale: 0.97,
         hoverRadius: 14,
@@ -727,20 +785,6 @@ class _SideItem extends ConsumerWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: selected ? SegueColors.text : SegueColors.textDim,
-                  ),
-                ),
-              ),
-              // A dot in the accent colour marks where you are.
-              AnimatedScale(
-                scale: selected ? 1 : 0,
-                duration: SegueMotion.medium,
-                curve: SegueMotion.spring,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: accent,
-                    shape: BoxShape.circle,
                   ),
                 ),
               ),

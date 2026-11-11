@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:uuid/uuid.dart';
@@ -200,7 +201,32 @@ class LibraryStore {
         (_db.select('SELECT MAX(seq) AS m FROM $table').first['m'] as int?) ??
             0,
     ].reduce((a, b) => a > b ? a : b);
+    // Rows from before change numbers existed have seq 0, and "changed
+    // after N" never included them: likes from the first versions didn't
+    // reach other devices. Number them now (once; the order is kept).
+    for (final table in [
+      'tracks',
+      'likes',
+      'playlists',
+      'playlist_items',
+      'history',
+    ]) {
+      final old = _db
+          .select('SELECT rowid AS r FROM $table WHERE seq = 0 ORDER BY rowid')
+          .map((r) => r['r'] as int)
+          .toList();
+      if (old.isEmpty) continue;
+      _db.execute('BEGIN');
+      for (final r in old) {
+        _db.execute('UPDATE $table SET seq = ? WHERE rowid = ?', [_nextSeq, r]);
+      }
+      _db.execute('COMMIT');
+    }
   }
+
+  /// Raw SQL for tests.
+  @visibleForTesting
+  void debugExecute(String sql) => _db.execute(sql);
 
   int _seqCounter = 0;
   int get _nextSeq => ++_seqCounter;
@@ -617,14 +643,15 @@ class LibraryStore {
       e.key: [
         for (final r in _db.select(
           'SELECT ${e.value.join(', ')} FROM ${e.key} WHERE seq > ? ORDER BY seq',
-          [sinceSeq],
+          // Everything when starting from scratch, whatever its number.
+          [sinceSeq <= 0 ? -1 : sinceSeq],
         ))
           {for (final c in e.value) c: r[c]},
       ],
     'history': [
       for (final r in _db.select(
         'SELECT track_key, played_at FROM history WHERE seq > ? ORDER BY seq',
-        [sinceSeq],
+        [sinceSeq <= 0 ? -1 : sinceSeq],
       ))
         {'track_key': r['track_key'], 'played_at': r['played_at']},
     ],
