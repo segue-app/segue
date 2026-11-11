@@ -115,6 +115,11 @@ class _ShellState extends ConsumerState<Shell> {
         (_, on) => notch.setEnabled(on),
         fireImmediately: true,
       );
+      ref.listenManual(
+        settingsProvider.select((s) => s.desktopWidget),
+        (_, on) => notch.setDesktopWidget(on),
+        fireImmediately: true,
+      );
     }
     // segue://pair links: a QR scanned with the phone's camera app.
     final links = AppLinks();

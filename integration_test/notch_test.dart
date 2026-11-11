@@ -31,6 +31,7 @@ void main() {
           ..attach()
           ..accent = const Color(0xFFFF6B8A);
     await notch.setEnabled(true);
+    await notch.setDesktopWidget(true);
     final tracks = await yt.search('miyagi marlboro', limit: 1);
     liked.add(tracks.first.key);
     await player.playList(tracks, 0);
@@ -56,6 +57,7 @@ void main() {
     // ignore: avoid_print
     print('NOTCH RESTING');
     await Future<void>.delayed(const Duration(seconds: 3));
+    await notch.setDesktopWidget(false);
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

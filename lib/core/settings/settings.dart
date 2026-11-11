@@ -48,6 +48,7 @@ class AppSettings {
     this.notchIsland = true,
     this.skipIntros = true,
     this.matchTempo = true,
+    this.desktopWidget = false,
   });
 
   /// Take the accent colour from the playing track's cover.
@@ -101,6 +102,9 @@ class AppSettings {
   /// Mixes bring the next song to the current tempo, like a DJ.
   final bool matchTempo;
 
+  /// macOS: a now-playing card on the desktop.
+  final bool desktopWidget;
+
   static const fonts = [
     'Manrope',
     'Inter',
@@ -144,6 +148,7 @@ class AppSettings {
     bool? notchIsland,
     bool? skipIntros,
     bool? matchTempo,
+    bool? desktopWidget,
   }) => AppSettings(
     accentFromCover: accentFromCover ?? this.accentFromCover,
     accent: accent ?? this.accent,
@@ -168,6 +173,7 @@ class AppSettings {
     notchIsland: notchIsland ?? this.notchIsland,
     skipIntros: skipIntros ?? this.skipIntros,
     matchTempo: matchTempo ?? this.matchTempo,
+    desktopWidget: desktopWidget ?? this.desktopWidget,
   );
 
   Map<String, Object> toJson() => {
@@ -194,6 +200,7 @@ class AppSettings {
     'notchIsland': notchIsland,
     'skipIntros': skipIntros,
     'matchTempo': matchTempo,
+    'desktopWidget': desktopWidget,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> j) {
@@ -228,6 +235,7 @@ class AppSettings {
       notchIsland: pick('notchIsland', d.notchIsland),
       skipIntros: pick('skipIntros', d.skipIntros),
       matchTempo: pick('matchTempo', d.matchTempo),
+      desktopWidget: pick('desktopWidget', d.desktopWidget),
     );
   }
 }

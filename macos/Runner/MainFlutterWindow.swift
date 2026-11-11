@@ -99,6 +99,7 @@ final class NotchPanel: NSPanel {
 
 final class NotchController {
   private let model = NotchModel()
+  private lazy var desktop = DesktopWidget(model: model)
   private let channel: FlutterMethodChannel
   private var panel: NotchPanel?
   private var lastTitle = ""
@@ -218,9 +219,12 @@ final class NotchController {
     case "enabled":
       model.enabled = a["value"] as? Bool ?? true
       if model.enabled { makePanel() } else { panel?.orderOut(nil) }
+    case "desktopWidget":
+      desktop.setShown(a["value"] as? Bool ?? false)
     case "update":
-      guard Self.notchScreen() != nil else { return }
-      makePanel()
+      // The notch only exists on notched screens; the desktop widget
+      // shares this data everywhere.
+      if Self.notchScreen() != nil && model.enabled { makePanel() }
       let title = a["title"] as? String ?? ""
       model.hasTrack = !title.isEmpty
       model.title = title
@@ -240,7 +244,7 @@ final class NotchController {
       model.device = a["device"] as? String ?? ""
       if !model.showVolume, let v = a["volume"] as? Double { model.volume = v }
       loadArtwork(a["artwork"] as? String ?? "")
-      if !currentOpen { place() }
+      if !currentOpen && panel != nil { place() }
       // A new song once it actually plays: open for a moment to show it.
       if !title.isEmpty && model.playing && title != lastTitle {
         lastTitle = title
@@ -617,5 +621,141 @@ struct Bars: View {
       }
       .frame(maxHeight: .infinity, alignment: .center)
     }
+  }
+}
+
+// MARK: - Desktop widget
+
+/// A now-playing card that lives on the desktop, under windows, like a
+/// widget (real macOS widgets need a paid Apple signing identity). Drag it
+/// anywhere; the place is remembered.
+final class DesktopWidget {
+  private let model: NotchModel
+  private var panel: NotchPanel?
+
+  init(model: NotchModel) { self.model = model }
+
+  func setShown(_ on: Bool) {
+    if !on {
+      panel?.orderOut(nil)
+      return
+    }
+    if panel == nil { make() }
+    panel?.orderFrontRegardless()
+  }
+
+  private func make() {
+    let size = NSSize(width: 340, height: 118)
+    let p = NotchPanel(
+      contentRect: NSRect(origin: .zero, size: size),
+      styleMask: [.borderless, .nonactivatingPanel],
+      backing: .buffered, defer: false)
+    p.isOpaque = false
+    p.backgroundColor = .clear
+    p.hasShadow = true
+    // Just above the desktop icons, below every window.
+    p.level = NSWindow.Level(
+      rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
+    p.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+    p.isMovableByWindowBackground = true
+    p.hidesOnDeactivate = false
+    let host = HoverHostingView(rootView: DesktopCard(model: model))
+    host.frame = NSRect(origin: .zero, size: size)
+    p.contentView = host
+    if !p.setFrameUsingName("SegueDesktopWidget"), let screen = NSScreen.main {
+      let v = screen.visibleFrame
+      p.setFrameOrigin(NSPoint(x: v.maxX - size.width - 24, y: v.maxY - size.height - 24))
+    }
+    p.setFrameAutosaveName("SegueDesktopWidget")
+    panel = p
+  }
+}
+
+struct DesktopCard: View {
+  @ObservedObject var model: NotchModel
+
+  var body: some View {
+    ZStack {
+      // Solid base: the blur thins out at the edges.
+      Color(red: 0.09, green: 0.08, blue: 0.11)
+      // The cover, blurred and darkened, as the card's background.
+      Group {
+        if let img = model.artwork {
+          Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+            .blur(radius: 28, opaque: true)
+        } else {
+          LinearGradient(
+            colors: [model.accent.opacity(0.7), Color(red: 0.12, green: 0.1, blue: 0.16)],
+            startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
+      }
+      Color.black.opacity(0.45)
+      HStack(spacing: 14) {
+        Group {
+          if let img = model.artwork {
+            Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+          } else {
+            ZStack {
+              Color.white.opacity(0.08)
+              Image(systemName: "music.note").font(.system(size: 26)).foregroundColor(.white.opacity(0.6))
+            }
+          }
+        }
+        .frame(width: 86, height: 86)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+        .onTapGesture { model.command("open", nil) }
+        VStack(alignment: .leading, spacing: 2) {
+          Text(model.hasTrack ? model.title : "Segue")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.white).lineLimit(1)
+          Text(model.hasTrack ? model.artist : "Ничего не играет")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(.white.opacity(0.65)).lineLimit(1)
+          TimelineView(.periodic(from: .now, by: 1)) { ctx in
+            GeometryReader { g in
+              ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.18))
+                Capsule().fill(model.accent).frame(width: g.size.width * model.progress(at: ctx.date))
+              }
+            }
+            .frame(height: 3)
+          }
+          .padding(.top, 6)
+          HStack(spacing: 6) {
+            control("backward.fill", "prev", 13)
+            Button(action: { model.command("toggle", nil) }) {
+              Image(systemName: model.playing ? "pause.fill" : "play.fill")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(.black)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(Color.white))
+            }
+            .buttonStyle(.plain)
+            control("forward.fill", "next", 13)
+            Spacer()
+            Bars(playing: model.playing, color: model.accent).frame(width: 18, height: 12)
+          }
+          .padding(.top, 6)
+        }
+      }
+      .padding(16)
+    }
+    .frame(width: 340, height: 118)
+    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 26, style: .continuous)
+        .stroke(Color.white.opacity(0.1), lineWidth: 1))
+  }
+
+  private func control(_ symbol: String, _ op: String, _ size: CGFloat) -> some View {
+    Button(action: { model.command(op, nil) }) {
+      Image(systemName: symbol)
+        .font(.system(size: size, weight: .bold))
+        .foregroundColor(.white)
+        .frame(width: 30, height: 30)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
   }
 }

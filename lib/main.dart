@@ -13,6 +13,7 @@ import 'core/downloads/downloads.dart';
 import 'core/downloads/download_manager.dart';
 import 'core/import/import.dart';
 import 'core/integrations/discord.dart';
+import 'core/integrations/home_widgets.dart';
 import 'core/integrations/lastfm.dart';
 import 'core/local/local_library.dart';
 import 'core/import/playlist_importer.dart';
@@ -105,6 +106,7 @@ Future<void> main() async {
     return id == null ? null : sponsorBlock.musicBounds(id);
   };
   handler.bpmFor = (t) => catalog.bpm(t.artist, t.title);
+  HomeWidgets(handler).attach();
   // Player preferences.
   handler.setVolume(double.tryParse(library.getMeta('volume') ?? '') ?? 1);
   final importer = PlaylistImporter()..soundcloudClientId = soundcloud.clientId;

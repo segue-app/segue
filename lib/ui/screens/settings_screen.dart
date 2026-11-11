@@ -404,6 +404,17 @@ class SettingsScreen extends ConsumerWidget {
               ),
               if (Platform.isMacOS)
                 _Tile(
+                  title: 'Виджет на рабочем столе',
+                  subtitle:
+                      'Карточка с обложкой и кнопками под окнами. Её можно '
+                      'перетащить куда угодно',
+                  trailing: Switch(
+                    value: s.desktopWidget,
+                    onChanged: (v) => set((x) => x.copyWith(desktopWidget: v)),
+                  ),
+                ),
+              if (Platform.isMacOS)
+                _Tile(
                   title: 'Живая чёлка',
                   subtitle:
                       'На MacBook с вырезом: что играет — вокруг камеры, '

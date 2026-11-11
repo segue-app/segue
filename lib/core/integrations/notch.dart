@@ -76,6 +76,15 @@ class NotchBridge {
     }
   }
 
+  Future<void> setDesktopWidget(bool on) async {
+    if (!supported) return;
+    try {
+      await _channel.invokeMethod('desktopWidget', {'value': on});
+    } catch (e) {
+      debugPrint('desktop widget: $e');
+    }
+  }
+
   /// Re-sends what the notch shows (call when likes or remote state change).
   void refresh() {
     _debounce?.cancel();

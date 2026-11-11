@@ -59,6 +59,7 @@ dependencies:
   typed_data: ^1.4.0
   app_links: ^7.2.2
   archive: ^4.6.0
+  home_widget: ^0.10.0
 
 dev_dependencies:
   flutter_test:
