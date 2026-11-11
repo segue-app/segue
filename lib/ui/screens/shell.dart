@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 
+import 'now_playing_screen.dart';
+import '../../core/lyrics/lyrics.dart';
+
 import '../../core/settings/settings.dart';
 import '../../core/integrations/notch.dart';
 import '../../core/integrations/updates.dart';
@@ -75,7 +78,27 @@ class _ShellState extends ConsumerState<Shell> {
     HardwareKeyboard.instance.addHandler(_onKey);
     // MacBook notch: now playing in the colours of the cover.
     if (NotchBridge.supported) {
-      final notch = NotchBridge(ref.read(playerProvider))..attach();
+      final connect = ref.read(connectProvider);
+      final library = ref.read(libraryProvider);
+      final notch = NotchBridge(
+        ref.read(playerProvider),
+        isLiked: library.isLiked,
+        toggleLike: (t) => library.setLiked(t, !library.isLiked(t)),
+        lyricsFor: (t) => ref.read(lyricsProvider(t).future),
+        onOpen: () {
+          final nav = Navigator.of(context, rootNavigator: true);
+          if (topRouteName(nav) != NowPlayingScreen.routeName) {
+            nav.push(NowPlayingScreen.route());
+          }
+        },
+        remote: () => connect.playingElsewhere?.remote,
+        remoteCommand: connect.command,
+        setVolume: _volume,
+      )..attach();
+      _notch = notch;
+      // Likes and other devices' playback change what it shows.
+      library.changes.listen((_) => notch.refresh());
+      connect.relay.devices.addListener(notch.refresh);
       ref.listenManual(
         currentColorsProvider,
         (_, c) => notch.accent = c.accent,
@@ -141,6 +164,7 @@ class _ShellState extends ConsumerState<Shell> {
     ..showSnackBar(SnackBar(content: Text(msg)));
 
   StreamSubscription<Uri>? _links;
+  NotchBridge? _notch;
 
   Future<void> _onLink(Uri uri) async {
     if (uri.scheme != 'segue' || uri.host != 'pair') return;
@@ -224,6 +248,7 @@ class _ShellState extends ConsumerState<Shell> {
     _handoffs?.cancel();
     _relayHandoffs?.cancel();
     _links?.cancel();
+    _notch?.dispose();
     _downloadErrors?.cancel();
     super.dispose();
   }

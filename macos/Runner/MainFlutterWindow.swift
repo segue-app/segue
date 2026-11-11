@@ -37,6 +37,20 @@ final class NotchModel: ObservableObject {
   @Published var expanded = false
   @Published var hovering = false
   @Published var enabled = true
+  @Published var liked = false
+
+  /// Line of lyrics being sung now ("" when none).
+  @Published var lyric = ""
+
+  /// Set when the music plays on another device ("на iPhone").
+  @Published var device = ""
+
+  /// 0…1, and whether the volume HUD shows (while scrolling).
+  @Published var volume: Double = 1
+  @Published var showVolume = false
+
+  /// -1 / +1 while a two-finger swipe skips, for a nudge animation.
+  @Published var swipe: CGFloat = 0
 
   var open: Bool { expanded || hovering }
   var visible: Bool { enabled && hasTrack }
@@ -44,7 +58,9 @@ final class NotchModel: ObservableObject {
   /// Size of the black shape right now.
   var shapeSize: CGSize {
     if !visible { return CGSize(width: notchWidth, height: notchHeight) }
-    if open { return CGSize(width: 420, height: notchHeight + 104) }
+    if open {
+      return CGSize(width: 440, height: notchHeight + (lyric.isEmpty ? 142 : 170))
+    }
     // Collapsed: a little wider than the notch, cover left, bars right.
     return CGSize(width: notchWidth + 84, height: notchHeight)
   }
@@ -57,14 +73,19 @@ final class NotchModel: ObservableObject {
   var notchWidth: CGFloat = 190
   var notchHeight: CGFloat = 32
 
-  func progress(at now: Date) -> Double {
-    guard duration > 0 else { return 0 }
+  func seconds(at now: Date) -> Double {
     let p = position + (playing ? now.timeIntervalSince(positionAt) : 0)
-    return min(max(p / duration, 0), 1)
+    return duration > 0 ? min(max(p, 0), duration) : max(p, 0)
   }
 
-  /// Sends play/pause/next/prev back to the app.
-  var command: (String) -> Void = { _ in }
+  func progress(at now: Date) -> Double {
+    guard duration > 0 else { return 0 }
+    return seconds(at: now) / duration
+  }
+
+  /// Sends an action back to the app: toggle, next, prev, like, open,
+  /// seek (seconds), volume (0…1).
+  var command: (String, Double?) -> Void = { _, _ in }
 }
 
 // MARK: - Window
@@ -91,8 +112,15 @@ final class NotchController {
 
   init(channel: FlutterMethodChannel) {
     self.channel = channel
-    model.command = { [weak self] op in
-      self?.channel.invokeMethod("command", arguments: op)
+    model.command = { [weak self] op, value in
+      if op == "open" {
+        // Bring Segue forward; Flutter then opens the full player.
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first { $0 is MainFlutterWindow }?.makeKeyAndOrderFront(nil)
+      }
+      var args: [String: Any] = ["op": op]
+      if let v = value { args["value"] = v }
+      self?.channel.invokeMethod("command", arguments: args)
     }
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call)
@@ -152,6 +180,7 @@ final class NotchController {
         self?.model.hovering = inside
       }
     }
+    host.onScroll = { [weak self] e in self?.scrolled(e) }
     host.frame = NSRect(origin: .zero, size: Self.canvas)
     p.contentView = host
     panel = p
@@ -200,6 +229,9 @@ final class NotchController {
           green: Double((c >> 8) & 0xff) / 255,
           blue: Double(c & 0xff) / 255)
       }
+      model.liked = a["liked"] as? Bool ?? false
+      model.device = a["device"] as? String ?? ""
+      if !model.showVolume, let v = a["volume"] as? Double { model.volume = v }
       loadArtwork(a["artwork"] as? String ?? "")
       if !currentOpen { place() }
       // A new song once it actually plays: open for a moment to show it.
@@ -207,9 +239,60 @@ final class NotchController {
         lastTitle = title
         peek()
       }
+    case "expand":
+      // Keeps the island open (screenshots, tests).
+      peekWork?.cancel()
+      withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+        model.expanded = a["value"] as? Bool ?? false
+      }
+    case "lyric":
+      withAnimation(.easeOut(duration: 0.3)) {
+        model.lyric = a["line"] as? String ?? ""
+      }
+      if currentOpen { place() }
     default:
       break
     }
+  }
+
+  // Scroll up/down over the notch: volume. Two-finger swipe sideways:
+  // next / previous track.
+  private var swipeAccum: CGFloat = 0
+  private var swipeDone = false
+  private var volumeWork: DispatchWorkItem?
+
+  private func scrolled(_ e: NSEvent) {
+    let dx = e.scrollingDeltaX, dy = e.scrollingDeltaY
+    if e.phase == .began { swipeAccum = 0; swipeDone = false }
+    if abs(dx) > abs(dy) {
+      guard e.hasPreciseScrollingDeltas, !swipeDone else { return }
+      swipeAccum += dx
+      if abs(swipeAccum) > 70 {
+        swipeDone = true
+        let next = swipeAccum < 0
+        model.command(next ? "next" : "prev", nil)
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+          model.swipe = next ? -1 : 1
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+          withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            self?.model.swipe = 0
+          }
+        }
+      }
+      return
+    }
+    let step = e.hasPreciseScrollingDeltas ? dy / 400 : dy / 25
+    let v = min(max(model.volume + Double(step), 0), 1)
+    model.volume = v
+    model.showVolume = true
+    model.command("volume", v)
+    volumeWork?.cancel()
+    let work = DispatchWorkItem { [weak self] in
+      withAnimation(.easeOut(duration: 0.3)) { self?.model.showVolume = false }
+    }
+    volumeWork = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
   }
 
   private func peek() {
@@ -246,7 +329,10 @@ final class NotchController {
 /// (SwiftUI's onHover doesn't), and takes the first click on its buttons.
 final class HoverHostingView<Content: View>: NSHostingView<Content> {
   var onHover: (Bool) -> Void = { _ in }
+  var onScroll: (NSEvent) -> Void = { _ in }
   private var area: NSTrackingArea?
+
+  override func scrollWheel(with event: NSEvent) { onScroll(event) }
 
   override func updateTrackingAreas() {
     super.updateTrackingAreas()
@@ -344,9 +430,26 @@ struct NotchView: View {
       cover
         .frame(width: 22, height: 22)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .offset(x: model.swipe * 6)
       Spacer()
-      Bars(playing: model.playing, color: model.accent)
-        .frame(width: 20, height: 14)
+      if model.showVolume {
+        // Volume while scrolling over the notch.
+        HStack(spacing: 5) {
+          Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundColor(.white)
+          ZStack(alignment: .leading) {
+            Capsule().fill(Color.white.opacity(0.2))
+            Capsule().fill(model.accent).frame(width: 30 * model.volume)
+          }
+          .frame(width: 30, height: 4)
+        }
+        .transition(.opacity)
+      } else {
+        Bars(playing: model.playing, color: model.accent)
+          .frame(width: 20, height: 14)
+          .transition(.opacity)
+      }
     }
     .padding(.horizontal, 14)
     .frame(height: model.notchHeight)
@@ -354,53 +457,126 @@ struct NotchView: View {
 
   private var expanded: some View {
     VStack(spacing: 0) {
-      Spacer().frame(height: model.notchHeight)
+      Spacer().frame(height: model.notchHeight + 6)
       HStack(spacing: 14) {
-        cover
-          .frame(width: 62, height: 62)
-          .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-          .shadow(color: model.accent.opacity(0.45), radius: 10)
+        Button(action: { model.command("open", nil) }) {
+          cover
+            .frame(width: 58, height: 58)
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .shadow(color: model.accent.opacity(0.45), radius: 10)
+        }
+        .buttonStyle(.plain)
+        .help("Открыть Segue")
+        .offset(x: model.swipe * 14)
         VStack(alignment: .leading, spacing: 3) {
           Text(model.title)
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(.white)
             .lineLimit(1)
-          Text(model.artist)
-            .font(.system(size: 12, weight: .medium))
-            .foregroundColor(.white.opacity(0.6))
-            .lineLimit(1)
-          TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
-            GeometryReader { g in
-              ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.15))
-                Capsule().fill(model.accent)
-                  .frame(width: g.size.width * model.progress(at: ctx.date))
+          HStack(spacing: 5) {
+            Text(model.artist)
+              .font(.system(size: 12, weight: .medium))
+              .foregroundColor(.white.opacity(0.6))
+              .lineLimit(1)
+            if !model.device.isEmpty {
+              // Playing on another of your devices.
+              HStack(spacing: 3) {
+                Image(systemName: "iphone").font(.system(size: 9, weight: .bold))
+                Text("на \(model.device)").font(.system(size: 10, weight: .bold))
               }
+              .foregroundColor(model.accent)
+              .padding(.horizontal, 6).padding(.vertical, 2)
+              .background(Capsule().fill(model.accent.opacity(0.18)))
             }
-            .frame(height: 4)
           }
-          .padding(.top, 6)
         }
-        HStack(spacing: 4) {
-          button("backward.fill", "prev", size: 15)
-          button(model.playing ? "pause.fill" : "play.fill", "toggle", size: 22)
-          button("forward.fill", "next", size: 15)
+        Spacer(minLength: 0)
+        Button(action: { model.command("like", nil) }) {
+          Image(systemName: model.liked ? "heart.fill" : "heart")
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundColor(model.liked ? Color(red: 1, green: 0.42, blue: 0.5) : .white.opacity(0.75))
+            .frame(width: 34, height: 34)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
       }
-      .padding(.horizontal, 20)
-      .padding(.vertical, 14)
+      Seeker(model: model).padding(.top, 10)
+      if !model.lyric.isEmpty {
+        Text(model.lyric)
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundColor(model.accent)
+          .lineLimit(1)
+          .frame(maxWidth: .infinity)
+          .padding(.top, 8)
+          .id(model.lyric)
+          .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .opacity))
+      }
+      HStack(spacing: 18) {
+        button("backward.fill", "prev", size: 16)
+        button(model.playing ? "pause.fill" : "play.fill", "toggle", size: 24)
+        button("forward.fill", "next", size: 16)
+      }
+      .padding(.top, 4)
     }
+    .padding(.horizontal, 22)
+    .padding(.bottom, 10)
   }
 
   private func button(_ symbol: String, _ op: String, size: CGFloat) -> some View {
-    Button(action: { model.command(op) }) {
+    Button(action: { model.command(op, nil) }) {
       Image(systemName: symbol)
         .font(.system(size: size, weight: .bold))
         .foregroundColor(.white)
-        .frame(width: 34, height: 34)
+        .frame(width: 38, height: 34)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+  }
+}
+
+/// Progress you can click or drag to seek, with the times on both sides.
+struct Seeker: View {
+  @ObservedObject var model: NotchModel
+  @State private var drag: Double?
+
+  private func time(_ s: Double) -> String {
+    let t = Int(s.rounded())
+    return String(format: "%d:%02d", t / 60, t % 60)
+  }
+
+  var body: some View {
+    TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
+      let f = drag ?? model.progress(at: ctx.date)
+      HStack(spacing: 8) {
+        Text(time(drag.map { $0 * model.duration } ?? model.seconds(at: ctx.date)))
+          .frame(width: 34, alignment: .trailing)
+        GeometryReader { g in
+          ZStack(alignment: .leading) {
+            Capsule().fill(Color.white.opacity(0.15))
+            Capsule().fill(model.accent).frame(width: g.size.width * f)
+          }
+          .frame(height: drag == nil ? 4 : 6)
+          .frame(maxHeight: .infinity)
+          .contentShape(Rectangle())
+          .gesture(
+            DragGesture(minimumDistance: 0)
+              .onChanged { v in drag = min(max(v.location.x / g.size.width, 0), 1) }
+              .onEnded { v in
+                let x = min(max(v.location.x / g.size.width, 0), 1)
+                model.command("seek", x * model.duration)
+                model.position = x * model.duration
+                model.positionAt = Date()
+                drag = nil
+              })
+        }
+        .frame(height: 14)
+        Text(time(model.duration)).frame(width: 34, alignment: .leading)
+      }
+      .font(.system(size: 10, weight: .medium).monospacedDigit())
+      .foregroundColor(.white.opacity(0.55))
+    }
   }
 }
 

@@ -27,7 +27,10 @@ import '../widgets/wavy_progress.dart';
 class NowPlayingScreen extends ConsumerStatefulWidget {
   const NowPlayingScreen({super.key});
 
+  static const routeName = '/now-playing';
+
   static Route<void> route() => PageRouteBuilder(
+    settings: const RouteSettings(name: routeName),
     opaque: false,
     transitionDuration: SegueMotion.slow,
     reverseTransitionDuration: SegueMotion.medium,
