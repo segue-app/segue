@@ -82,3 +82,28 @@ variant('icon_square.svg', radius=0)                         # iOS, Android lega
 variant('icon_macos.svg', inset=100, radius=185, shadow=True)  # macOS tile
 variant('icon_foreground.svg', bg=False, mark_scale=0.78)    # Android adaptive
 variant('icon_rounded.svg')                                  # Windows, Linux, web
+
+def social(name='social_preview.svg'):
+    """1280x640 card for link previews (GitHub social preview)."""
+    s = 0.8
+    m = mark(scale=s, ox=265 - 512 * s, oy=320 - 512 * s)
+    chips = ['YouTube', 'SoundCloud', 'Lyrics', 'Equalizer', 'Sync']
+    x, out = 504, []
+    for c in chips:
+        w = 30 + len(c) * 13
+        out.append(f'<rect x="{x}" y="430" width="{w:.0f}" height="44" rx="22" fill="#ffffff" fill-opacity="0.08"/>'
+                   f'<text x="{x + w/2:.0f}" y="459" text-anchor="middle" font-size="22" font-weight="600" fill="#E9E4F0">{c}</text>')
+        x += w + 12
+    open(name, 'w').write(f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<defs>{INK}{BG}
+<radialGradient id="g2" cx="0.25" cy="0.5" r="0.6"><stop offset="0" stop-color="#FF5E8A" stop-opacity="0.30"/><stop offset="0.5" stop-color="#7B5CFF" stop-opacity="0.10"/><stop offset="1" stop-color="#7B5CFF" stop-opacity="0"/></radialGradient></defs>
+<rect width="1280" height="640" fill="url(#bg)"/><rect width="1280" height="640" fill="url(#g2)"/>
+{m}
+<text x="498" y="280" font-size="124" font-weight="800" letter-spacing="-5" fill="#F6F2FA">Segue</text>
+<text x="504" y="352" font-size="32" font-weight="500" fill="#B9B2C6">Open-source music player for every device</text>
+{''.join(out)}
+<text x="504" y="548" font-size="22" font-weight="500" fill="#7E768C">Android · iOS · Windows · macOS · Linux</text>
+</svg>''')
+
+social()
+variant('avatar.svg', radius=0, mark_scale=1.25)
