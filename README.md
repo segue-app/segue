@@ -24,7 +24,9 @@ codebase.
 
 **Sound**
 - 10-band equalizer with presets, speed and pitch
-- Smooth transitions between tracks
+- DJ-style mixing: overlapping crossfades, the next song brought to the
+  current tempo, spoken intros and end skits of music videos skipped
+  (SponsorBlock)
 - Trim any track to the part you want
 - Sleep timer that fades out
 
@@ -40,6 +42,15 @@ codebase.
 - Likes, playlists (with their tracks) and history stay in sync everywhere
 - Spotify Connect–style: see what plays on which device, move it with one
   tap, and use your phone as a remote for your computer
+- Listen together: share a code or link and friends hear the same song at
+  the same moment on their own devices, and add to the shared queue
+- Bring your whole library: a Yandex Music profile, or Spotify via
+  Exportify / your Spotify data export
+
+**On your desktop and home screen**
+- MacBook "living notch": now playing around the camera, opens on hover
+  with controls, seek, like; scroll for volume, swipe to skip
+- Desktop now-playing card on macOS, home-screen widget on Android
 
 **Integrations**
 - Last.fm scrobbling (with your own API key)

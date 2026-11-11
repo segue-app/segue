@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 /// This build's version; keep in step with pubspec.yaml.
-const appVersion = '0.2.1';
+const appVersion = '0.3.0';
 
 /// GitHub repository releases are published in.
 const appRepo = 'segue-app/segue';
