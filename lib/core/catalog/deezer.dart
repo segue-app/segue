@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../lyrics/lyrics.dart';
 import '../models/track.dart';
 
 class Artist {
@@ -211,6 +212,36 @@ class Catalog {
 
   /// Tempo of a song (beats per minute), when Deezer knows it; folded into
   /// 80…160 so half- and double-time readings compare.
+  /// The album cover (1000×1000) of a song, if Deezer has the same one:
+  /// for imported songs, which otherwise only have a video thumbnail.
+  Future<String?> cover(String artist, String title, {Duration? length}) async {
+    final found = _data(
+      await _get(
+        'search/track?q=${Uri.encodeQueryComponent('$artist $title')}&limit=10',
+      ),
+    );
+    final want = (artist: artist, title: title);
+    String? best;
+    var bestScore = 0.0;
+    for (final j in found.cast<Map>()) {
+      final secs = j['duration'] as int?;
+      final s = LyricsService.similarity(
+        want,
+        length,
+        j['title'] as String? ?? '',
+        (j['artist'] as Map?)?['name'] as String? ?? '',
+        secs == null ? null : Duration(seconds: secs),
+      );
+      final album = j['album'] as Map?;
+      final url = (album?['cover_xl'] ?? album?['cover_big']) as String?;
+      if (s > bestScore && url != null) {
+        bestScore = s;
+        best = url;
+      }
+    }
+    return best;
+  }
+
   Future<double?> bpm(String artist, String title) async {
     final key = '${artist.toLowerCase()}|${title.toLowerCase()}';
     if (_bpm.containsKey(key)) return _bpm[key];

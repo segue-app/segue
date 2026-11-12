@@ -6,6 +6,7 @@ import '../library/library_store.dart';
 import '../models/track.dart';
 import '../player/player_handler.dart';
 import 'deezer.dart';
+import 'taste.dart';
 import 'wave_settings.dart';
 
 /// "Волна": endless radio built from Deezer's artist radios.
@@ -14,10 +15,14 @@ import 'wave_settings.dart';
 /// artists you like and listen to. Recently played tracks are skipped and
 /// the queue refills itself as it runs out.
 class Wave {
-  Wave(this.catalog, this.library, this.player);
+  Wave(this.catalog, this.library, this.player, {Taste? taste})
+    : taste = taste ?? Taste(library);
 
   final Catalog catalog;
   final LibraryStore library;
+
+  /// What you like, learnt from listening (skips, songs played through).
+  final Taste taste;
 
   /// Null in tests that only build batches.
   final SegueAudioHandler? player;
@@ -73,13 +78,25 @@ class Wave {
 
   /// Seeds: artists you like and play most, a few at random each time.
   Future<List<int>> _mySeeds({bool likedOnly = false}) async {
-    final names = <String, int>{};
+    final names = <String, double>{};
     for (final t in library.likedTracks().take(200)) {
       names[t.artist] = (names[t.artist] ?? 0) + 3;
     }
     if (!likedOnly) {
       for (final t in library.recentlyPlayed(limit: 100)) {
         names[t.artist] = (names[t.artist] ?? 0) + 1;
+      }
+      // Artists you listen to through: more; ones you keep skipping: out.
+      for (final a in taste.favourites()) {
+        names[a] = (names[a] ?? 0) + 4;
+      }
+    }
+    for (final k in names.keys.toList()) {
+      final feel = taste.artist(k);
+      if (feel <= -3) {
+        names.remove(k);
+      } else {
+        names[k] = names[k]! + feel;
       }
     }
     final ranked = names.entries.where((e) => e.key.trim().isNotEmpty).toList()
@@ -147,7 +164,9 @@ class Wave {
             _languageOk(t, settings.language))
           t,
     ];
-    if (out.isNotEmpty) return out;
+    // Your taste orders it (and drops what you keep skipping).
+    final ordered = taste.order(out, _rnd);
+    if (ordered.isNotEmpty) return ordered;
     // Filters too narrow for what we found: better something than nothing.
     final chart = await catalog.chart(limit: 50)
       ..shuffle(_rnd);

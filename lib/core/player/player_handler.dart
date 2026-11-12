@@ -49,6 +49,10 @@ class SegueAudioHandler extends BaseAudioHandler
         ),
       ) {
     final s = _player.stream;
+    // "Until the end of this track" must not slide into the queued next.
+    sleepAfterTrack.addListener(() {
+      if (sleepAfterTrack.value) _dropGapless();
+    });
     s.playing.listen((p) {
       // Stopping the old song for the next one isn't a pause.
       if (_switching) return;
@@ -77,11 +81,19 @@ class SegueAudioHandler extends BaseAudioHandler
       }
       _fadeAt(pos);
       _maybeMix(pos);
+      _maybeQueueNext(pos);
       // A trimmed track ends where its trim says.
       final end = _trimEnd;
       if (end != null && pos >= end && !_loading && !_endedByTrim) {
         _endedByTrim = true;
         _trackEnded();
+      }
+    });
+    // The next song, queued in mpv itself, has started: no gap at all.
+    s.playlist.listen((pl) {
+      final g = _gapless;
+      if (g != null && pl.index == 1 && pl.medias.length >= 2) {
+        _advanceGapless(g);
       }
     });
     s.duration.listen((d) {
@@ -99,6 +111,12 @@ class SegueAudioHandler extends BaseAudioHandler
   }
 
   void _trackEnded() {
+    _leaving(skipped: false);
+    // A trimmed end with the next song queued: mpv moves on seamlessly.
+    if (_gapless != null && !sleepAfterTrack.value) {
+      unawaited(_player.next());
+      return;
+    }
     if (sleepAfterTrack.value) {
       // Sleep timer "until the end of the track": stay on it, paused.
       sleepAfterTrack.value = false;
@@ -201,6 +219,7 @@ class SegueAudioHandler extends BaseAudioHandler
   final waveTitle = ValueNotifier<String?>(null);
 
   void _queueChanged() {
+    _checkGapless();
     queue.add(_tracks.map(_toMediaItem).toList());
     queueVersion.value++;
     _changed();
@@ -251,6 +270,45 @@ class SegueAudioHandler extends BaseAudioHandler
     _tracks.insert(_index + 1, t);
     _queueChanged();
     _prefetchNext();
+  }
+
+  /// Corrected song data (e.g. an artist name fixed in the library):
+  /// updates the queue and what's shown as playing.
+  void updateTracks(Map<String, Track> byKey) {
+    var changed = false;
+    for (var i = 0; i < _tracks.length; i++) {
+      final fixed = byKey[_tracks[i].key];
+      if (fixed != null) {
+        _tracks[i] = fixed;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    _queueChanged();
+    final t = current;
+    if (t != null && byKey.containsKey(t.key)) {
+      final item = mediaItem.value;
+      mediaItem.add(
+        _toMediaItem(t).copyWith(duration: item?.duration ?? t.duration),
+      );
+    }
+  }
+
+  /// Takes upcoming songs matching [test] out of the queue (the wave
+  /// dropping an artist you just skipped twice).
+  void removeUpcomingWhere(bool Function(Track t) test) {
+    if (_out != null) return;
+    final before = _tracks.length;
+    final head = _tracks.sublist(0, _index + 1);
+    final rest = _tracks.sublist(_index + 1)..removeWhere(test);
+    if (head.length + rest.length == before) return;
+    _tracks
+      ..clear()
+      ..addAll(head)
+      ..addAll(rest);
+    _queueChanged();
+    _prefetchNext();
+    unawaited(_maybeRefill());
   }
 
   /// Moves a queue item (drag & drop in the queue view). [to] is the final
@@ -308,6 +366,9 @@ class SegueAudioHandler extends BaseAudioHandler
     if (i < 0 || i >= _tracks.length) return;
     // A skip in the middle of a mix ends it at once.
     if (!mixing) _stopMix();
+    // Opening replaces mpv's playlist, queued next song included.
+    _gapless = null;
+    _leaving(skipped: !mixing);
     _index = i;
     queueVersion.value++;
     unawaited(_maybeRefill());
@@ -363,6 +424,8 @@ class SegueAudioHandler extends BaseAudioHandler
       if (_trimEnd == null && auto?.end != null) _trimEnd = auto!.end;
       _currentUri = uri;
       _currentHls = info.hls;
+      _normGain = _gainFor(track, info.loudnessDb);
+      if (!mixing) await _applyVolume();
       // In a mix the new song starts silent; the mix fades it in.
       if (mixing) {
         _edgeGain = 0;
@@ -562,9 +625,187 @@ class SegueAudioHandler extends BaseAudioHandler
     await _mpv('speed', (_fx.mpvSpeed * t).toStringAsFixed(6));
   }
 
+  // --- gapless ---------------------------------------------------------------
+
+  /// The next song, already in mpv's playlist behind the current one.
+  ({
+    int index,
+    String key,
+    int token,
+    StreamInfo info,
+    String uri,
+    Duration? start,
+    Duration? end,
+  })?
+  _gapless;
+  bool _gaplessPreparing = false;
+
+  /// Without crossfade, songs follow each other with no gap at all: near
+  /// the end of one, the next is handed to mpv, which plays it the moment
+  /// this one ends (live albums and DJ sets flow on).
+  void _maybeQueueNext(Duration pos) {
+    if (fadeSeconds >= 1 ||
+        _gapless != null ||
+        _gaplessPreparing ||
+        _loading ||
+        _mix != null ||
+        _out != null ||
+        sleepAfterTrack.value ||
+        _index >= _tracks.length - 1 ||
+        !_player.state.playing) {
+      return;
+    }
+    final end = _trimEnd ?? mediaItem.value?.duration;
+    if (end == null) return;
+    final left = end - pos;
+    if (left > const Duration(seconds: 15) ||
+        left < const Duration(seconds: 2)) {
+      return;
+    }
+    unawaited(_queueNext());
+  }
+
+  Future<void> _queueNext() async {
+    _gaplessPreparing = true;
+    final token = _loadToken;
+    final i = _index + 1;
+    final next = _tracks[i];
+    bool stillSame() =>
+        token == _loadToken &&
+        _index + 1 == i &&
+        i < _tracks.length &&
+        _tracks[i].key == next.key &&
+        _mix == null &&
+        _out == null &&
+        fadeSeconds < 1;
+    try {
+      final local = localPathFor?.call(next);
+      final isLocal = local != null && File(local).existsSync();
+      final info = isLocal
+          ? StreamInfo(Uri.file(local), duration: next.duration)
+          : await _resolve(next);
+      if (!stillSame()) return;
+      final uri = await _playableUri(info);
+      final trim = trimFor?.call(next);
+      var start = trim?.start;
+      var end = trim?.end;
+      if (skipIntros && autoBounds != null) {
+        final auto = await autoBounds!(next)
+            .timeout(const Duration(milliseconds: 700))
+            .catchError((Object _) => null);
+        start ??= auto?.start;
+        end ??= auto?.end;
+      }
+      if (!stillSame()) return;
+      await _player.add(Media(uri, start: start));
+      _gapless = (
+        index: i,
+        key: next.key,
+        token: token,
+        info: info,
+        uri: uri,
+        start: start,
+        end: end,
+      );
+    } catch (e) {
+      debugPrint('gapless ${next.title}: $e');
+    } finally {
+      _gaplessPreparing = false;
+    }
+  }
+
+  /// The queued song plays now: catch up with it (no reopening).
+  void _advanceGapless(
+    ({
+      int index,
+      String key,
+      int token,
+      StreamInfo info,
+      String uri,
+      Duration? start,
+      Duration? end,
+    })
+    g,
+  ) {
+    _gapless = null;
+    if (g.index >= _tracks.length || _tracks[g.index].key != g.key) return;
+    _leaving(skipped: false);
+    final track = _tracks[g.index];
+    _index = g.index;
+    final token = ++_loadToken;
+    _openedToken = token;
+    _trimStart = g.start;
+    _trimEnd = g.end;
+    _endedByTrim = false;
+    _currentUri = g.uri;
+    _currentHls = g.info.hls;
+    _normGain = _gainFor(track, g.info.loudnessDb);
+    unawaited(_applyVolume());
+    _onCopy = false;
+    _copy = null;
+    if (g.info.hls &&
+        track.source != SourceKind.youtube &&
+        seekableCopy != null) {
+      _copy = seekableCopy!(g.info, track)..ignore();
+    }
+    final item = _toMediaItem(track);
+    mediaItem.add(
+      g.info.duration == null ? item : item.copyWith(duration: g.info.duration),
+    );
+    queueVersion.value++;
+    unawaited(_maybeRefill());
+    onTrackStarted?.call(track);
+    _changed();
+    _broadcastState();
+    _prefetchNext();
+    // Keep mpv's playlist to the one song that plays.
+    unawaited(_player.remove(0));
+  }
+
+  /// Takes a queued next song back out of mpv's playlist.
+  void _dropGapless() {
+    if (_gapless == null) return;
+    _gapless = null;
+    unawaited(_player.remove(1));
+  }
+
+  /// Told when a song is left, for learning taste: how long it played,
+  /// how long it is, and whether it was skipped (not played to its end).
+  void Function(Track track, Duration played, Duration? length, bool skipped)?
+  onTrackLeft;
+  int _leftToken = -1;
+
+  void _leaving({required bool skipped}) {
+    final t = current;
+    if (t == null || _out != null || _switching || _leftToken == _loadToken) {
+      return;
+    }
+    _leftToken = _loadToken;
+    final start = _trimStart ?? Duration.zero;
+    final end = _trimEnd ?? mediaItem.value?.duration;
+    onTrackLeft?.call(
+      t,
+      _player.state.position - start,
+      end == null ? null : end - start,
+      skipped,
+    );
+  }
+
+  /// The queue changed under a queued next song: take it back out.
+  void _checkGapless() {
+    final g = _gapless;
+    if (g == null) return;
+    if (_index + 1 < _tracks.length && _tracks[_index + 1].key == g.key) {
+      return;
+    }
+    _gapless = null;
+    unawaited(_player.remove(1));
+  }
+
   void _maybeMix(Duration pos) {
     if (fadeSeconds < 1 ||
         _mix != null ||
+        _gapless != null ||
         _mixStarting ||
         _loading ||
         sleepAfterTrack.value ||
@@ -607,7 +848,8 @@ class SegueAudioHandler extends BaseAudioHandler
         );
         await native.setProperty('af', _fx.mpvFilters);
       }
-      await tail.setVolume(volume.value * _sleepGain * 100);
+      _tailNormGain = _normGain;
+      await tail.setVolume(volume.value * _sleepGain * _tailNormGain * 100);
       final from = pos + const Duration(milliseconds: 350);
       await tail.open(Media(uri, start: from), play: true);
       await tail.stream.position
@@ -655,7 +897,11 @@ class SegueAudioHandler extends BaseAudioHandler
       _edgeGain = math.sin(x * math.pi / 2);
       _applyVolume();
       tail.setVolume(
-        volume.value * _sleepGain * 100 * math.cos(x * math.pi / 2),
+        volume.value *
+            _sleepGain *
+            _tailNormGain *
+            100 *
+            math.cos(x * math.pi / 2),
       );
       if (x >= 1) {
         t.cancel();
@@ -711,13 +957,53 @@ class SegueAudioHandler extends BaseAudioHandler
     'playing': _localPlaying,
     'volume': volume.value,
     'durationMs': mediaItem.value?.duration?.inMilliseconds,
+    // Imported songs play a YouTube version found on this device; the
+    // other device must play exactly the same one, not search anew.
+    'matches': _matchesAround(),
   };
+
+  /// The exact versions imported songs play here (found on YouTube or
+  /// chosen by hand), and how to take them from another device.
+  Track? Function(Track imported)? matchOf;
+  void Function(Track imported, Track version)? adoptMatch;
+
+  Map<String, dynamic> _matchesAround() {
+    final out = <String, dynamic>{};
+    final f = matchOf;
+    if (f == null || _index < 0) return out;
+    for (var i = _index; i < _tracks.length && i <= _index + 5; i++) {
+      final t = _tracks[i];
+      if (t.source != SourceKind.match) continue;
+      final m = f(t);
+      if (m != null) out[t.key] = m.toJson();
+    }
+    return out;
+  }
+
+  /// Takes the versions a snapshot from another device came with.
+  void adoptMatches(Map<String, dynamic> snap) {
+    final adopt = adoptMatch;
+    final m = snap['matches'];
+    if (adopt == null || m is! Map) return;
+    final queue = [
+      for (final j in (snap['queue'] as List? ?? const []))
+        Track.fromJson((j as Map).cast<String, dynamic>()),
+    ];
+    for (final t in queue) {
+      final v = m[t.key];
+      if (v is Map) {
+        adopt(t, Track.fromJson(v.cast<String, dynamic>()));
+        _resolved.remove(t.key); // a stream for another version, if any
+      }
+    }
+  }
 
   /// Continues a [snapshot] taken on another device.
   @override
   Future<void> restore(Map<String, dynamic> snap) async {
     // Music arrives here: this device plays again, it's not a remote.
     leaveRemote();
+    adoptMatches(snap);
     final queue = [
       for (final j in (snap['queue'] as List? ?? const []))
         Track.fromJson((j as Map).cast<String, dynamic>()),
@@ -755,8 +1041,45 @@ class SegueAudioHandler extends BaseAudioHandler
     return _applyVolume();
   }
 
-  Future<void> _applyVolume() =>
-      _player.setVolume(volume.value * _edgeGain * _sleepGain * 100);
+  Future<void> _applyVolume() => _player.setVolume(
+    volume.value * _edgeGain * _sleepGain * _normGain * 100,
+  );
+
+  /// Evens out loudness between tracks ("Выравнивать громкость").
+  bool normalize = true;
+
+  /// Loudness remembered for tracks played before (cached or downloaded
+  /// copies don't come with it), and where to remember new ones.
+  double? Function(Track track)? storedLoudness;
+  void Function(Track track, double loudnessDb)? saveLoudness;
+
+  /// This track's correction (1 = as is).
+  double _normGain = 1;
+  double _tailNormGain = 1;
+
+  /// Where tracks are brought to, in YouTube's loudness terms: most of
+  /// today's music sits 5–9 dB above YouTube's (quiet) reference, so
+  /// levelling to the reference itself made nearly everything quieter.
+  /// Around this level typical songs stay as they are, the loudest come
+  /// down a little and quiet ones (old records, acoustic) come up.
+  static const _targetDb = 6.0;
+
+  double _gainFor(Track track, double? loudnessDb) {
+    final db = loudnessDb ?? storedLoudness?.call(track);
+    if (loudnessDb != null) saveLoudness?.call(track, loudnessDb);
+    if (!normalize || db == null) return 1;
+    // Up by at most 3 dB: more would distort without a limiter.
+    return math.pow(10, (_targetDb - db).clamp(-9.0, 3.0) / 20).toDouble();
+  }
+
+  /// Switches normalisation on or off for what plays now too.
+  Future<void> setNormalize(bool on) async {
+    if (on == normalize) return;
+    normalize = on;
+    final t = current;
+    _normGain = t == null ? 1 : _gainFor(t, null);
+    await _applyVolume();
+  }
 
   /// Called on every position update: shapes the volume at track edges.
   void _fadeAt(Duration pos) {
@@ -944,8 +1267,7 @@ class SegueAudioHandler extends BaseAudioHandler
   bool get isPlaying => _out != null ? _remotePlaying : _localPlaying;
 
   /// Where playback is now, here or on the device this one controls.
-  Duration get position =>
-      _out != null ? _remotePosition() : _localPosition;
+  Duration get position => _out != null ? _remotePosition() : _localPosition;
 
   /// Becomes the remote for device [id]: this player stops making sound and
   /// shows what plays there; its buttons control it.
@@ -956,6 +1278,7 @@ class SegueAudioHandler extends BaseAudioHandler
   ) {
     if (_out == null) _localVolume = volume.value;
     _stopMix();
+    _dropGapless();
     _player.pause();
     _out = _Output(id, send);
     output.value = name;
@@ -1055,7 +1378,7 @@ class SegueAudioHandler extends BaseAudioHandler
 
   MediaItem _toMediaItem(Track t) => MediaItem(
     id: t.key,
-    title: t.title,
+    title: t.displayTitle,
     artist: t.artist,
     duration: t.duration,
     artUri: t.artworkUrl == null

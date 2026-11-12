@@ -267,6 +267,16 @@ class YouTubeSource implements MusicSource, FileSource {
     }
     final streaming = data['streamingData'] as Map<String, dynamic>? ?? {};
     final duration = _approxDuration(streaming);
+    // Each audio format says how far the track is above YouTube's
+    // reference loudness.
+    double? loudness;
+    for (final f in (streaming['adaptiveFormats'] as List? ?? const [])) {
+      final db = ((f as Map)['loudnessDb'] as num?)?.toDouble();
+      if (db != null && '${f['mimeType']}'.startsWith('audio/')) {
+        loudness = db;
+        break;
+      }
+    }
 
     // Best option: the audio-only HLS rendition. Every platform player
     // handles HLS natively, with exact duration and seeking.
@@ -274,7 +284,12 @@ class YouTubeSource implements MusicSource, FileSource {
     if (hlsUrl != null) {
       final audio = await _hlsAudioPlaylist(hlsUrl);
       if (audio != null) {
-        return StreamInfo(audio, hls: true, duration: duration);
+        return StreamInfo(
+          audio,
+          hls: true,
+          duration: duration,
+          loudnessDb: loudness,
+        );
       }
     }
 
@@ -304,6 +319,7 @@ class YouTubeSource implements MusicSource, FileSource {
       mimeType: (best['mimeType'] as String).split(';').first,
       chunked: true,
       duration: duration,
+      loudnessDb: loudness,
     );
   }
 

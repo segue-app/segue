@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/integrations/lastfm.dart';
+import '../../core/downloads/audio_cache.dart';
 import '../../core/integrations/updater.dart';
 import '../../core/integrations/updates.dart';
 import '../../core/settings/settings.dart';
@@ -149,6 +150,16 @@ class SettingsScreen extends ConsumerWidget {
                   onChanged: (v) => set((x) => x.copyWith(skipIntros: v)),
                 ),
               ),
+              _Tile(
+                title: 'Выравнивать громкость',
+                subtitle: 'Громкие и тихие треки звучат одинаково',
+                trailing: Switch(
+                  value: s.normalizeVolume,
+                  onChanged: (v) =>
+                      set((x) => x.copyWith(normalizeVolume: v)),
+                ),
+              ),
+              const _CacheTile(),
               const _Section('Цвет акцента'),
               _Tile(
                 title: 'Брать из обложки',
@@ -943,4 +954,46 @@ class _NavTile extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// "Сохранять недавние треки": switch, size, clear.
+class _CacheTile extends ConsumerWidget {
+  const _CacheTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider);
+    final cache = ref.read(audioCacheProvider);
+    return ValueListenableBuilder<int>(
+      valueListenable: cache.bytes,
+      builder: (context, bytes, _) {
+        final mb = (bytes / (1024 * 1024)).round();
+        return _Tile(
+          title: 'Сохранять недавние треки',
+          subtitle:
+              'До ${AudioCache.maxTracks} последних треков хранятся на '
+              'устройстве: запускаются сразу и играют без интернета. На '
+              'телефоне — только по Wi-Fi.'
+              '${bytes > 0 ? ' Сейчас $mb МБ.' : ''}',
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (bytes > 0)
+                IconButton(
+                  tooltip: 'Очистить',
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: cache.clear,
+                ),
+              Switch(
+                value: s.offlineCache,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .update((x) => x.copyWith(offlineCache: v)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }

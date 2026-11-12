@@ -24,9 +24,11 @@ final bool lightEffects =
     Platform.isAndroid || Platform.isWindows || Platform.isLinux;
 
 abstract final class SegueMotion {
-  static const fast = Duration(milliseconds: 180);
-  static const medium = Duration(milliseconds: 380);
-  static const slow = Duration(milliseconds: 700);
+  // Quick enough to feel instant, long enough to be seen: a press
+  // answers in 150 ms, a panel settles in 280, a whole screen in 480.
+  static const fast = Duration(milliseconds: 150);
+  static const medium = Duration(milliseconds: 280);
+  static const slow = Duration(milliseconds: 480);
   static const ease = Curves.easeOutCubic;
 
   /// Slight overshoot, reads as a soft spring.

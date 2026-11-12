@@ -287,6 +287,8 @@ class JamService {
       ],
       'positionMs': snap['positionMs'],
       'durationMs': snap['durationMs'],
+      // Guests play the very same YouTube version of imported songs.
+      'matches': snap['matches'],
       'playing': snap['playing'] == true,
       'at': DateTime.now().millisecondsSinceEpoch,
     }, retain: true);
@@ -351,6 +353,7 @@ class JamService {
       try {
         await player.restore({
           'queue': [track],
+          'matches': j['matches'],
           'index': 0,
           // Loading takes a moment: aim a little ahead.
           'positionMs': _hostPosition().inMilliseconds + 800,

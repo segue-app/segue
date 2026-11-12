@@ -409,7 +409,7 @@ class _Shelf extends ConsumerWidget {
                     Artwork(url: t.artworkUrl, size: 148, radius: 20),
                     const SizedBox(height: 10),
                     Text(
-                      t.title,
+                      t.displayTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w700),

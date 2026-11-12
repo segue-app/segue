@@ -80,7 +80,7 @@ Future<void> showTrackActions(
             ListTile(
               leading: Artwork(url: track.artworkUrl, size: 48, radius: 12),
               title: Text(
-                track.title,
+                track.displayTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w700),

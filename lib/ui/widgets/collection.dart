@@ -76,6 +76,7 @@ class TrackCollectionView extends ConsumerWidget {
     this.subtitle,
     this.actions = const [],
     this.onRemove,
+    this.onReorder,
     this.emptyText = 'Здесь пока пусто',
   });
 
@@ -85,6 +86,10 @@ class TrackCollectionView extends ConsumerWidget {
   final Widget cover;
   final List<Widget> actions;
   final void Function(Track track)? onRemove;
+
+  /// Your own playlists: tracks can be dragged into another order
+  /// (from, to as the final index).
+  final void Function(int from, int to)? onReorder;
   final String emptyText;
 
   @override
@@ -180,19 +185,61 @@ class TrackCollectionView extends ConsumerWidget {
         else
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-            sliver: SliverList.builder(
-              itemCount: tracks.length,
-              itemBuilder: (context, i) => StaggeredEntrance(
-                index: i % 12,
-                child: TrackTile(
-                  tracks: tracks,
-                  index: i,
-                  onRemove: onRemove == null
-                      ? null
-                      : () => onRemove!(tracks[i]),
-                ),
-              ),
-            ),
+            sliver: onReorder != null
+                ? SliverReorderableList(
+                    itemCount: tracks.length,
+                    onReorderItem: (from, to) => onReorder!(from, to),
+                    proxyDecorator: (child, _, _) => Material(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      child: child,
+                    ),
+                    itemBuilder: (context, i) => Row(
+                      key: ValueKey(tracks[i].key),
+                      children: [
+                        Expanded(
+                          child: TrackTile(
+                            tracks: tracks,
+                            index: i,
+                            onRemove: onRemove == null
+                                ? null
+                                : () => onRemove!(tracks[i]),
+                          ),
+                        ),
+                        // Grab here to move the song (a long press on
+                        // the song itself opens its menu).
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: const MouseRegion(
+                            cursor: SystemMouseCursors.grab,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 14,
+                              ),
+                              child: Icon(
+                                Icons.drag_handle_rounded,
+                                color: SegueColors.textDim,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : SliverList.builder(
+                    itemCount: tracks.length,
+                    itemBuilder: (context, i) => StaggeredEntrance(
+                      index: i % 12,
+                      child: TrackTile(
+                        tracks: tracks,
+                        index: i,
+                        onRemove: onRemove == null
+                            ? null
+                            : () => onRemove!(tracks[i]),
+                      ),
+                    ),
+                  ),
           ),
       ],
     );

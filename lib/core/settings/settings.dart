@@ -47,6 +47,8 @@ class AppSettings {
     this.lyricsTranslate = false,
     this.notchIsland = true,
     this.skipIntros = true,
+    this.normalizeVolume = true,
+    this.offlineCache = true,
     this.matchTempo = true,
     this.desktopWidget = false,
   });
@@ -99,6 +101,12 @@ class AppSettings {
   /// Skip spoken intros / end skits of music videos (SponsorBlock).
   final bool skipIntros;
 
+  /// Even out loudness between tracks.
+  final bool normalizeVolume;
+
+  /// Keep recently played tracks on the device: instant start, offline.
+  final bool offlineCache;
+
   /// Mixes bring the next song to the current tempo, like a DJ.
   final bool matchTempo;
 
@@ -147,6 +155,8 @@ class AppSettings {
     bool? lyricsTranslate,
     bool? notchIsland,
     bool? skipIntros,
+    bool? normalizeVolume,
+    bool? offlineCache,
     bool? matchTempo,
     bool? desktopWidget,
   }) => AppSettings(
@@ -172,6 +182,8 @@ class AppSettings {
     lyricsTranslate: lyricsTranslate ?? this.lyricsTranslate,
     notchIsland: notchIsland ?? this.notchIsland,
     skipIntros: skipIntros ?? this.skipIntros,
+    normalizeVolume: normalizeVolume ?? this.normalizeVolume,
+    offlineCache: offlineCache ?? this.offlineCache,
     matchTempo: matchTempo ?? this.matchTempo,
     desktopWidget: desktopWidget ?? this.desktopWidget,
   );
@@ -199,6 +211,8 @@ class AppSettings {
     'lyricsTranslate': lyricsTranslate,
     'notchIsland': notchIsland,
     'skipIntros': skipIntros,
+    'normalizeVolume': normalizeVolume,
+    'offlineCache': offlineCache,
     'matchTempo': matchTempo,
     'desktopWidget': desktopWidget,
   };
@@ -234,6 +248,8 @@ class AppSettings {
       lyricsTranslate: pick('lyricsTranslate', d.lyricsTranslate),
       notchIsland: pick('notchIsland', d.notchIsland),
       skipIntros: pick('skipIntros', d.skipIntros),
+      normalizeVolume: pick('normalizeVolume', d.normalizeVolume),
+      offlineCache: pick('offlineCache', d.offlineCache),
       matchTempo: pick('matchTempo', d.matchTempo),
       desktopWidget: pick('desktopWidget', d.desktopWidget),
     );

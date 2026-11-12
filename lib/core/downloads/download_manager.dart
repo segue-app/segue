@@ -107,26 +107,39 @@ class DownloadManager {
   }
 
   Future<void> _download(Track t) async {
-    final dir = await _folder();
+    try {
+      final out = await fetchTo(t, await _folder(), (p) => _report(t, p));
+      library.saveDownload(t, out.path, out.lengthSync());
+    } catch (e) {
+      debugPrint('download ${t.title} failed: $e');
+      errors.add('Не удалось скачать «${t.title}»');
+    }
+  }
+
+  /// Fetches [t]'s whole audio file into [dir] (named after the track).
+  Future<File> fetchTo(
+    Track t,
+    Directory dir, [
+    void Function(double)? onProgress,
+  ]) async {
     final name = sha1.convert(utf8.encode(t.key)).toString();
     final tmp = File('${dir.path}${Platform.pathSeparator}$name.part');
     try {
       final info = await (sources[t.source]! as FileSource).resolveFile(t);
       final String ext;
       if (info.hls) {
-        ext = await _hls(info.url, tmp, (p) => _report(t, p));
+        ext = await _hls(info.url, tmp, onProgress ?? (_) {});
       } else {
-        await _file(info, tmp, (p) => _report(t, p));
+        await _file(info, tmp, onProgress ?? (_) {});
         ext = _extFor(info.mimeType, info.url);
       }
       final out = File('${dir.path}${Platform.pathSeparator}$name.$ext');
       if (out.existsSync()) out.deleteSync();
       await tmp.rename(out.path);
-      library.saveDownload(t, out.path, out.lengthSync());
-    } catch (e) {
-      debugPrint('download ${t.title} failed: $e');
-      errors.add('Не удалось скачать «${t.title}»');
+      return out;
+    } catch (_) {
       if (tmp.existsSync()) tmp.deleteSync();
+      rethrow;
     }
   }
 

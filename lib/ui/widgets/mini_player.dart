@@ -192,10 +192,18 @@ class _Compact extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 6, 6),
+          padding: const EdgeInsets.fromLTRB(8, 8, 6, 0),
           child: Row(
             children: [
               Expanded(child: _TrackInfo(item: item)),
+              PressScale(
+                onTap: player.skipToPrevious,
+                scale: 0.85,
+                child: const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(Icons.skip_previous_rounded, size: 28),
+                ),
+              ),
               _MiniPlayPause(
                 playing: playing,
                 onTap: playing ? player.pause : player.play,
@@ -212,7 +220,7 @@ class _Compact extends ConsumerWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
           child: SeekLine(
             // A new track starts with a fresh bar (no leftover seek).
             key: ValueKey(player.current?.key),

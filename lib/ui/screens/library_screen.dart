@@ -257,6 +257,8 @@ class _Liked extends ConsumerWidget {
         gradient: likedGradient,
       ),
       emptyText: 'Нажми ♡ у трека, и он появится здесь',
+      onReorder: (from, to) =>
+          ref.read(libraryProvider).moveLiked(tracks, from, to),
       actions: [DownloadAllButton(tracks: tracks)],
     );
   }

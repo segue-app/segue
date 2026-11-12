@@ -245,6 +245,18 @@ class LibraryStore {
   }
 
   void _saveTrack(Track t) {
+    // A stale copy (an old queue, another device on an old version) must
+    // not put an artist link back over the name it was fixed to.
+    if (t.artist.startsWith('spotify:artist:')) {
+      final r = _db.select(
+        "SELECT json_extract(json, '\$.artist') AS a FROM tracks WHERE key = ?",
+        [t.key],
+      );
+      final fixed = r.isEmpty ? null : r.first['a'] as String?;
+      if (fixed != null && !fixed.startsWith('spotify:artist:')) {
+        t = Track.fromJson({...t.toJson(), 'artist': fixed});
+      }
+    }
     _db.execute(
       'INSERT INTO tracks (key, json, updated_at, seq) VALUES (?, ?, ?, ?) '
       'ON CONFLICT(key) DO UPDATE SET json = excluded.json, '
@@ -262,6 +274,40 @@ class LibraryStore {
 
   /// Gives a stored track a cover if it has none (imported Spotify tracks
   /// get one from their YouTube match).
+  /// Imported tracks whose cover URL starts with [prefix] (repairs).
+  List<Track> tracksWithArtworkPrefix(String prefix) => [
+    for (final r in _db.select(
+      "SELECT json FROM tracks WHERE key LIKE 'match:%' AND "
+      "json_extract(json, '\$.artworkUrl') LIKE ?",
+      ['$prefix%'],
+    ))
+      Track.fromJson(jsonDecode(r['json'] as String) as Map<String, dynamic>),
+  ];
+
+  /// Tracks whose artist starts with [prefix] (repairs).
+  List<Track> tracksWithArtistPrefix(String prefix) => [
+    for (final r in _db.select(
+      "SELECT json FROM tracks WHERE json_extract(json, '\$.artist') LIKE ?",
+      ['$prefix%'],
+    ))
+      Track.fromJson(jsonDecode(r['json'] as String) as Map<String, dynamic>),
+  ];
+
+  /// Corrects a track's artist (synced to the other devices).
+  void setArtist(Track t, String artist) {
+    final rows = _db.select('SELECT json FROM tracks WHERE key = ?', [t.key]);
+    if (rows.isEmpty) return;
+    final json =
+        jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
+    if (json['artist'] == artist) return;
+    json['artist'] = artist;
+    _db.execute(
+      'UPDATE tracks SET json = ?, updated_at = ?, seq = ? WHERE key = ?',
+      [jsonEncode(json), _now, _nextSeq, t.key],
+    );
+    _changed();
+  }
+
   void fillArtwork(Track t, String url) {
     final rows = _db.select('SELECT json FROM tracks WHERE key = ?', [t.key]);
     if (rows.isEmpty) return;
@@ -341,6 +387,51 @@ class LibraryStore {
     'SELECT t.json FROM likes l JOIN tracks t ON t.key = l.track_key '
     'WHERE l.deleted = 0 ORDER BY l.liked_at DESC',
   );
+
+  /// Moves [ordered]\[from] to index [to] (after removal) among liked
+  /// songs shown as [ordered] (newest first). The song takes a like time
+  /// between its new neighbours; when they're too close (songs liked
+  /// together in an import), the list is renumbered with room to spare.
+  void moveLiked(List<Track> ordered, int from, int to) {
+    if (from == to || from < 0 || from >= ordered.length) return;
+    final list = List.of(ordered);
+    final moved = list.removeAt(from);
+    to = to.clamp(0, list.length);
+    list.insert(to, moved);
+    int at(Track t) =>
+        (_db.select('SELECT liked_at FROM likes WHERE track_key = ?', [
+                  t.key,
+                ]).firstOrNull?['liked_at']
+                as int?) ??
+        0;
+    void set(Track t, int likedAt) => _db.execute(
+      'UPDATE likes SET liked_at = ?, updated_at = ?, seq = ? '
+      'WHERE track_key = ?',
+      [likedAt, _now, _nextSeq, t.key],
+    );
+    final above = to > 0 ? at(list[to - 1]) : null; // newer
+    final below = to < list.length - 1 ? at(list[to + 1]) : null; // older
+    _db.execute('BEGIN');
+    try {
+      if (above == null) {
+        set(moved, (below ?? 0) + 1000);
+      } else if (below == null) {
+        set(moved, above - 1000);
+      } else if (above - below >= 2) {
+        set(moved, below + (above - below) ~/ 2);
+      } else {
+        final top = at(list.first) + 1000;
+        for (var i = 0; i < list.length; i++) {
+          set(list[i], top - i * 1000);
+        }
+      }
+      _db.execute('COMMIT');
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
+    _changed();
+  }
 
   Set<String> likedKeys() => {
     for (final r in _db.select('SELECT track_key FROM likes WHERE deleted = 0'))
@@ -443,6 +534,44 @@ class LibraryStore {
     ]);
     _changed();
     return added;
+  }
+
+  /// Moves [ordered]\[from] to index [to] (after removal) in a playlist
+  /// shown as [ordered]. Only the moved item changes: it gets a position
+  /// between its new neighbours (synced like any edit).
+  void movePlaylistItem(
+    String playlistId,
+    List<Track> ordered,
+    int from,
+    int to,
+  ) {
+    if (from == to || from < 0 || from >= ordered.length) return;
+    final list = List.of(ordered);
+    final moved = list.removeAt(from);
+    to = to.clamp(0, list.length);
+    list.insert(to, moved);
+    double posOf(Track t) =>
+        (_db.select(
+                  'SELECT position FROM playlist_items '
+                  'WHERE playlist_id = ? AND track_key = ?',
+                  [playlistId, t.key],
+                ).firstOrNull?['position']
+                as num?)
+            ?.toDouble() ??
+        0;
+    final before = to > 0 ? posOf(list[to - 1]) : null;
+    final after = to < list.length - 1 ? posOf(list[to + 1]) : null;
+    final pos = before != null && after != null
+        ? (before + after) / 2
+        : before != null
+        ? before + 1
+        : (after ?? 1) - 1;
+    _db.execute(
+      'UPDATE playlist_items SET position = ?, updated_at = ?, seq = ? '
+      'WHERE playlist_id = ? AND track_key = ?',
+      [pos, _now, _nextSeq, playlistId, moved.key],
+    );
+    _changed();
   }
 
   void removeFromPlaylist(String playlistId, Track t) {

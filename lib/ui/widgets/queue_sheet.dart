@@ -6,6 +6,7 @@ import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import 'artwork.dart';
 import 'jam_sheet.dart';
+import '../../core/models/track.dart';
 
 /// The play queue: drag to reorder, swipe to remove, tap to jump.
 Future<void> showQueueSheet(BuildContext context) => showModalBottomSheet<void>(
@@ -122,7 +123,7 @@ class _Queue extends ConsumerWidget {
                         child: Artwork(url: t.artworkUrl, size: 44, radius: 10),
                       ),
                       title: Text(
-                        t.title,
+                        t.displayTitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

@@ -104,9 +104,6 @@ class _LinesState extends ConsumerState<_Lines>
   final _scroll = ScrollController();
   late List<GlobalKey> _keys = _makeKeys();
 
-  /// The word fill flows: 60 fps (not the display's 120).
-  @override
-  Duration get frameInterval => const Duration(microseconds: 16667);
 
   /// Position interpolated every frame: the player only reports a few times
   /// a second, which would make the word fill step instead of flow.
@@ -331,7 +328,11 @@ class _Line extends StatelessWidget {
     final distance = (index - current).abs();
     // Further lines: dimmer and softer, like depth of field.
     // Blurring each line is too heavy for many Android phones.
-    final blur = isCurrent || !settings.lyricsBlur || lightEffects
+    // Only the few lines around the current one are on screen: the rest
+    // of the song isn't blurred at all (each blurred line is a blur pass
+    // every frame).
+    final blur =
+        isCurrent || !settings.lyricsBlur || lightEffects || distance > 5
         ? 0.0
         : math.min(distance * 0.8, 2.6);
     final opacity = isCurrent ? 1.0 : (index < current ? 0.3 : 0.48);
@@ -490,9 +491,17 @@ class _Word extends StatelessWidget {
       final lit = Colors.white.withValues(alpha: alphaScale);
       if (style == LyricsStyle.sweep) {
         final p = -_edge + progress * (1 + 2 * _edge);
-        return ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (rect) => LinearGradient(
+        // The gradient paints the letters themselves, not the text's box:
+        // tails of у, д, р reach below the box and a mask over the box
+        // left them bright white.
+        final base = DefaultTextStyle.of(context).style.merge(_lineStyle);
+        final width = (TextPainter(
+          text: TextSpan(text: text, style: base),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout()).width;
+        final paint = Paint()
+          ..shader = LinearGradient(
             colors: [lit, lit, dim, dim],
             stops: [
               0,
@@ -500,8 +509,15 @@ class _Word extends StatelessWidget {
               (p + _edge).clamp(0.0, 1.0),
               1,
             ],
-          ).createShader(rect),
-          child: Text(text, style: _lineStyle),
+          ).createShader(Rect.fromLTWH(0, 0, math.max(width, 1), 1));
+        return Text(
+          text,
+          style: TextStyle(
+            height: _lineStyle.height,
+            fontWeight: _lineStyle.fontWeight,
+            letterSpacing: _lineStyle.letterSpacing,
+            foreground: paint,
+          ),
         );
       }
       // pop / line: the whole word fades from dim to lit.
@@ -527,18 +543,27 @@ class _Word extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // Glow: a blurred copy of the lit part, behind the text. (A text
-            // shadow inside the mask would light up a rectangle instead.)
+            // Glow: the word's own soft shadow, rising as it's sung. (A
+            // separate blurred layer per word cost a blur pass each, every
+            // frame.)
             if (glow > 0.02)
               Positioned.fill(
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(
-                    sigmaX: 6 + 6 * lift,
-                    sigmaY: 6 + 6 * lift,
-                  ),
-                  child: Opacity(
-                    opacity: (glow * (0.55 + 0.45 * lift)).clamp(0.0, 1.0),
-                    child: masked(1),
+                child: Text(
+                  text,
+                  style: _lineStyle.copyWith(
+                    color: Colors.transparent,
+                    shadows: [
+                      Shadow(
+                        color: Colors.white.withValues(
+                          alpha:
+                              (glow *
+                                      (0.5 + 0.4 * lift) *
+                                      (progress * 2.5).clamp(0.0, 1.0))
+                                  .clamp(0.0, 1.0),
+                        ),
+                        blurRadius: 14 + 10 * lift,
+                      ),
+                    ],
                   ),
                 ),
               ),

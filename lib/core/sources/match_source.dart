@@ -69,6 +69,12 @@ class MatchSource implements MusicSource, FileSource {
   /// The YouTube track [track] was matched to, if it was already.
   Track? matched(Track track) => _cache[track.key] ?? recall?.call(track.key);
 
+  /// Drops what was found for [key] (its data was corrected).
+  void forget(String key) {
+    _cache.remove(key);
+    _alternatives.remove(key);
+  }
+
   /// The user picked another version: it plays from now on.
   void choose(Track imported, Track match) {
     _cache[imported.key] = match;
@@ -103,8 +109,12 @@ class MatchSource implements MusicSource, FileSource {
   /// the first finds nothing convincing.
   Future<List<MatchCandidate>> candidates(Track track) async {
     final core = coreTitle(track.title);
+    // An id instead of a name (an old import): search by the title alone.
+    final artist = track.artist.contains(':') && !track.artist.contains(' ')
+        ? ''
+        : track.artist;
     var found = await _youtube.searchDetailed(
-      '${track.artist} $core',
+      '$artist $core'.trim(),
       limit: 15,
     );
     var ranked = rank(track, found);

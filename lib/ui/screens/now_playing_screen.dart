@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/library/library.dart';
 import '../../core/models/track.dart';
 import '../../core/settings/settings.dart';
+import '../../core/catalog/taste.dart';
 import '../../core/player/player.dart';
 import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
@@ -145,10 +145,16 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                                 AppNav.artistByName(context, ref, track.artist),
                       like: track == null
                           ? null
-                          : LikeButton(
-                              track: track,
-                              liked: likedKeys.contains(track.key),
-                              size: 28,
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _DislikeButton(track: track),
+                                LikeButton(
+                                  track: track,
+                                  liked: likedKeys.contains(track.key),
+                                  size: 28,
+                                ),
+                              ],
                             ),
                     );
                     final controls = _Controls(
@@ -743,23 +749,17 @@ class _RoundIcon extends StatelessWidget {
       child: PressScale(
         onTap: onTap,
         scale: 0.86,
-        child: ClipOval(
-          child: lightEffects
-              ? Container(
-                  width: size,
-                  height: size,
-                  color: Colors.white.withValues(alpha: 0.12),
-                  child: Icon(icon, size: size * 0.55, color: color),
-                )
-              : BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: Container(
-                    width: size,
-                    height: size,
-                    color: Colors.white.withValues(alpha: 0.08),
-                    child: Icon(icon, size: size * 0.55, color: color),
-                  ),
-                ),
+        // A plain translucent disc: blurring what's behind each button
+        // cost ten blur passes a frame and, over the soft background,
+        // looked the same.
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.1),
+          ),
+          child: Icon(icon, size: size * 0.55, color: color),
         ),
       ),
     );
@@ -845,6 +845,37 @@ class _SwipeState extends State<_Swipe> with SingleTickerProviderStateMixin {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// "Не нравится" while My wave plays: the song goes, and the wave learns.
+class _DislikeButton extends ConsumerWidget {
+  const _DislikeButton({required this.track});
+  final Track track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final player = ref.read(playerProvider);
+    return ValueListenableBuilder<String?>(
+      valueListenable: player.waveTitle,
+      builder: (context, wave, _) => wave == null
+          ? const SizedBox.shrink()
+          : IconButton(
+              tooltip: 'Не нравится',
+              icon: const Icon(Icons.thumb_down_off_alt_rounded, size: 24),
+              color: SegueColors.textDim,
+              onPressed: () {
+                ref.read(tasteProvider).dislike(track);
+                player.skipToNext();
+                ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                  const SnackBar(
+                    content: Text('Больше не будет в волне'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

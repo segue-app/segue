@@ -268,30 +268,63 @@ class _SeekLineState extends State<SeekLine> {
         onHorizontalDragDown: widget.onSeek == null
             ? null
             : (d) => setState(() => _drag = at(d.localPosition)),
-        onHorizontalDragUpdate: (d) =>
-            setState(() => _drag = at(d.localPosition)),
+        onHorizontalDragUpdate: widget.onSeek == null
+            ? null
+            : (d) => setState(() => _drag = at(d.localPosition)),
         onHorizontalDragEnd: (_) {
           if (_drag != null) _seek(_drag!);
         },
-        // A plain tap belongs to the mini player (opens the full one).
         onHorizontalDragCancel: () => setState(() => _drag = null),
-        // A taller touch area than the line itself.
+        // A tap on the line seeks there (the rest of the mini player
+        // still opens the full one).
+        onTapUp: widget.onSeek == null
+            ? null
+            : (d) => _seek(at(d.localPosition)),
+        // A finger-sized touch area around the thin line.
         child: SizedBox(
-          height: 18,
-          child: Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              height: _drag != null ? 6 : 3,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: v,
-                  minHeight: 6,
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  color: widget.color,
+          height: 26,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                height: _drag != null ? 6 : 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: v,
+                    minHeight: 6,
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    color: widget.color,
+                  ),
                 ),
               ),
-            ),
+              // A handle that says "drag me"; it grows under the finger.
+              if (widget.onSeek != null)
+                AnimatedPositioned(
+                  // Under the finger it follows at once, no lag.
+                  duration: _drag != null
+                      ? Duration.zero
+                      : const Duration(milliseconds: 200),
+                  left: (c.maxWidth * v - (_drag != null ? 8 : 5)).clamp(
+                    0.0,
+                    c.maxWidth - (_drag != null ? 16 : 10),
+                  ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: _drag != null ? 16 : 10,
+                    height: _drag != null ? 16 : 10,
+                    decoration: BoxDecoration(
+                      color: widget.color,
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black38, blurRadius: 4),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       );

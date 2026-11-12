@@ -26,6 +26,7 @@ class StreamInfo {
     this.chunked = false,
     this.hls = false,
     this.duration,
+    this.loudnessDb,
   });
 
   final Uri url;
@@ -42,6 +43,10 @@ class StreamInfo {
   /// Exact duration when the source knows it; some containers make the
   /// platform player misjudge it.
   final Duration? duration;
+
+  /// How much louder than YouTube's reference level the track is (dB),
+  /// when the source says: used to even out volume between tracks.
+  final double? loudnessDb;
 }
 
 /// A source that can also hand out one complete audio file (for offline),

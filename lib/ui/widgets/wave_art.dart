@@ -43,8 +43,7 @@ class _WaveArtState extends State<WaveArt> {
     if (widget.animate) _clock.start(_fps);
   }
 
-  /// Full motion while the wave plays; a slow, cheap drift otherwise.
-  int get _fps => widget.playing ? 30 : 12;
+  int get _fps => 30;
 
   @override
   void didChangeDependencies() {
@@ -70,10 +69,20 @@ class _WaveArtState extends State<WaveArt> {
     _energy += (target - _energy) * (dt * 1.6).clamp(0.0, 1.0);
     _t += dt * (0.35 + 0.65 * _energy);
     final k = (dt * 2).clamp(0.0, 1.0);
+    var settling = _energy > 0.01;
     for (var i = 0; i < _colors.length && i < widget.colors.length; i++) {
-      _colors[i] = Color.lerp(_colors[i], widget.colors[i], k)!;
+      final next = Color.lerp(_colors[i], widget.colors[i], k)!;
+      final to = widget.colors[i];
+      if ((next.r - to.r).abs() + (next.g - to.g).abs() + (next.b - to.b).abs() >
+          0.004) {
+        settling = true;
+      }
+      _colors[i] = next;
     }
     _repaint.value++;
+    // Nothing plays and the swell has died down: a still picture, no
+    // more frames until something changes.
+    if (!widget.playing && !settling) _clock.stop();
   }
 
   @override

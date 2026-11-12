@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -157,6 +158,29 @@ class _CloudsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    // Soft clouds have no detail: painted on a small off-screen picture
+    // and stretched, they look the same for a fraction of the fill work
+    // (six full-screen gradients a frame otherwise).
+    const k = 0.3;
+    final w = math.max(1, (size.width * k).ceil());
+    final h = math.max(1, (size.height * k).ceil());
+    final recorder = ui.PictureRecorder();
+    final small = Canvas(recorder)..scale(w / size.width, h / size.height);
+    _paintClouds(small, size);
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(w, h);
+    picture.dispose();
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      Offset.zero & size,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    image.dispose();
+  }
+
+  void _paintClouds(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     // Darker base than the tint: the clouds read as light moving over it.
     canvas.drawRect(

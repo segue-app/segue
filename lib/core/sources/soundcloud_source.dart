@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -124,11 +125,31 @@ class SoundCloudSource implements MusicSource, FileSource {
       r'<script crossorigin src="(https://a-v2\.sndcdn\.com/assets/[^"]+\.js)"',
     ).allMatches(page.body).map((m) => m.group(1)!).toList().reversed; // the id usually lives in one of the last bundles
     final idPattern = RegExp(r'client_id\s*[:=]\s*"([a-zA-Z0-9]{32})"');
+    // All bundles at once (one slow file used to hold up the rest); the
+    // first that contains the id wins.
+    final found = Completer<String>();
+    var left = 0;
     for (final src in scripts) {
-      final js = await _http.get(Uri.parse(src)).timeout(_timeout);
-      final match = idPattern.firstMatch(js.body);
-      if (match != null) return _clientId = match.group(1)!;
+      left++;
+      unawaited(
+        _http
+            .get(Uri.parse(src))
+            .timeout(_timeout)
+            .then((js) {
+              final m = idPattern.firstMatch(js.body);
+              if (m != null && !found.isCompleted) found.complete(m.group(1)!);
+            })
+            .catchError((Object _) {})
+            .whenComplete(() {
+              if (--left == 0 && !found.isCompleted) {
+                found.completeError(
+                  StateError('Could not find SoundCloud client id'),
+                );
+              }
+            }),
+      );
     }
-    throw StateError('Could not find SoundCloud client id');
+    if (left == 0) throw StateError('Could not find SoundCloud client id');
+    return _clientId = await found.future;
   }
 }

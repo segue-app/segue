@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../theme/theme.dart';
+import 'disk_image.dart';
 
 /// Rounded cover art that fades in softly once loaded.
 class Artwork extends StatelessWidget {
@@ -49,17 +50,37 @@ class Artwork extends StatelessWidget {
                       errorBuilder: (_, _, _) => const SizedBox(),
                     )
                   else
-                    Image.network(
-                      url!,
+                    Image(
+                      // Decoded at display size (lists stay smooth) and
+                      // kept on disk (no download on the next launch).
+                      image: ResizeImage(
+                        DiskImage(
+                          coverUrlFor(
+                            url!,
+                            size * MediaQuery.devicePixelRatioOf(context),
+                          ),
+                        ),
+                        width: (size * MediaQuery.devicePixelRatioOf(context))
+                            .round(),
+                      ),
                       fit: BoxFit.cover,
-                      // Decode at display size: lists stay smooth.
-                      cacheWidth:
-                          (size * MediaQuery.devicePixelRatioOf(context))
-                              .round(),
                       // Older YouTube videos have no hq720 thumbnail.
                       errorBuilder: (_, _, _) => url!.contains('/hq720.jpg')
-                          ? Image.network(
-                              url!.replaceFirst('/hq720.jpg', '/mqdefault.jpg'),
+                          ? Image(
+                              image: ResizeImage(
+                                DiskImage(
+                                  url!.replaceFirst(
+                                    '/hq720.jpg',
+                                    '/mqdefault.jpg',
+                                  ),
+                                ),
+                                width:
+                                    (size *
+                                            MediaQuery.devicePixelRatioOf(
+                                              context,
+                                            ))
+                                        .round(),
+                              ),
                               fit: BoxFit.cover,
                               errorBuilder: (_, _, _) => const SizedBox(),
                             )
@@ -80,6 +101,34 @@ class Artwork extends StatelessWidget {
   }
 }
 
+/// The smallest version of a cover that still looks sharp at [pixels]
+/// across: a 48-point row doesn't need a 1000×1000 download.
+String coverUrlFor(String url, double pixels) {
+  // Deezer's CDN makes any size on request.
+  final deezer = RegExp(r'/(\d+)x(\d+)-').firstMatch(url);
+  if (deezer != null && url.contains('dzcdn.net')) {
+    final want = pixels <= 140
+        ? 140
+        : pixels <= 264
+        ? 264
+        : pixels <= 500
+        ? 500
+        : 1000;
+    final have = int.tryParse(deezer.group(1)!) ?? 1000;
+    if (want < have) {
+      return url.replaceFirst(deezer.group(0)!, '/${want}x$want-');
+    }
+    return url;
+  }
+  // YouTube: the 320×180 thumbnail exists for every video.
+  if (pixels <= 200 &&
+      url.contains('i.ytimg.com') &&
+      url.endsWith('/hq720.jpg')) {
+    return url.replaceFirst('/hq720.jpg', '/mqdefault.jpg');
+  }
+  return url;
+}
+
 String formatDuration(Duration? d) {
   if (d == null) return '';
   final m = d.inMinutes;
@@ -95,4 +144,4 @@ bool isLocalImage(String url) =>
 /// ImageProvider for a cover URL or a local cover file.
 ImageProvider coverProvider(String url) => isLocalImage(url)
     ? FileImage(File(url.replaceFirst('file://', '')))
-    : NetworkImage(url) as ImageProvider;
+    : DiskImage(url) as ImageProvider;

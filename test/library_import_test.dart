@@ -113,4 +113,16 @@ void main() {
     tags: ['live'],
     timeout: const Timeout(Duration(minutes: 3)),
   );
+
+  test('Exportify with URI and album-artist columns: names, not links', () {
+    const csv =
+        '"Track URI","Track Name","Album Name","Artist URI(s)",'
+        '"Artist Name(s)","Album Artist Name(s)","Duration (ms)"\n'
+        '"spotify:track:1","Cold Blood","Phonk","spotify:artist:0Psz",'
+        '"Wilee, Someone","Various Artists","186000"\n';
+    final t = LibraryImporter.csvTracks(csv).single;
+    expect(t.title, 'Cold Blood');
+    expect(t.artist, 'Wilee');
+    expect(t.duration, const Duration(seconds: 186));
+  });
 }

@@ -7,6 +7,7 @@ import 'now_playing_screen.dart';
 
 import '../../core/settings/settings.dart';
 import '../../core/integrations/notch.dart';
+import '../../core/downloads/audio_cache.dart';
 import '../../core/integrations/updater.dart';
 import '../../core/integrations/updates.dart';
 
@@ -90,7 +91,9 @@ class _ShellState extends ConsumerState<Shell> {
     ref.listenManual(settingsProvider, (_, s) {
       ref.read(playerProvider)
         ..skipIntros = s.skipIntros
-        ..matchTempo = s.matchTempo;
+        ..matchTempo = s.matchTempo
+        ..setNormalize(s.normalizeVolume);
+      ref.read(audioCacheProvider).enabled = s.offlineCache;
     }, fireImmediately: true);
     HardwareKeyboard.instance.addHandler(_onKey);
     // MacBook notch: now playing in the colours of the cover.
@@ -331,13 +334,25 @@ class _ShellState extends ConsumerState<Shell> {
     nav.push(route);
   }
 
-  Widget _tabNavigator(int i, Widget root) => Navigator(
-    key: _navigators[i],
-    onGenerateRoute: (_) => PageRouteBuilder(
-      pageBuilder: (_, _, _) => root,
-      transitionDuration: Duration.zero,
-    ),
-  );
+  /// Tabs opened so far: a tab is only built when first visited (a
+  /// faster start), then kept so it's back at once.
+  final _opened = <int>{0};
+
+  Widget _tabNavigator(int i, Widget root) {
+    if (i == _tab) _opened.add(i);
+    if (!_opened.contains(i)) return const SizedBox.shrink();
+    // Hidden tabs stay in memory but must not animate.
+    return TickerMode(
+      enabled: i == _tab,
+      child: Navigator(
+        key: _navigators[i],
+        onGenerateRoute: (_) => PageRouteBuilder(
+          pageBuilder: (_, _, _) => root,
+          transitionDuration: Duration.zero,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -65,3 +65,38 @@ class Track {
   @override
   int get hashCode => key.hashCode;
 }
+
+/// How a track is shown. YouTube titles are video titles ("Artist - Song
+/// (Official Video) | Label"): the song's name alone reads better next to
+/// the artist. Searching and matching keep using [Track.title].
+extension TrackDisplay on Track {
+  String get displayTitle {
+    if (source != SourceKind.youtube) return title;
+    return prettyTitle(title, artist);
+  }
+}
+
+String prettyTitle(String title, String artist) {
+  String key(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-zа-яё0-9]'), '');
+  var t = title;
+  // Packaging in brackets: (Official Video), [Lyrics], (Премьера клипа)…
+  t = t.replaceAll(
+    RegExp(
+      r'\s*[\(\[][^\)\]]*(official|video|audio|lyric|visuali[sz]er|клип|'
+      r'премьера|текст|\bhd\b|\b4k\b|\bmv\b)[^\)\]]*[\)\]]',
+      caseSensitive: false,
+    ),
+    '',
+  );
+  t = t.split(RegExp(r'\s\|\s')).first;
+  // "Artist - Song" under the same artist: just the song.
+  final m = RegExp(r'^(.+?)\s[-–—]\s(.+)$').firstMatch(t);
+  if (m != null) {
+    final a = key(m.group(1)!), b = key(artist);
+    if (a.isNotEmpty && b.isNotEmpty && (a.contains(b) || b.contains(a))) {
+      t = m.group(2)!;
+    }
+  }
+  t = t.trim();
+  return t.isEmpty ? title : t;
+}

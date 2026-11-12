@@ -8,6 +8,7 @@ import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import 'artwork.dart';
 import 'motion.dart';
+import '../../core/models/track.dart';
 
 /// "Слушать вместе": start a session, join one, see who listens and what's
 /// next.
@@ -245,7 +246,7 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Artwork(url: t.artworkUrl, size: 40, radius: 10),
-            title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            title: Text(t.displayTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text(
               t.artist,
               style: const TextStyle(color: SegueColors.textDim),

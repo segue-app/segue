@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 
+import '../library/library_store.dart';
 import '../models/track.dart';
 import 'playlist_importer.dart';
 
@@ -242,10 +243,20 @@ class LibraryImporter {
     final rows = _csv(text);
     if (rows.length < 2) return const [];
     final head = [for (final h in rows.first) h.toLowerCase()];
-    int col(List<String> names) =>
-        head.indexWhere((h) => names.any(h.contains));
+    // Exportify also has "Artist URI(s)" (spotify:artist:…) and "Album
+    // Artist Name(s)": the names of the track's own artists are wanted.
+    bool idLike(String h) =>
+        h.contains('uri') || h.contains(' id') || h.startsWith('id');
+    int col(List<String> names, {List<String> not = const []}) =>
+        head.indexWhere(
+          (h) =>
+              names.any(h.contains) &&
+              !idLike(h) &&
+              !not.any(h.contains),
+        );
     final ti = col(['track name', 'title', 'название']);
-    final ai = col(['artist', 'исполнитель']);
+    var ai = col(['artist name', 'исполнитель'], not: ['album']);
+    if (ai < 0) ai = col(['artist'], not: ['album']);
     final di = col(['duration']);
     if (ti < 0 || ai < 0) return const [];
     return [
@@ -310,5 +321,45 @@ class LibraryImporter {
     row.add(cell.toString());
     if (row.any((x) => x.isNotEmpty)) rows.add(row);
     return rows;
+  }
+
+  /// Songs imported before the CSV fix carry "spotify:artist:…" instead of
+  /// a name (and so were matched badly). Spotify's public oEmbed gives the
+  /// name for such a link: puts it back. Returns the fixed tracks by key.
+  static Future<Map<String, Track>> fixSpotifyArtists(
+    LibraryStore library, {
+    http.Client? client,
+  }) async {
+    final broken = library.tracksWithArtistPrefix('spotify:artist:');
+    if (broken.isEmpty) return const {};
+    final http_ = client ?? http.Client();
+    final names = <String, String>{};
+    final uris = {for (final t in broken) t.artist}.toList();
+    // A few at a time: polite to Spotify, quick enough for a library.
+    for (var i = 0; i < uris.length; i += 4) {
+      await Future.wait([
+        for (final uri in uris.skip(i).take(4))
+          http_
+              .get(
+                Uri.https('open.spotify.com', '/oembed', {'url': uri}),
+              )
+              .timeout(const Duration(seconds: 10))
+              .then((r) {
+                if (r.statusCode != 200) return;
+                final name =
+                    (jsonDecode(r.body) as Map)['title'] as String? ?? '';
+                if (name.trim().isNotEmpty) names[uri] = name.trim();
+              })
+              .catchError((Object _) {}),
+      ]);
+    }
+    final fixed = <String, Track>{};
+    for (final t in broken) {
+      final name = names[t.artist];
+      if (name == null) continue;
+      library.setArtist(t, name);
+      fixed[t.key] = Track.fromJson({...t.toJson(), 'artist': name});
+    }
+    return fixed;
   }
 }

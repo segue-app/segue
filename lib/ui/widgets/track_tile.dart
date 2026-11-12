@@ -35,10 +35,19 @@ class TrackTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = tracks[index];
-    final isCurrent = ref.watch(currentTrackProvider).value?.id == t.key;
-    final playing = isCurrent && (ref.watch(playingProvider).value ?? false);
-    final accent = ref.watch(currentColorsProvider).accent;
-    final liked = ref.watch(likedKeysProvider).contains(t.key);
+    // Each row listens only for what concerns it: a new track, a like or
+    // a new accent colour redraws two rows, not the whole list.
+    final isCurrent = ref.watch(
+      currentTrackProvider.select((v) => v.value?.id == t.key),
+    );
+    final playing =
+        isCurrent && ref.watch(playingProvider.select((v) => v.value ?? false));
+    final accent = isCurrent
+        ? ref.watch(currentColorsProvider.select((c) => c.accent))
+        : SegueColors.text;
+    final liked = ref.watch(
+      likedKeysProvider.select((keys) => keys.contains(t.key)),
+    );
 
     return PressScale(
       scale: 0.98,
@@ -90,7 +99,7 @@ class TrackTile extends ConsumerWidget {
                       color: isCurrent ? accent : SegueColors.text,
                     ),
                     child: Text(
-                      t.title,
+                      t.displayTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
