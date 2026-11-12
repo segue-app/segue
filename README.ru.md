@@ -27,15 +27,15 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home.jpg" width="820" alt="Segue на компьютере: Моя волна, плейлисты и недавно прослушанное">
+  <img src="docs/screenshots/ru/home.jpg" width="820" alt="Segue на компьютере: Моя волна, плейлисты и недавно прослушанное">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/phone-home.jpg" width="230" alt="Главная на телефоне">
+  <img src="docs/screenshots/ru/phone-home.jpg" width="230" alt="Главная на телефоне">
   &nbsp;
-  <img src="docs/screenshots/phone-player.jpg" width="230" alt="Плеер на телефоне">
+  <img src="docs/screenshots/ru/phone-player.jpg" width="230" alt="Плеер на телефоне">
   &nbsp;
-  <img src="docs/screenshots/phone-lyrics.jpg" width="230" alt="Текст песни на телефоне">
+  <img src="docs/screenshots/ru/phone-lyrics.jpg" width="230" alt="Текст песни на телефоне">
 </p>
 
 ## Зачем Segue
@@ -46,6 +46,7 @@
   Библиотека хранится файлом на твоём устройстве.
 - **Все устройства как один плеер.** Начни на ноутбуке и продолжи на
   телефоне с той же секунды, или управляй ноутбуком с телефона.
+- **На твоём языке.** Русский и английский, переключается в настройках.
 - **Лёгкий.** Около 0,3% процессора на паузе, а пока окно скрыто, ничего не
   рисуется (замер на MacBook с Apple Silicon).
 
@@ -101,7 +102,7 @@
   свечение настраиваются
 
 <p align="center">
-  <img src="docs/screenshots/lyrics.jpg" width="820" alt="Текст песни рядом с обложкой на компьютере">
+  <img src="docs/screenshots/ru/lyrics.jpg" width="820" alt="Текст песни рядом с обложкой на компьютере">
 </p>
 
 ### Твои устройства

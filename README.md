@@ -27,15 +27,15 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home.jpg" width="820" alt="Segue on a desktop: My wave, playlists and recently played">
+  <img src="docs/screenshots/en/home.jpg" width="820" alt="Segue on a desktop: My wave, playlists and recently played">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/phone-home.jpg" width="230" alt="Home on a phone">
+  <img src="docs/screenshots/en/phone-home.jpg" width="230" alt="Home on a phone">
   &nbsp;
-  <img src="docs/screenshots/phone-player.jpg" width="230" alt="Now playing on a phone">
+  <img src="docs/screenshots/en/phone-player.jpg" width="230" alt="Now playing on a phone">
   &nbsp;
-  <img src="docs/screenshots/phone-lyrics.jpg" width="230" alt="Synced lyrics on a phone">
+  <img src="docs/screenshots/en/phone-lyrics.jpg" width="230" alt="Synced lyrics on a phone">
 </p>
 
 ## Why Segue
@@ -46,6 +46,7 @@
   Your library is a file on your device.
 - **All your devices as one player.** Start on the laptop, continue on the
   phone at the same second, or use the phone as a remote.
+- **In your language.** English and Russian, switched in Settings.
 - **Light.** About 0.3% CPU when paused and no drawing at all while its window is
   hidden (measured on an Apple Silicon MacBook).
 
@@ -101,7 +102,7 @@ iOS has no prebuilt app (it needs Apple signing); you can
   adjustable
 
 <p align="center">
-  <img src="docs/screenshots/lyrics.jpg" width="820" alt="Synced lyrics next to the cover on a desktop">
+  <img src="docs/screenshots/en/lyrics.jpg" width="820" alt="Synced lyrics next to the cover on a desktop">
 </p>
 
 ### Your devices
