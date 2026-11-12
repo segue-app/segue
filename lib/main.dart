@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/app_visibility.dart';
 import 'core/models/track.dart';
 import 'core/player/player.dart';
 import 'core/player/trims.dart';
@@ -36,6 +37,7 @@ import 'ui/theme/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppVisibility.attach();
 
   final soundcloud = SoundCloudSource();
   final youtube = YouTubeSource();
@@ -159,7 +161,14 @@ Future<void> main() async {
         lastFmProvider.overrideWithValue(lastFm),
         trimStoreProvider.overrideWithValue(trims),
       ],
-      child: const SegueApp(),
+      // Out of sight, nothing animates (each frame would be drawn for
+      // nobody); it all resumes where it was.
+      child: ValueListenableBuilder<bool>(
+        valueListenable: AppVisibility.visibleNotifier,
+        builder: (_, visible, child) =>
+            TickerMode(enabled: visible, child: child!),
+        child: const SegueApp(),
+      ),
     ),
   );
 }

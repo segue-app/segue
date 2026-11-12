@@ -105,14 +105,30 @@ class Connect {
     }
     _stayHere = false;
     if (p != null && p.outputId == id) return;
+    // What's about to play there: shown at once, instead of whatever that
+    // device played before, until its own state arrives.
+    Map<String, dynamic>? coming;
     if (p != null && p.outputId != null) {
       // From one remote device to another: ask that one to pass it on.
       final from = p.outputId!;
+      final st = relay.devices.value[from]?.state;
+      if (st != null) {
+        coming = {
+          ...st,
+          'positionMs': relay.devices.value[from]!.position.inMilliseconds,
+        };
+      }
       await relay.command(from, 'giveTo', {'to': id});
     } else if (p != null && p.current != null) {
+      coming = p.snapshot();
       await relay.handOffTo(id);
     }
-    if (p != null) _becomeRemote(id, d.name);
+    if (p != null) {
+      _becomeRemote(id, d.name);
+      if (coming != null) {
+        p.remoteState({...coming, 'playing': true}, DateTime.now());
+      }
+    }
   }
 
   /// "Где играть" → this device: the music comes back here.

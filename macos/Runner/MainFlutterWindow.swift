@@ -5,6 +5,8 @@ import SwiftUI
 
 class MainFlutterWindow: NSWindow {
   private var notch: NotchController?
+  private var windowChannel: FlutterMethodChannel?
+  private var lastForeground: [String: Bool]?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -20,7 +22,41 @@ class MainFlutterWindow: NSWindow {
       binaryMessenger: flutterViewController.engine.binaryMessenger)
     notch = NotchController(channel: channel)
 
+    // Whether the user can see the window: Flutter skips decoration
+    // (and most redraws) while they work in another app.
+    windowChannel = FlutterMethodChannel(
+      name: "fm.segue/window",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    let nc = NotificationCenter.default
+    for name in [
+      NSApplication.didBecomeActiveNotification,
+      NSApplication.didResignActiveNotification,
+      NSApplication.didHideNotification,
+      NSApplication.didUnhideNotification,
+    ] {
+      nc.addObserver(self, selector: #selector(reportForeground), name: name, object: nil)
+    }
+    for name in [
+      NSWindow.didChangeOcclusionStateNotification,
+      NSWindow.didMiniaturizeNotification,
+      NSWindow.didDeminiaturizeNotification,
+    ] {
+      nc.addObserver(self, selector: #selector(reportForeground), name: name, object: self)
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+      self?.reportForeground()
+    }
+
     super.awakeFromNib()
+  }
+
+  @objc private func reportForeground() {
+    let visible = !isMiniaturized && occlusionState.contains(.visible)
+      && !NSApp.isHidden
+    let state = ["visible": visible, "active": NSApp.isActive]
+    if state == lastForeground { return }
+    lastForeground = state
+    windowChannel?.invokeMethod("foreground", arguments: state)
   }
 }
 

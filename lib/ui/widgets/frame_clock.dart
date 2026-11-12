@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/app_visibility.dart';
+
 /// One shared 30 fps beat for all decorative motion. Everything that moves
 /// slowly (clouds, waves, bars, a breathing logo) updates on the same
 /// beat, so the window is redrawn 30 times a second in total, not 30 per
@@ -28,6 +30,10 @@ class Beat {
   }
 
   static void remove(VoidCallback f) => _listeners.remove(f);
+
+  /// Decoration only moves while the app is in front (each redraw after a
+  /// pause also restarts macOS's display link, which isn't free).
+  static bool get visible => AppVisibility.active;
 }
 
 /// A slow animation clock for decorative motion (drifting colours, waves).
@@ -71,11 +77,7 @@ class FrameClock {
     _since
       ..reset()
       ..start();
-    if (_mode?.value.enabled == false) return;
-    final life = WidgetsBinding.instance.lifecycleState;
-    if (life == AppLifecycleState.hidden || life == AppLifecycleState.paused) {
-      return;
-    }
+    if (_mode?.value.enabled == false || !Beat.visible) return;
     onFrame((elapsed / 1e6).clamp(0.0, 0.1));
   }
 

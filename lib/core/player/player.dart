@@ -1,3 +1,4 @@
+import '../app_visibility.dart';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
@@ -44,9 +45,23 @@ final playingProvider = StreamProvider<bool>(
   (ref) => ref.watch(playerProvider).playingStream,
 );
 
-final positionProvider = StreamProvider<Duration>(
-  (ref) => ref.watch(playerProvider).positionStream,
-);
+final positionProvider = StreamProvider<Duration>((ref) {
+  // Out of sight, the progress needs no more than a refresh every couple
+  // of seconds (a jump such as a new track still goes through at once).
+  var lastAt = DateTime(0);
+  var last = Duration.zero;
+  return ref.watch(playerProvider).positionStream.where((p) {
+    final now = DateTime.now();
+    if (AppVisibility.visible ||
+        now.difference(lastAt) >= const Duration(seconds: 2) ||
+        (p - last).abs() > const Duration(seconds: 3)) {
+      lastAt = now;
+      last = p;
+      return true;
+    }
+    return false;
+  });
+});
 
 final durationProvider = StreamProvider<Duration?>(
   (ref) => ref.watch(playerProvider).durationStream,

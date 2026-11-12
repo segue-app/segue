@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/track.dart';
+import '../player/player.dart';
+import '../sources/match_source.dart';
+import '../sources/sources.dart';
 
 class LyricLine {
   const LyricLine(this.time, this.text, {this.words});
@@ -31,11 +34,38 @@ class LyricWord {
 }
 
 class Lyrics {
-  Lyrics({required this.lines, required this.synced});
+  Lyrics({
+    required this.lines,
+    required this.synced,
+    this.shift = Duration.zero,
+    this.length,
+    this.source = '',
+  });
 
   /// For plain (unsynced) lyrics every line has time zero.
   final List<LyricLine> lines;
   final bool synced;
+
+  /// How much later than their timestamps the lines come in what plays:
+  /// a music video's spoken intro before the song starts.
+  final Duration shift;
+
+  /// Length of the recording the timings were made for, if known.
+  final Duration? length;
+
+  /// Where they came from (shown small under the lyrics).
+  final String source;
+
+  /// Real per-word timing (karaoke), not estimated.
+  bool get wordSynced => lines.any((l) => l.words != null);
+
+  Lyrics withShift(Duration d) => Lyrics(
+    lines: lines,
+    synced: synced,
+    shift: d,
+    length: length,
+    source: source,
+  );
 
   /// Index of the line being sung at [position], or -1 before the first.
   int lineAt(Duration position) {
@@ -142,6 +172,55 @@ class Lyrics {
     return Lyrics(lines: lines, synced: true);
   }
 
+  /// NetEase's word-timed format: `[lineStartMs,lineMs](wordStartMs,wordMs,0)word…`.
+  static Lyrics parseYrc(String yrc) {
+    final head = RegExp(r'^\[(\d+),(\d+)\]');
+    final stamp = RegExp(r'\((\d+),(\d+),\d+\)');
+    final lines = <LyricLine>[];
+    for (final raw in const LineSplitter().convert(yrc)) {
+      final h = head.firstMatch(raw);
+      if (h == null) continue; // credits come as JSON lines
+      final body = raw.substring(h.end);
+      final ws = stamp.allMatches(body).toList();
+      final words = <LyricWord>[];
+      final text = StringBuffer();
+      for (var k = 0; k < ws.length; k++) {
+        final end = k + 1 < ws.length ? ws[k + 1].start : body.length;
+        final piece = body.substring(ws[k].end, end);
+        text.write(piece);
+        if (piece.trim().isEmpty) continue;
+        final start = int.parse(ws[k].group(1)!);
+        final dur = int.parse(ws[k].group(2)!);
+        words.add(
+          LyricWord(
+            piece.trim(),
+            Duration(milliseconds: start),
+            Duration(milliseconds: start + dur),
+          ),
+        );
+      }
+      final line = text.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (line.isEmpty || _isCredit(line)) continue;
+      lines.add(
+        LyricLine(
+          Duration(milliseconds: int.parse(h.group(1)!)),
+          line,
+          words: words.isEmpty ? null : words,
+        ),
+      );
+    }
+    lines.sort((a, b) => a.time.compareTo(b.time));
+    return Lyrics(lines: lines, synced: true);
+  }
+
+  /// "作词 : …", "Producer: …" — who wrote it, not what's sung.
+  static bool _isCredit(String line) => RegExp(
+    r'^\s*(作词|作曲|编曲|制作|制作人|混音|录音|母带|和声|吉他|贝斯|鼓|弦乐|监制|出品|发行|'
+    r'词|曲|OP|SP|Producer|Lyricist|Composer|Lyrics by|Composed by|Written by)'
+    r'\s*[:：]',
+    caseSensitive: false,
+  ).hasMatch(line);
+
   static Lyrics plain(String text) => Lyrics(
     lines: [
       for (final l in const LineSplitter().convert(text))
@@ -181,49 +260,256 @@ class LyricsService {
     return q.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
+  /// Artist and song title as a lyrics service would name them.
+  static ({String artist, String title}) nameOf(Track t) {
+    final q = cleanQuery(t);
+    final dash = RegExp(r'^(.+?)\s[-–—]\s(.+)$').firstMatch(q);
+    if (dash != null && t.source != SourceKind.match) {
+      return (artist: dash.group(1)!.trim(), title: dash.group(2)!.trim());
+    }
+    return (artist: t.artist, title: MatchSource.coreTitle(t.title));
+  }
+
+  /// How sure we are that a found song is [want] (0 = not it at all).
+  static double similarity(
+    ({String artist, String title}) want,
+    Duration? wantLength,
+    String title,
+    String artist,
+    Duration? length,
+  ) {
+    Set<String> words(String s) =>
+        MatchSource.norm(s).split(' ').where((w) => w.isNotEmpty).toSet();
+    final wantTitle = words(MatchSource.coreTitle(want.title));
+    final got = words('${MatchSource.coreTitle(title)} $artist');
+    if (wantTitle.isEmpty) return 0;
+    final cover = wantTitle.where(got.contains).length / wantTitle.length;
+    // And not a longer, different song that contains these words.
+    final gotTitle = words(MatchSource.coreTitle(title));
+    final extra = gotTitle.isEmpty
+        ? 0.0
+        : gotTitle.where((w) => !wantTitle.contains(w)).length /
+              gotTitle.length;
+    if (cover < 0.6 || extra > 0.5) return 0;
+    final artistWords = words(want.artist).where((w) => w.length > 1);
+    final gotArtist = words('$artist $title');
+    final artistOk = artistWords.isEmpty || artistWords.any(gotArtist.contains);
+    if (!artistOk) return 0;
+    var s = 60 * cover + 20 - 20 * extra;
+    if (wantLength != null && length != null) {
+      final d = (wantLength - length).inSeconds.abs();
+      s += d <= 3 ? 20 : (d <= 15 ? 5 : -(d.clamp(0, 60).toDouble()));
+    }
+    return s;
+  }
+
   Future<Lyrics?> fetch(Track track) async {
     if (_cache.containsKey(track.key)) return _cache[track.key];
-    final q = cleanQuery(track);
-    final res = await _http
-        .get(
-          Uri.https('lrclib.net', '/api/search', {'q': q}),
-          headers: {'User-Agent': 'Segue (https://github.com/segue-app/segue)'},
-        )
-        .timeout(const Duration(seconds: 12));
-    if (res.statusCode != 200) return null;
-    final items = (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
-
-    // Prefer synced lyrics whose length matches the track.
-    final dur = track.duration?.inSeconds;
-    double score(Map<String, dynamic> it) {
-      var s = it['syncedLyrics'] != null ? 0.0 : 30.0;
-      final d = (it['duration'] as num?)?.toDouble();
-      if (dur != null && d != null) s += (d - dur).abs();
-      if (it['instrumental'] == true) s += 1000;
-      return s;
-    }
-
-    final usable =
-        items
-            .where(
-              (it) => it['syncedLyrics'] != null || it['plainLyrics'] != null,
-            )
-            .toList()
-          ..sort((a, b) => score(a).compareTo(score(b)));
+    final want = nameOf(track);
+    // Both at once: NetEase often has word-by-word timing (karaoke),
+    // LRCLIB is open and community-made, with line timing.
+    final (ne, lrc) = await (
+      _netease(want, track.duration).catchError((Object _) => null),
+      _lrclib(track, want).catchError((Object _) => null),
+    ).wait;
     Lyrics? result;
-    if (usable.isNotEmpty && score(usable.first) < 60) {
-      final best = usable.first;
-      result = best['syncedLyrics'] != null
-          ? Lyrics.parseLrc(best['syncedLyrics'] as String)
-          : Lyrics.plain(best['plainLyrics'] as String);
+    if (ne != null && ne.wordSynced) {
+      result = ne;
+    } else if (lrc != null && lrc.synced) {
+      result = lrc;
+    } else {
+      result = ne ?? lrc;
     }
     _cache[track.key] = result;
     return result;
+  }
+
+  static const _ua = {
+    'User-Agent': 'Segue (https://github.com/segue-app/segue)',
+  };
+
+  Future<Lyrics?> _lrclib(
+    Track track,
+    ({String artist, String title}) want,
+  ) async {
+    final res = await _http
+        .get(
+          Uri.https('lrclib.net', '/api/search', {
+            'track_name': want.title,
+            'artist_name': want.artist,
+          }),
+          headers: _ua,
+        )
+        .timeout(const Duration(seconds: 10));
+    var items = res.statusCode == 200
+        ? (jsonDecode(res.body) as List).cast<Map<String, dynamic>>()
+        : <Map<String, dynamic>>[];
+    if (items.isEmpty) {
+      // Free text finds songs whose fields are split differently.
+      final res2 = await _http
+          .get(
+            Uri.https('lrclib.net', '/api/search', {'q': cleanQuery(track)}),
+            headers: _ua,
+          )
+          .timeout(const Duration(seconds: 10));
+      if (res2.statusCode == 200) {
+        items = (jsonDecode(res2.body) as List).cast<Map<String, dynamic>>();
+      }
+    }
+    double score(Map<String, dynamic> it) {
+      if (it['instrumental'] == true) return 0;
+      final d = (it['duration'] as num?)?.toDouble();
+      final s = similarity(
+        want,
+        track.duration,
+        it['trackName'] as String? ?? '',
+        it['artistName'] as String? ?? '',
+        d == null ? null : Duration(milliseconds: (d * 1000).round()),
+      );
+      return s == 0 ? 0 : s + (it['syncedLyrics'] != null ? 30 : 0);
+    }
+
+    final usable = [
+      for (final it in items)
+        if ((it['syncedLyrics'] ?? it['plainLyrics']) != null && score(it) > 0)
+          it,
+    ]..sort((a, b) => score(b).compareTo(score(a)));
+    if (usable.isEmpty) return null;
+    final best = usable.first;
+    final d = (best['duration'] as num?)?.toDouble();
+    final length = d == null
+        ? null
+        : Duration(milliseconds: (d * 1000).round());
+    final l = best['syncedLyrics'] != null
+        ? Lyrics.parseLrc(best['syncedLyrics'] as String)
+        : Lyrics.plain(best['plainLyrics'] as String);
+    return Lyrics(
+      lines: l.lines,
+      synced: l.synced,
+      length: length,
+      source: 'LRCLIB',
+    );
+  }
+
+  Future<Lyrics?> _netease(
+    ({String artist, String title}) want,
+    Duration? length,
+  ) async {
+    const headers = {
+      'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+      'Referer': 'https://music.163.com/',
+    };
+    final res = await _http
+        .get(
+          Uri.https('music.163.com', '/api/search/get', {
+            's': '${want.artist} ${want.title}',
+            'type': '1',
+            'limit': '10',
+          }),
+          headers: headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (res.statusCode != 200) return null;
+    final songs =
+        (((jsonDecode(res.body) as Map)['result'] as Map?)?['songs'] as List?)
+            ?.cast<Map<String, dynamic>>() ??
+        const [];
+    double score(Map<String, dynamic> s) => similarity(
+      want,
+      length,
+      s['name'] as String? ?? '',
+      [
+        for (final a in (s['artists'] as List? ?? const []))
+          (a as Map)['name'] ?? '',
+      ].join(' '),
+      s['duration'] is int
+          ? Duration(milliseconds: s['duration'] as int)
+          : null,
+    );
+    final ranked = [
+      for (final s in songs)
+        if (score(s) > 0) s,
+    ]..sort((a, b) => score(b).compareTo(score(a)));
+    for (final song in ranked.take(2)) {
+      final lr = await _http
+          .get(
+            Uri.https('music.163.com', '/api/song/lyric', {
+              'id': '${song['id']}',
+              'lv': '1',
+              'yv': '1',
+              'tv': '-1',
+            }),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 8));
+      if (lr.statusCode != 200) continue;
+      final j = jsonDecode(lr.body) as Map<String, dynamic>;
+      final yrc = (j['yrc'] as Map?)?['lyric'] as String?;
+      final lrc = (j['lrc'] as Map?)?['lyric'] as String?;
+      Lyrics? l;
+      if (yrc != null && yrc.trim().isNotEmpty) {
+        l = Lyrics.parseYrc(yrc);
+      } else if (lrc != null && lrc.contains('[')) {
+        final parsed = Lyrics.parseLrc(lrc);
+        l = Lyrics(
+          lines: [
+            for (final x in parsed.lines)
+              if (x.text.isNotEmpty && !Lyrics._isCredit(x.text)) x,
+          ],
+          synced: true,
+        );
+      }
+      if (l == null || l.lines.length < 3) continue;
+      // NetEase often opens with a "Song - Artist" title line.
+      final name = MatchSource.norm(MatchSource.coreTitle(want.title));
+      final lines = [
+        for (var i = 0; i < l.lines.length; i++)
+          if (!(i < 2 &&
+              RegExp(r'\s[-–—]\s').hasMatch(l.lines[i].text) &&
+              MatchSource.norm(l.lines[i].text).contains(name)))
+            l.lines[i],
+      ];
+      return Lyrics(
+        lines: lines,
+        synced: true,
+        length: song['duration'] is int
+            ? Duration(milliseconds: song['duration'] as int)
+            : null,
+        source: 'NetEase',
+      );
+    }
+    return null;
   }
 }
 
 final lyricsServiceProvider = Provider<LyricsService>((ref) => LyricsService());
 
-final lyricsProvider = FutureProvider.family<Lyrics?, Track>(
-  (ref, track) => ref.read(lyricsServiceProvider).fetch(track),
-);
+final lyricsProvider = FutureProvider.family<Lyrics?, Track>((
+  ref,
+  track,
+) async {
+  final l = await ref.read(lyricsServiceProvider).fetch(track);
+  if (l == null || !l.synced) return l;
+  // A music video with a spoken intro: the song (and its lyrics) start
+  // later than in the recording the timings were made for.
+  final bounds = await ref
+      .read(playerProvider)
+      .autoBounds
+      ?.call(track)
+      .timeout(const Duration(seconds: 4))
+      .catchError((Object _) => null);
+  final intro = bounds?.start;
+  if (intro == null || intro < const Duration(seconds: 2)) return l;
+  final match = ref.read(sourcesProvider)[SourceKind.match];
+  final played = track.source == SourceKind.match && match is MatchSource
+      ? match.matched(track)?.duration
+      : track.duration;
+  final recorded = l.length;
+  // Only when what plays really is longer by about that much.
+  if (played != null && recorded != null && played - recorded < intro * 0.5) {
+    return l;
+  }
+  return l.withShift(intro);
+});

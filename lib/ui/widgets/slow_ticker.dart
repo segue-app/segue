@@ -92,13 +92,21 @@ class _SlowTicker extends Ticker {
       Beat.add(_beat);
       return;
     }
-    _wait = Timer(interval, () {
-      _wait = null;
-      if (shouldScheduleTick) super.scheduleTick();
-    });
+    _wait = Timer(interval, _afterWait);
+  }
+
+  void _afterWait() {
+    if (!Beat.visible) {
+      _wait = Timer(interval * 4, _afterWait); // in the background: idle
+      return;
+    }
+    _wait = null;
+    if (shouldScheduleTick) super.scheduleTick();
   }
 
   void _beat() {
+    // In the background: wait (on the cheap beat) until we're back.
+    if (!Beat.visible) return;
     _cancelBeat();
     if (shouldScheduleTick) super.scheduleTick();
   }

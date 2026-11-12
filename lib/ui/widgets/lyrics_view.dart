@@ -136,7 +136,8 @@ class _LinesState extends ConsumerState<_Lines>
   void _tick(Duration _) {
     final pos = _playing ? _basePos + _sinceBase.elapsed : _basePos;
     // Reading lags behind hearing: light a word a touch early.
-    final shown = pos + Duration(milliseconds: 150 + _offsetMs);
+    final shown =
+        pos + Duration(milliseconds: 150 + _offsetMs) - widget.lyrics.shift;
     _smooth.value = shown;
     final i = widget.lyrics.lineAt(shown);
     if (i != _index) {

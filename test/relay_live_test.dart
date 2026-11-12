@@ -3,7 +3,12 @@
 @Tags(['live'])
 library;
 
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:typed_data/typed_buffers.dart';
 import 'package:segue/core/library/library_store.dart';
 import 'package:segue/core/models/track.dart';
 import 'package:segue/core/sync/relay.dart';
@@ -76,5 +81,81 @@ void main() {
     a.closeInvite();
     await a.stop();
     await b.stop();
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('positions stay right when the clocks disagree', () async {
+    final libA = LibraryStore.memory(), libB = LibraryStore.memory();
+    final playerA = FakePlayer(), playerB = FakePlayer();
+    final a = Relay(library: libA, player: playerA, deviceName: () => 'Mac')
+      // The Mac's clock is a minute behind.
+      ..clockOffset = const Duration(seconds: -60);
+    var b = Relay(library: libB, player: playerB, deviceName: () => 'Phone');
+    await a.start();
+    await b.start();
+    await b.join(await a.openInvite());
+    playerA.state = {
+      'queue': [_t('a2').toJson()],
+      'index': 0,
+      'positionMs': 30000,
+      'playing': true,
+      'durationMs': 200000,
+    };
+    await playerA.play();
+    await _until(() => b.devices.value[libA.deviceId]?.playing == true);
+    Duration seen() => b.devices.value[libA.deviceId]!.position;
+    // ignore: avoid_print
+    print('CLOCK live: ${seen().inSeconds}s');
+    expect(seen().inSeconds, inInclusiveRange(29, 37));
+
+    // The phone reconnects and first gets the stored message.
+    await b.stop();
+    b = Relay(library: libB, player: playerB, deviceName: () => 'Phone');
+    await b.start();
+    await _until(() => b.devices.value[libA.deviceId]?.playing == true);
+    // A fresh heartbeat corrects it within seconds.
+    await Future<void>.delayed(const Duration(seconds: 7));
+    // ignore: avoid_print
+    print('CLOCK after reconnect: ${seen().inSeconds}s');
+    expect(seen().inSeconds, inInclusiveRange(29, 37));
+    a.closeInvite();
+    await a.stop();
+    await b.stop();
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('one dropped broker connection does not take a device offline', () async {
+    final libA = LibraryStore.memory(), libB = LibraryStore.memory();
+    final a = Relay(library: libA, player: FakePlayer(), deviceName: () => 'Mac');
+    final b = Relay(library: libB, player: FakePlayer(), deviceName: () => 'Phone');
+    await a.start();
+    await b.start();
+    await b.join(await a.openInvite());
+    await _until(() => b.devices.value[libA.deviceId]?.online == true);
+
+    // What a broker sends when one of A's two connections dies: its will,
+    // a plain "off", on that broker only.
+    final token = libA.getMeta('group_token')!;
+    final base =
+        'segue/v1/${(await Relay.hash('segue-topic:$token')).substring(0, 24)}';
+    final c = MqttServerClient.withPort(
+      'broker.emqx.io',
+      'sg-test-${Random().nextInt(1 << 30)}',
+      8883,
+    )..secure = true;
+    await c.connect();
+    c.publishMessage(
+      '$base/p/${libA.deviceId}',
+      MqttQos.atLeastOnce,
+      Uint8Buffer()..addAll('off'.codeUnits),
+    );
+    await Future<void>.delayed(const Duration(seconds: 4));
+    final online = b.devices.value[libA.deviceId]?.online;
+    // ignore: avoid_print
+    print('PRESENCE after one broker said off: online=$online');
+    expect(online, isTrue);
+    c.disconnect();
+    a.closeInvite();
+    await a.stop();
+    await b.stop();
+    // A really leaving is still seen.
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

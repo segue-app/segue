@@ -131,10 +131,26 @@ class Relay {
   final _clients = <MqttServerClient>[];
   final _subs = <StreamSubscription<Object?>>[];
   StreamSubscription<void>? _libSub, _playerSub;
-  Timer? _libDebounce, _stateDebounce, _inviteTimer;
+  Timer? _libDebounce, _stateDebounce, _inviteTimer, _stateBeat;
+
+  /// How far each device's clock is from ours (ours − theirs), learnt from
+  /// messages that arrived live. Timestamps in stored (retained) messages
+  /// are moved by it, so a minute-off phone clock doesn't shift positions.
+  final _skew = <String, Duration>{};
+  final _lastStateAt = <String, int>{};
+
+  /// The library version last merged from each device.
+  final _appliedRev = <String, String>{};
+
+  /// Library version each broker holds from us (retained), by host.
+  final _publishedSeqAt = <MqttServerClient, int>{};
+  final _publishedAt = <MqttServerClient, DateTime>{};
+
+  /// Pretends this device's clock is off by this much (tests).
+  @visibleForTesting
+  Duration clockOffset = Duration.zero;
   SecretKey? _key;
   String _base = '';
-  int _publishedSeq = -1;
   final _seenCommands = <String>{};
   final _chunks = <String, Map<int, Uint8List>>{}; // "<device>/<rev>" → parts
   final _manifests = <String, Map<String, dynamic>>{};
@@ -222,6 +238,12 @@ class Relay {
 
     _libSub = library.changes.listen((_) => _scheduleLibrary());
     _playerSub = player.stateChanges.listen((_) => _scheduleState());
+    // While music plays, say where it is every few seconds: others always
+    // have a fresh position, timed by their own clock.
+    _stateBeat?.cancel();
+    _stateBeat = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (player.snapshot()['playing'] == true) unawaited(_publishState());
+    });
     _scheduleLibrary(immediately: true);
     _scheduleState();
   }
@@ -230,6 +252,7 @@ class Relay {
     _running = false;
     _libDebounce?.cancel();
     _stateDebounce?.cancel();
+    _stateBeat?.cancel();
     await _libSub?.cancel();
     await _playerSub?.cancel();
     for (final s in _subs) {
@@ -255,7 +278,10 @@ class Relay {
     _clients.clear();
     connected.value = false;
     devices.value = {};
-    _publishedSeq = -1;
+    _presence.clear();
+    _publishedSeqAt.clear();
+    _publishedAt.clear();
+    _appliedRev.clear();
   }
 
   /// After the group changed (joined another device's group).
@@ -288,7 +314,7 @@ class Relay {
     try {
       await c.connect().timeout(const Duration(seconds: 12));
       _clients.add(c);
-      _subs.add(c.updates!.listen(_onMessages));
+      _subs.add(c.updates!.listen((batch) => _onMessages(batch, host)));
       c.subscribe('$_base/#', MqttQos.atLeastOnce);
       _onConnected(c);
     } catch (e) {
@@ -305,8 +331,13 @@ class Relay {
       await _sealJson({'name': deviceName(), 'os': platform, 'online': true}),
       retain: true,
     );
-    // A broker that was down missed what we published meanwhile.
-    _publishedSeq = -1;
+    // Public brokers may drop old retained messages: refresh ours now and
+    // then. Otherwise a broker that was down only gets what it missed.
+    final at = _publishedAt[c];
+    if (at == null ||
+        DateTime.now().difference(at) > const Duration(minutes: 30)) {
+      _publishedSeqAt.remove(c);
+    }
     _scheduleLibrary(immediately: true);
     _scheduleState();
   }
@@ -333,7 +364,10 @@ class Relay {
 
   // --- incoming ----------------------------------------------------------------
 
-  Future<void> _onMessages(List<MqttReceivedMessage<MqttMessage>> batch) async {
+  Future<void> _onMessages(
+    List<MqttReceivedMessage<MqttMessage>> batch, [
+    String broker = '',
+  ]) async {
     for (final m in batch) {
       final topic = m.topic;
       final data = (m.payload as MqttPublishMessage).payload.message.toList();
@@ -355,10 +389,14 @@ class Relay {
           final j = utf8.decode(data, allowMalformed: true) == 'off'
               ? <String, dynamic>{'online': false}
               : await _openJson(data);
-          if (j != null) _onPresence(from, j);
+          if (j != null) _onPresence(from, j, broker: broker);
         case 's':
+          // Retained = stored earlier by the broker, not sent just now.
+          final stored =
+              (m.payload as MqttPublishMessage).header?.retain ?? false;
+          final arrived = DateTime.now();
           final j = await _openJson(data);
-          if (j != null) _onState(from, j);
+          if (j != null) _onState(from, j, arrived: arrived, stored: stored);
         case 'l':
           if (parts.length == 3) await _onLibraryPart(from, parts[2], data);
       }
@@ -383,8 +421,16 @@ class Relay {
     devices.value = {...devices.value}..remove(id);
   }
 
-  void _onPresence(String id, Map<String, dynamic> j) {
+  /// Online or not, per device and broker. A device keeps a connection to
+  /// each broker; when one drops, that broker announces it offline (its
+  /// "will") while the other still carries it. Online = any says so.
+  final _presence = <String, Map<String, bool>>{};
+
+  void _onPresence(String id, Map<String, dynamic> j, {String broker = ''}) {
     if (_ignored.contains(id)) return;
+    final perBroker = _presence[id] ??= {};
+    perBroker[broker] = j['online'] == true;
+    final online = perBroker.values.any((v) => v);
     final old = devices.value[id];
     final name = j['name'] as String? ?? old?.name ?? 'Устройство';
     final os = j['os'] as String? ?? old?.platform ?? '';
@@ -393,7 +439,7 @@ class Relay {
       id: (old ?? RemoteDevice(id: id, name: name, platform: os)).copyWith(
         name: name,
         platform: os,
-        online: j['online'] == true,
+        online: online,
       ),
     };
     // Shows up in the devices list next to the ones paired on Wi-Fi.
@@ -411,9 +457,42 @@ class Relay {
     }
   }
 
-  void _onState(String id, Map<String, dynamic> j) {
+  void _onState(
+    String id,
+    Map<String, dynamic> j, {
+    DateTime? arrived,
+    bool stored = false,
+  }) {
     if (_ignored.contains(id)) return;
-    final at = DateTime.fromMillisecondsSinceEpoch(j['at'] as int? ?? 0);
+    final now = arrived ?? DateTime.now();
+    final sentMs = j['at'] as int? ?? 0;
+    final at = DateTime.fromMillisecondsSinceEpoch(sentMs);
+    // Both brokers deliver each message: keep only the newest.
+    // (Unless their clock was set back a lot: then it's the new normal.)
+    final last = _lastStateAt[id] ?? 0;
+    if (sentMs != 0 && sentMs <= last && last - sentMs < 10000) return;
+    _lastStateAt[id] = sentMs;
+    final DateTime stateAt;
+    if (!stored) {
+      // Sent just now: time it by our clock, and learn their clock's
+      // offset (the smallest seen is the one with the least delay).
+      stateAt = now;
+      // Network delay only adds to it, so lean to the smallest, but follow
+      // slowly when their clock is adjusted.
+      final skew = now.difference(at);
+      final known = _skew[id];
+      _skew[id] = known == null || skew < known
+          ? skew
+          : known + (skew - known) * 0.1;
+    } else {
+      final skew = _skew[id];
+      stateAt = skew != null
+          ? at.add(skew)
+          // Unknown clock: trust it unless it's plainly off.
+          : now.difference(at).abs() < const Duration(seconds: 5)
+          ? now
+          : at;
+    }
     final old =
         devices.value[id] ??
         RemoteDevice(id: id, name: 'Устройство', platform: '');
@@ -421,12 +500,7 @@ class Relay {
       ...devices.value,
       id: old.copyWith(
         state: (j['player'] as Map).cast<String, dynamic>(),
-        // Their clock may differ from ours: count from when it arrived,
-        // unless it's an old retained message.
-        stateAt:
-            DateTime.now().difference(at).abs() < const Duration(seconds: 5)
-            ? DateTime.now()
-            : at,
+        stateAt: stateAt.isAfter(now) ? now : stateAt,
       ),
     };
   }
@@ -446,6 +520,12 @@ class Relay {
     final m = _manifests[from];
     if (m == null) return;
     final rev = m['rev'] as String, n = m['n'] as int;
+    // Each version arrives from both brokers, and again after reconnects:
+    // merge it once.
+    if (_appliedRev[from] == rev) {
+      _chunks.remove('$from/$rev');
+      return;
+    }
     final got = _chunks['$from/$rev'];
     if (got == null || got.length < n) return;
     final blob = BytesBuilder();
@@ -456,6 +536,7 @@ class Relay {
     }
     _chunks.removeWhere((k, _) => k.startsWith('$from/'));
     _manifests.remove(from);
+    _appliedRev[from] = rev;
     try {
       final changes = jsonDecode(
         utf8.decode(gzip.decode(blob.toBytes())),
@@ -479,9 +560,30 @@ class Relay {
 
   /// The whole library (history trimmed to the latest plays), so a device
   /// that was offline gets everything from the retained copy.
-  Future<void> _publishLibrary() async {
-    if (_clients.isEmpty || library.currentSeq == _publishedSeq) return;
+  /// One upload at a time: two overlapping ones would leave the broker with
+  /// one version's manifest over the other's chunks, which nobody can put
+  /// together.
+  Future<void> _publishLibrary() {
+    final run = _libraryUpload.then((_) => _uploadLibrary());
+    _libraryUpload = run.catchError((Object e) {
+      debugPrint('relay library upload: $e');
+    });
+    return run;
+  }
+
+  Future<void> _libraryUpload = Future.value();
+
+  Future<void> _uploadLibrary() async {
     final seq = library.currentSeq;
+    // Only to brokers that don't hold this version yet: a reconnect alone
+    // needs nothing (the broker kept our retained copy).
+    final targets = [
+      for (final c in _clients)
+        if (c.connectionStatus?.state == MqttConnectionState.connected &&
+            _publishedSeqAt[c] != seq)
+          c,
+    ];
+    if (targets.isEmpty) return;
     final all = Map<String, Object>.of(library.exportChanges(0));
     final history = all['history'] as List;
     if (history.length > 400) {
@@ -490,27 +592,31 @@ class Relay {
     final blob = gzip.encode(utf8.encode(jsonEncode(all)));
     final rev = randomId(16);
     final n = (blob.length / _chunk).ceil().clamp(1, 1 << 20);
+    Future<void> send(String topic, List<int> data) => Future.wait([
+      for (final c in targets) _publishTo(c, topic, data, retain: true),
+    ]);
     for (var i = 0; i < n; i++) {
       final part = blob.sublist(i * _chunk, min((i + 1) * _chunk, blob.length));
-      await _publish(
+      await send(
         '$_base/l/$_me/$i',
         await seal(_key!, [...utf8.encode(rev), ...part]),
-        retain: true,
       );
     }
     // The manifest last: receivers wait for it before assembling.
-    await _publish(
+    await send(
       '$_base/l/$_me/m',
       await seal(_key!, utf8.encode(jsonEncode({'rev': rev, 'n': n}))),
-      retain: true,
     );
     // Old chunks beyond the new count would linger: clear a few.
     final prev = int.tryParse(library.getMeta('relay_chunks') ?? '') ?? 0;
     for (var i = n; i < prev; i++) {
-      await _publish('$_base/l/$_me/$i', const [], retain: true);
+      await send('$_base/l/$_me/$i', const []);
     }
     library.setMeta('relay_chunks', '$n');
-    _publishedSeq = seq;
+    for (final c in targets) {
+      _publishedSeqAt[c] = seq;
+      _publishedAt[c] = DateTime.now();
+    }
   }
 
   void _scheduleState() {
@@ -534,7 +640,7 @@ class Relay {
     await _publish(
       '$_base/s/$_me',
       await _sealJson({
-        'at': DateTime.now().millisecondsSinceEpoch,
+        'at': DateTime.now().add(clockOffset).millisecondsSinceEpoch,
         'player': snap,
       }),
       retain: true,
