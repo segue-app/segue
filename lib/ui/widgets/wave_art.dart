@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../theme/theme.dart';
+import 'frame_clock.dart';
 
 /// Artwork of the "Моя волна" card: glowing colour clouds with layered
 /// waves rolling through them. Calm while idle; while the wave plays the
@@ -27,9 +27,8 @@ class WaveArt extends StatefulWidget {
   State<WaveArt> createState() => _WaveArtState();
 }
 
-class _WaveArtState extends State<WaveArt> with SingleTickerProviderStateMixin {
-  late final Ticker _ticker;
-  Duration _last = Duration.zero;
+class _WaveArtState extends State<WaveArt> {
+  late final _clock = FrameClock(_tick);
   double _t = 0;
 
   /// 0 idle … 1 playing, eased so the change is a smooth swell.
@@ -41,29 +40,32 @@ class _WaveArtState extends State<WaveArt> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     _energy = widget.playing ? 1 : 0;
-    _ticker = createTicker(_tick);
-    if (widget.animate) _ticker.start();
+    if (widget.animate) _clock.start(_fps);
+  }
+
+  /// Full motion while the wave plays; a slow, cheap drift otherwise.
+  int get _fps => widget.playing ? 30 : 12;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _clock.bind(context);
   }
 
   @override
   void didUpdateWidget(WaveArt old) {
     super.didUpdateWidget(old);
-    if (widget.animate && !_ticker.isActive) {
-      _last = Duration.zero;
-      _ticker.start();
-    } else if (!widget.animate && _ticker.isActive) {
-      _ticker.stop();
+    if (widget.animate) {
+      _clock.start(_fps);
+    } else if (_clock.running) {
+      _clock.stop();
       _colors = List.of(widget.colors);
       _energy = widget.playing ? 1 : 0;
       _repaint.value++;
     }
   }
 
-  void _tick(Duration now) {
-    final dt = _last == Duration.zero
-        ? 0.016
-        : ((now - _last).inMicroseconds / 1e6).clamp(0.0, 0.1);
-    _last = now;
+  void _tick(double dt) {
     final target = widget.playing ? 1.0 : 0.0;
     _energy += (target - _energy) * (dt * 1.6).clamp(0.0, 1.0);
     _t += dt * (0.35 + 0.65 * _energy);
@@ -76,7 +78,7 @@ class _WaveArtState extends State<WaveArt> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
-    _ticker.dispose();
+    _clock.stop();
     _repaint.dispose();
     super.dispose();
   }

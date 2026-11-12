@@ -25,6 +25,7 @@ import '../widgets/nav.dart';
 import '../widgets/track_actions.dart';
 import 'library_screen.dart';
 import 'playlist_screen.dart';
+import '../widgets/slow_ticker.dart';
 
 /// Start page: quick access to liked songs and playlists, and what you
 /// listened to recently.
@@ -630,7 +631,7 @@ class _WavePlayButton extends StatefulWidget {
 }
 
 class _WavePlayButtonState extends State<_WavePlayButton>
-    with SingleTickerProviderStateMixin {
+    with SlowTickerProviderStateMixin {
   late final _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 2400),

@@ -65,7 +65,16 @@ class SegueAudioHandler extends BaseAudioHandler
       // While the next track loads, this is still the old one's position:
       // it must not move the new track's progress, fades, mix or trim.
       if (_switching) return;
-      if (_out == null) _positionCtl.add(pos);
+      // mpv reports dozens of times a second; the UI needs a few (a jump,
+      // like a seek or a new track, goes through at once).
+      final now = DateTime.now();
+      if (_out == null &&
+          (now.difference(_posSentAt) >= const Duration(milliseconds: 200) ||
+              (pos - _posSent).abs() > const Duration(seconds: 1))) {
+        _posSentAt = now;
+        _posSent = pos;
+        _positionCtl.add(pos);
+      }
       _fadeAt(pos);
       _maybeMix(pos);
       // A trimmed track ends where its trim says.
@@ -150,6 +159,8 @@ class SegueAudioHandler extends BaseAudioHandler
   /// one is a remote for.
   Stream<Duration> get positionStream => _positionCtl.stream;
   final _positionCtl = StreamController<Duration>.broadcast();
+  DateTime _posSentAt = DateTime(0);
+  Duration _posSent = Duration.zero;
 
   /// Duration of the current track as published in [mediaItem], which
   /// prefers the source's exact value over the player's estimate.

@@ -7,6 +7,7 @@ import 'now_playing_screen.dart';
 
 import '../../core/settings/settings.dart';
 import '../../core/integrations/notch.dart';
+import '../../core/integrations/updater.dart';
 import '../../core/integrations/updates.dart';
 
 import 'package:flutter/services.dart';
@@ -34,6 +35,7 @@ import 'library_screen.dart';
 import 'playlist_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/slow_ticker.dart';
 
 /// Whether a text field has the keyboard (then keys are text, not
 /// shortcuts). The focused element is a Focus inside the EditableText, so
@@ -134,8 +136,35 @@ class _ShellState extends ConsumerState<Shell> {
     // A newer release on GitHub: say so once, quietly.
     ref.listenManual(updateProvider, (_, next) {
       final u = next.value;
-      if (u != null) _toast('Вышла версия ${u.version} — см. Настройки');
+      if (u == null) return;
+      final updater = ref.read(updaterProvider);
+      if (!Updater.canInstall(u)) {
+        _toast('Вышла версия ${u.version} — см. Настройки');
+        return;
+      }
+      _messenger.currentState
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Вышла версия ${u.version}'),
+            duration: const Duration(seconds: 10),
+            action: SnackBarAction(
+              label: 'Обновить',
+              onPressed: () {
+                updater.install(u);
+                _toast('Скачиваем обновление — прогресс в Настройках');
+              },
+            ),
+          ),
+        );
     }, fireImmediately: true);
+    final updater = ref.read(updaterProvider);
+    updater.stage.addListener(() {
+      final st = updater.stage.value;
+      if (mounted && (st == UpdateStage.failed || st == UpdateStage.done)) {
+        _toast(updater.message.value);
+      }
+    });
     _errors = ref.read(playerProvider).errors.stream.listen((msg) {
       if (!mounted) return;
       _toast(msg);
@@ -654,7 +683,7 @@ class _Breathing extends StatefulWidget {
 }
 
 class _BreathingState extends State<_Breathing>
-    with SingleTickerProviderStateMixin {
+    with SlowTickerProviderStateMixin {
   late final _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1800),

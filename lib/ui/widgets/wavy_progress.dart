@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme/theme.dart';
+import 'slow_ticker.dart';
 
 /// Progress bar whose played part is a gentle moving wave while music plays
 /// and flattens into a line on pause. Drag or tap to seek.
@@ -27,11 +28,19 @@ class WavyProgress extends StatefulWidget {
 }
 
 class _WavyProgressState extends State<WavyProgress>
-    with TickerProviderStateMixin {
+    with SlowTickerProviderStateMixin {
+  // Moves only while the music plays: a still wave costs nothing.
   late final _phase = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 2),
-  )..repeat();
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.playing) _phase.repeat();
+  }
+
   late final _amplitude = AnimationController(
     vsync: this,
     duration: SegueMotion.slow,
@@ -47,9 +56,17 @@ class _WavyProgressState extends State<WavyProgress>
     final p = _pending;
     if (p != null && (widget.progress - p).abs() < 0.015) _pending = null;
     if (old.playing != widget.playing) {
-      widget.playing
-          ? _amplitude.animateTo(1, curve: SegueMotion.ease)
-          : _amplitude.animateTo(0, curve: SegueMotion.ease);
+      if (widget.playing) {
+        if (!_phase.isAnimating) _phase.repeat();
+        _amplitude.animateTo(1, curve: SegueMotion.ease);
+      } else {
+        // Flatten, then stop the wave altogether.
+        _amplitude.animateTo(0, curve: SegueMotion.ease).whenCompleteOrCancel(
+          () {
+            if (mounted && !widget.playing) _phase.stop();
+          },
+        );
+      }
     }
   }
 

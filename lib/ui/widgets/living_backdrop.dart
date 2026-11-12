@@ -1,10 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../../core/settings/settings.dart';
 import '../theme/theme.dart';
+import 'frame_clock.dart';
 
 /// Animated background built from the cover's colours (not the image):
 /// soft colour clouds drift, swirl and breathe over a deep base, like a
@@ -37,10 +37,8 @@ class LivingBackdrop extends StatefulWidget {
   State<LivingBackdrop> createState() => _LivingBackdropState();
 }
 
-class _LivingBackdropState extends State<LivingBackdrop>
-    with SingleTickerProviderStateMixin {
-  late final Ticker _ticker;
-  Duration _last = Duration.zero;
+class _LivingBackdropState extends State<LivingBackdrop> {
+  late final _clock = FrameClock(_tick);
 
   /// Animation clock (seconds); only advances while playing.
   double _t = math.Random().nextDouble() * 60;
@@ -54,16 +52,29 @@ class _LivingBackdropState extends State<LivingBackdrop>
   void initState() {
     super.initState();
     _speed = widget.playing ? 1 : 0;
-    _ticker = createTicker(_tick)..start();
+    _clock.start(_fps);
+  }
+
+  /// Clouds drift slowly: 30 frames a second look the same as 120.
+  static int get _fps => lightEffects ? 24 : 30;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _clock.bind(context);
+  }
+
+  @override
+  void didUpdateWidget(LivingBackdrop old) {
+    super.didUpdateWidget(old);
+    // Woken by playing again or by a new track's colours.
+    if (!_clock.running) _clock.start(_fps);
   }
 
   static List<Color> _normalized(List<Color> p) =>
       List.generate(4, (i) => p.isEmpty ? Colors.black : p[i % p.length]);
 
-  void _tick(Duration now) {
-    final dt = ((now - _last).inMicroseconds / 1e6).clamp(0.0, 0.1);
-    _last = now;
-
+  void _tick(double dt) {
     final targetSpeed = widget.playing ? 1.0 : 0.0;
     _speed += (targetSpeed - _speed) * (dt * 1.8).clamp(0.0, 1.0);
 
@@ -78,20 +89,20 @@ class _LivingBackdropState extends State<LivingBackdrop>
     }
     _base = Color.lerp(_base, widget.base, k)!;
 
-    // Fully paused and settled: stop repainting to save battery.
-    if (_speed < 0.002 && !colorsMoving && !widget.playing) return;
+    // Fully paused and settled: stop until something changes.
+    if (_speed < 0.002 && !colorsMoving && !widget.playing) {
+      _repaint.value++;
+      _clock.stop();
+      return;
+    }
     final styleSpeed = switch (widget.style) {
       BackdropStyle.living => 1.0,
       BackdropStyle.calm => 0.35,
       BackdropStyle.plain => 0.0,
     };
     _t += dt * _speed * widget.speed * styleSpeed;
-    // Clouds drift slowly: 30 frames a second look the same and cost half.
-    if (lightEffects && (_frame++).isOdd) return;
     _repaint.value++;
   }
-
-  int _frame = 0;
 
   /// Repaints only the clouds, never the screen built on top of them.
   final _repaint = ValueNotifier(0);
@@ -101,7 +112,7 @@ class _LivingBackdropState extends State<LivingBackdrop>
 
   @override
   void dispose() {
-    _ticker.dispose();
+    _clock.stop();
     _repaint.dispose();
     super.dispose();
   }

@@ -13,6 +13,7 @@ import '../../core/player/player.dart';
 import '../../core/settings/settings.dart';
 import '../theme/theme.dart';
 import 'depth.dart';
+import 'slow_ticker.dart';
 
 /// Karaoke lyrics in the style of Spotify / Apple Music / Riff:
 /// the sung line fills with light word by word, the word being sung lifts
@@ -99,9 +100,13 @@ class _Lines extends ConsumerStatefulWidget {
 }
 
 class _LinesState extends ConsumerState<_Lines>
-    with SingleTickerProviderStateMixin {
+    with SlowTickerProviderStateMixin {
   final _scroll = ScrollController();
   late List<GlobalKey> _keys = _makeKeys();
+
+  /// The word fill flows: 60 fps (not the display's 120).
+  @override
+  Duration get frameInterval => const Duration(microseconds: 16667);
 
   /// Position interpolated every frame: the player only reports a few times
   /// a second, which would make the word fill step instead of flow.
@@ -125,7 +130,7 @@ class _LinesState extends ConsumerState<_Lines>
     super.initState();
     _basePos = ref.read(positionProvider).value ?? Duration.zero;
     _sinceBase.start();
-    _ticker = createTicker(_tick)..start();
+    _ticker = createTicker(_tick);
   }
 
   void _tick(Duration _) {
@@ -181,8 +186,19 @@ class _LinesState extends ConsumerState<_Lines>
       _sinceBase
         ..reset()
         ..start();
+      // Paused (the clock is off): a seek still moves the highlight.
+      if (!_ticker.isActive) _tick(Duration.zero);
     });
     _playing = ref.watch(playingProvider).value ?? false;
+    // Words only move while the music does.
+    if (_playing && !_ticker.isActive) {
+      _ticker.start();
+    } else if (!_playing && _ticker.isActive) {
+      _ticker.stop();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _tick(Duration.zero);
+      });
+    }
     final settings = ref.watch(settingsProvider);
     _offsetMs = settings.lyricsOffsetMs;
 
@@ -544,7 +560,7 @@ class _Dots extends StatefulWidget {
   State<_Dots> createState() => _DotsState();
 }
 
-class _DotsState extends State<_Dots> with SingleTickerProviderStateMixin {
+class _DotsState extends State<_Dots> with SlowTickerProviderStateMixin {
   late final _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1400),
@@ -608,7 +624,7 @@ class LyricsPreview extends StatefulWidget {
 }
 
 class _LyricsPreviewState extends State<LyricsPreview>
-    with SingleTickerProviderStateMixin {
+    with SlowTickerProviderStateMixin {
   static final _lyrics = Lyrics.parseLrc(
     '[00:00.00]Я слышу эту песню\n[00:03.20]И она звучит везде\n[00:06.40]Ещё один круг',
   );

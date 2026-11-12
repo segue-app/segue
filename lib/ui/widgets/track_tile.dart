@@ -12,6 +12,7 @@ import '../theme/theme.dart';
 import 'artwork.dart';
 import 'motion.dart';
 import 'track_actions.dart';
+import 'slow_ticker.dart';
 
 class TrackTile extends ConsumerWidget {
   const TrackTile({
@@ -177,7 +178,7 @@ class EqualizerBars extends StatefulWidget {
 }
 
 class _EqualizerBarsState extends State<EqualizerBars>
-    with SingleTickerProviderStateMixin {
+    with SlowTickerProviderStateMixin {
   late final _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1100),

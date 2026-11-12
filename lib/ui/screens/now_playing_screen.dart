@@ -71,7 +71,6 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   Widget build(BuildContext context) {
     final item = ref.watch(currentTrackProvider).value;
     final playing = ref.watch(playingProvider).value ?? false;
-    final position = ref.watch(positionProvider).value ?? Duration.zero;
     final duration =
         ref.watch(durationProvider).value ?? item?.duration ?? Duration.zero;
     final colors = ref.watch(currentColorsProvider);
@@ -86,10 +85,6 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     final hasLyrics = lyricsState?.value?.lines.isNotEmpty ?? false;
     final showLyrics =
         _lyrics && (hasLyrics || (lyricsState?.isLoading ?? false));
-
-    final progress = duration.inMilliseconds == 0
-        ? 0.0
-        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
 
     return GestureDetector(
       onVerticalDragUpdate: (d) =>
@@ -157,8 +152,6 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                             ),
                     );
                     final controls = _Controls(
-                      progress: progress,
-                      position: position,
                       duration: duration,
                       playing: playing,
                       wavy: settings.wavyProgress,
@@ -567,18 +560,16 @@ class _MiniHeader extends StatelessWidget {
   }
 }
 
+/// Only this part follows the position: the rest of the screen doesn't
+/// rebuild several times a second.
 class _Controls extends ConsumerWidget {
   const _Controls({
-    required this.progress,
-    required this.position,
     required this.duration,
     required this.playing,
     required this.wavy,
     required this.accent,
   });
 
-  final double progress;
-  final Duration position;
   final Duration duration;
   final bool playing;
   final bool wavy;
@@ -587,6 +578,10 @@ class _Controls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.read(playerProvider);
+    final position = ref.watch(positionProvider).value ?? Duration.zero;
+    final progress = duration.inMilliseconds == 0
+        ? 0.0
+        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
     return Column(
       children: [
         WavyProgress(

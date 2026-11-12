@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/integrations/lastfm.dart';
+import '../../core/integrations/updater.dart';
 import '../../core/integrations/updates.dart';
 import '../../core/settings/settings.dart';
 import '../theme/artwork_colors.dart';
@@ -848,22 +849,64 @@ class _About extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final update = ref.watch(updateProvider);
     final found = update.value;
-    return _Tile(
-      title: 'Segue $appVersion',
-      subtitle: update.isLoading
-          ? 'Проверяем обновления…'
-          : found == null
-          ? 'У тебя последняя версия'
-          : 'Вышла версия ${found.version}',
-      trailing: found == null
-          ? TextButton(
-              onPressed: () => ref.invalidate(updateProvider),
-              child: const Text('Проверить'),
-            )
-          : FilledButton(
-              onPressed: () => launchUrl(Uri.parse(found.url)),
-              child: const Text('Скачать'),
-            ),
+    final updater = ref.read(updaterProvider);
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        updater.stage,
+        updater.progress,
+        updater.message,
+      ]),
+      builder: (context, _) {
+        final stage = updater.stage.value;
+        final p = updater.progress.value;
+        final String subtitle;
+        if (stage == UpdateStage.downloading) {
+          subtitle = p == null
+              ? updater.message.value
+              : 'Скачиваем ${found?.version ?? ''}… ${(p * 100).round()}%';
+        } else if (stage == UpdateStage.installing) {
+          subtitle = 'Устанавливаем…';
+        } else if (updater.message.value.isNotEmpty &&
+            stage != UpdateStage.idle) {
+          subtitle = updater.message.value;
+        } else if (update.isLoading) {
+          subtitle = 'Проверяем обновления…';
+        } else if (found == null) {
+          subtitle = 'У тебя последняя версия';
+        } else if (updater.message.value.isNotEmpty) {
+          subtitle = updater.message.value;
+        } else {
+          subtitle = 'Вышла версия ${found.version}';
+        }
+        final Widget trailing;
+        if (updater.busy) {
+          trailing = SizedBox(
+            width: 26,
+            height: 26,
+            child: CircularProgressIndicator(strokeWidth: 3, value: p),
+          );
+        } else if (found == null) {
+          trailing = TextButton(
+            onPressed: () => ref.invalidate(updateProvider),
+            child: const Text('Проверить'),
+          );
+        } else if (Updater.canInstall(found)) {
+          trailing = FilledButton(
+            onPressed: () => updater.install(found),
+            child: const Text('Обновить'),
+          );
+        } else {
+          trailing = FilledButton(
+            onPressed: () => launchUrl(Uri.parse(found.url)),
+            child: const Text('Скачать'),
+          );
+        }
+        return _Tile(
+          title: 'Segue $appVersion',
+          subtitle: subtitle,
+          trailing: trailing,
+        );
+      },
     );
   }
 }

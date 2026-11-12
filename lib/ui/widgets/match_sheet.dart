@@ -123,9 +123,7 @@ class _MatchSheetState extends ConsumerState<_MatchSheet> {
                           ].where((s) => s.isNotEmpty).join(' · '),
                           style: const TextStyle(color: SegueColors.textDim),
                         ),
-                        trailing: on
-                            ? const Icon(Icons.check_rounded)
-                            : null,
+                        trailing: on ? const Icon(Icons.check_rounded) : null,
                         onTap: () => _pick(t),
                       );
                     },
