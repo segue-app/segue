@@ -9,6 +9,8 @@ import '../theme/theme.dart';
 import 'library_import_sheet.dart';
 import 'track_actions.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Paste a playlist link from Spotify, Yandex Music, YouTube or SoundCloud;
 /// creates a Segue playlist and returns its id (null if cancelled).
 Future<String?> showImportDialog(BuildContext context) => showDialog<String>(
@@ -56,7 +58,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
     try {
       final playlist = await ref.read(importerProvider).import(link);
       if (playlist.tracks.isEmpty) {
-        throw ImportException('В плейлисте нет доступных треков');
+        throw ImportException('В плейлисте нет доступных треков'.tr);
       }
       final library = ref.read(libraryProvider);
       final id = library.createPlaylist(playlist.name);
@@ -66,7 +68,11 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: Text(
-            '«${playlist.name}»: ${tracksLabel(playlist.tracks.length)} из ${playlist.service}',
+            '«{0}»: {1} из {2}'.trArgs([
+              playlist.name,
+              tracksLabel(playlist.tracks.length),
+              playlist.service.tr,
+            ]),
           ),
         ),
       );
@@ -75,7 +81,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
     } catch (_) {
       setState(
         () => _error =
-            'Не получилось загрузить плейлист. Проверь ссылку и интернет',
+            'Не получилось загрузить плейлист. Проверь ссылку и интернет'.tr,
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -94,8 +100,8 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
     return AlertDialog(
       backgroundColor: SegueColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      title: const Text(
-        'Импорт плейлиста',
+      title: Text(
+        'Импорт плейлиста'.tr,
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
       content: SizedBox(
@@ -104,8 +110,8 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Вставь ссылку на публичный плейлист или альбом.',
+            Text(
+              'Вставь ссылку на публичный плейлист или альбом.'.tr,
               style: TextStyle(color: SegueColors.textDim, height: 1.4),
             ),
             const SizedBox(height: 14),
@@ -115,7 +121,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
               children: [
                 for (final s in [
                   'Spotify',
-                  'Яндекс Музыка',
+                  'Яндекс Музыка'.tr,
                   'YouTube',
                   'SoundCloud',
                 ])
@@ -132,7 +138,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      s,
+                      s.tr,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -172,10 +178,11 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                     ),
             ),
             if (service == 'Spotify' || service == 'Яндекс Музыка')
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 10),
                 child: Text(
-                  'Звук для каждого трека найдётся на YouTube, когда он заиграет.',
+                  'Звук для каждого трека найдётся на YouTube, когда он заиграет.'
+                      .tr,
                   style: TextStyle(color: SegueColors.textDim, fontSize: 12.5),
                 ),
               ),
@@ -190,11 +197,11 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                   Navigator.pop(context);
                   showLibraryImport(context);
                 },
-          child: const Text('Всю библиотеку…'),
+          child: Text('Всю библиотеку…'.tr),
         ),
         TextButton(
           onPressed: _busy ? null : () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: Text('Отмена'.tr),
         ),
         FilledButton(
           onPressed: _busy || service == null ? null : _import,
@@ -203,7 +210,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                   dimension: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Импортировать'),
+              : Text('Импортировать'.tr),
         ),
       ],
     );

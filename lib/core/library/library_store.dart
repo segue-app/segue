@@ -9,6 +9,8 @@ import 'package:uuid/uuid.dart';
 
 import '../models/track.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// A user playlist (tracks are loaded separately).
 class Playlist {
   const Playlist({
@@ -96,6 +98,10 @@ class LibraryStore {
       sqlite3.open('${dir.path}${Platform.pathSeparator}library.db'),
     ).._migrate();
   }
+
+  /// A store in the given file (tools and tests).
+  factory LibraryStore.at(String path) =>
+      LibraryStore._(sqlite3.open(path)).._migrate();
 
   /// In-memory store for tests.
   factory LibraryStore.memory() =>
@@ -316,7 +322,8 @@ class LibraryStore {
     final had = json['artworkUrl'] as String?;
     // A YouTube thumbnail came from an earlier (maybe wrong) match: a new
     // match replaces it. Covers from Spotify/Yandex stay.
-    if (had != null && (!had.startsWith('https://i.ytimg.com/') || had == url)) {
+    if (had != null &&
+        (!had.startsWith('https://i.ytimg.com/') || had == url)) {
       return;
     }
     json['artworkUrl'] = url;
@@ -400,9 +407,9 @@ class LibraryStore {
     list.insert(to, moved);
     int at(Track t) =>
         (_db.select('SELECT liked_at FROM likes WHERE track_key = ?', [
-                  t.key,
-                ]).firstOrNull?['liked_at']
-                as int?) ??
+              t.key,
+            ]).firstOrNull?['liked_at']
+            as int?) ??
         0;
     void set(Track t, int likedAt) => _db.execute(
       'UPDATE likes SET liked_at = ?, updated_at = ?, seq = ? '
@@ -446,7 +453,7 @@ class LibraryStore {
       'INSERT INTO playlists (id, name, created_at, updated_at, seq) VALUES (?, ?, ?, ?, ?)',
       [
         id,
-        name.trim().isEmpty ? 'Новый плейлист' : name.trim(),
+        name.trim().isEmpty ? 'Новый плейлист'.tr : name.trim(),
         _now,
         _now,
         _nextSeq,

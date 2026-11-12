@@ -13,6 +13,8 @@ import '../library/library_store.dart';
 import '../models/track.dart';
 import '../sources/music_source.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 const audioExtensions = {
   'mp3',
   'flac',
@@ -63,7 +65,7 @@ class LocalLibrary {
   /// Asks for a folder, remembers it and indexes it. Returns its path.
   Future<String?> addFolder() async {
     final path = await FilePicker.getDirectoryPath(
-      dialogTitle: 'Папка с музыкой',
+      dialogTitle: 'Папка с музыкой'.tr,
     );
     if (path == null) return null;
     String? bookmark;
@@ -194,7 +196,7 @@ class LocalSource implements MusicSource {
   SourceKind get kind => SourceKind.local;
 
   @override
-  String get label => 'На устройстве';
+  String get label => 'На устройстве'.tr;
 
   @override
   Future<List<Track>> search(String query, {int limit = 20}) async => const [];
@@ -202,7 +204,7 @@ class LocalSource implements MusicSource {
   @override
   Future<StreamInfo> resolveStream(Track track) async {
     if (!File(track.id).existsSync()) {
-      throw StateError('Файл не найден: ${track.id}');
+      throw StateError('Файл не найден: {0}'.trArgs([track.id]));
     }
     return StreamInfo(Uri.file(track.id), duration: track.duration);
   }

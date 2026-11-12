@@ -12,6 +12,8 @@ import '../widgets/nav.dart';
 import '../widgets/track_tile.dart';
 import 'album_screen.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Artist: photo, play / wave, popular tracks, releases, similar artists.
 class ArtistScreen extends ConsumerWidget {
   const ArtistScreen({super.key, required this.artistId});
@@ -34,9 +36,9 @@ class ArtistScreen extends ConsumerWidget {
       ),
       body: page.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const Center(
+        error: (_, _) => Center(
           child: Text(
-            'Не удалось загрузить артиста',
+            'Не удалось загрузить артиста'.tr,
             style: TextStyle(color: SegueColors.textDim),
           ),
         ),
@@ -100,7 +102,7 @@ class _Body extends ConsumerWidget {
                 children: [
                   _Pill(
                     icon: Icons.play_arrow_rounded,
-                    label: 'Слушать',
+                    label: 'Слушать'.tr,
                     color: accent,
                     filled: true,
                     onTap: top.isEmpty
@@ -109,7 +111,7 @@ class _Body extends ConsumerWidget {
                   ),
                   _Pill(
                     icon: Icons.waves_rounded,
-                    label: 'Волна артиста',
+                    label: 'Волна артиста'.tr,
                     color: accent,
                     onTap: () => ref.read(waveProvider).artistWave(a),
                   ),
@@ -131,7 +133,7 @@ class _Body extends ConsumerWidget {
             ),
           ),
         ),
-        if (top.isNotEmpty) const _Title('Популярные треки'),
+        if (top.isNotEmpty) _Title('Популярные треки'.tr),
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
@@ -152,7 +154,7 @@ class _Body extends ConsumerWidget {
           ),
         ),
         if (page.albums.isNotEmpty) ...[
-          const _Title('Релизы'),
+          _Title('Релизы'.tr),
           SliverToBoxAdapter(
             child: SizedBox(
               height: 214,
@@ -201,7 +203,7 @@ class _Body extends ConsumerWidget {
           ),
         ],
         if (page.related.isNotEmpty) ...[
-          const _Title('Похожие исполнители'),
+          _Title('Похожие исполнители'.tr),
           SliverToBoxAdapter(
             child: SizedBox(
               height: 170,
@@ -251,16 +253,18 @@ class _Body extends ConsumerWidget {
   }
 
   static String _fans(int n) {
-    if (n >= 1000000) return '${(n / 1e6).toStringAsFixed(1)} млн слушателей';
-    if (n >= 1000) return '${(n / 1000).round()} тыс. слушателей';
-    return '$n слушателей';
+    if (n >= 1000000) {
+      return '{0} млн слушателей'.trArgs([(n / 1e6).toStringAsFixed(1)]);
+    }
+    if (n >= 1000) return '{0} тыс. слушателей'.trArgs([(n / 1000).round()]);
+    return '{0} слушателей'.trArgs([n]);
   }
 
   static String _type(String? t) => switch (t) {
-    'single' => 'Сингл',
+    'single' => 'Сингл'.tr,
     'ep' => 'EP',
-    'compile' => 'Сборник',
-    _ => 'Альбом',
+    'compile' => 'Сборник'.tr,
+    _ => 'Альбом'.tr,
   };
 }
 

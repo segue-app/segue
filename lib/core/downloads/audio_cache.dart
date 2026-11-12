@@ -189,5 +189,6 @@ class AudioCache {
 
 /// Created in main() and overridden there.
 final audioCacheProvider = Provider<AudioCache>(
-  (ref) => throw UnimplementedError('audioCacheProvider is overridden in main()'),
+  (ref) =>
+      throw UnimplementedError('audioCacheProvider is overridden in main()'),
 );

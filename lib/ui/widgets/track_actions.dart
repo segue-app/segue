@@ -15,6 +15,8 @@ import 'motion.dart';
 import 'match_sheet.dart';
 import 'trim_sheet.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Heart that pops when toggled.
 class LikeButton extends ConsumerWidget {
   const LikeButton({
@@ -97,7 +99,7 @@ Future<void> showTrackActions(
               icon: liked
                   ? Icons.favorite_rounded
                   : Icons.favorite_border_rounded,
-              label: liked ? 'Убрать из любимых' : 'В любимые',
+              label: liked ? 'Убрать из любимых'.tr : 'В любимые'.tr,
               onTap: () {
                 library.setLiked(track, !liked);
                 Navigator.pop(sheet);
@@ -106,7 +108,7 @@ Future<void> showTrackActions(
             if (track.source != SourceKind.local) ...[
               _Action(
                 icon: Icons.person_rounded,
-                label: 'Перейти к артисту',
+                label: 'Перейти к артисту'.tr,
                 onTap: () {
                   Navigator.pop(sheet);
                   AppNav.artistByName(context, ref, track.artist);
@@ -114,7 +116,7 @@ Future<void> showTrackActions(
               ),
               _Action(
                 icon: Icons.waves_rounded,
-                label: 'Волна по треку',
+                label: 'Волна по треку'.tr,
                 onTap: () {
                   Navigator.pop(sheet);
                   final messenger = ScaffoldMessenger.maybeOf(context);
@@ -122,8 +124,8 @@ Future<void> showTrackActions(
                     Object e,
                   ) {
                     messenger?.showSnackBar(
-                      const SnackBar(
-                        content: Text('Не получилось запустить волну'),
+                      SnackBar(
+                        content: Text('Не получилось запустить волну'.tr),
                       ),
                     );
                   });
@@ -134,25 +136,25 @@ Future<void> showTrackActions(
                 !ref.read(jamProvider).isHost.value)
               _Action(
                 icon: Icons.groups_rounded,
-                label: 'В совместную очередь',
+                label: 'В совместную очередь'.tr,
                 onTap: () {
                   ref.read(jamProvider).suggest(track);
                   Navigator.pop(sheet);
-                  _toast(context, 'Отправлено: сыграет следующим у всех');
+                  _toast(context, 'Отправлено: сыграет следующим у всех'.tr);
                 },
               ),
             _Action(
               icon: Icons.playlist_play_rounded,
-              label: 'Играть следующим',
+              label: 'Играть следующим'.tr,
               onTap: () {
                 ref.read(playerProvider).addNext(track);
                 Navigator.pop(sheet);
-                _toast(context, 'Сыграет следующим');
+                _toast(context, 'Сыграет следующим'.tr);
               },
             ),
             _Action(
               icon: Icons.playlist_add_rounded,
-              label: 'Добавить в плейлист',
+              label: 'Добавить в плейлист'.tr,
               onTap: () {
                 Navigator.pop(sheet);
                 showAddToPlaylist(context, ref, [track]);
@@ -162,16 +164,19 @@ Future<void> showTrackActions(
               library.downloadedPath(track) == null
                   ? _Action(
                       icon: Icons.download_rounded,
-                      label: 'Скачать',
+                      label: 'Скачать'.tr,
                       onTap: () {
                         ref.read(downloadsProvider).download([track]);
                         Navigator.pop(sheet);
-                        _toast(context, 'Скачиваем «${track.title}»');
+                        _toast(
+                          context,
+                          'Скачиваем «{0}»'.trArgs([track.title]),
+                        );
                       },
                     )
                   : _Action(
                       icon: Icons.delete_outline_rounded,
-                      label: 'Удалить с устройства',
+                      label: 'Удалить с устройства'.tr,
                       onTap: () {
                         ref.read(downloadsProvider).delete(track);
                         Navigator.pop(sheet);
@@ -180,7 +185,7 @@ Future<void> showTrackActions(
             if (track.source == SourceKind.match)
               _Action(
                 icon: Icons.swap_horiz_rounded,
-                label: 'Не тот трек? Другая версия',
+                label: 'Не тот трек? Другая версия'.tr,
                 onTap: () {
                   Navigator.pop(sheet);
                   showMatchSheet(context, track);
@@ -189,8 +194,8 @@ Future<void> showTrackActions(
             _Action(
               icon: Icons.content_cut_rounded,
               label: ref.read(trimStoreProvider).of(track) == null
-                  ? 'Обрезать трек'
-                  : 'Изменить обрезку',
+                  ? 'Обрезать трек'.tr
+                  : 'Изменить обрезку'.tr,
               onTap: () {
                 Navigator.pop(sheet);
                 showTrimSheet(context, track);
@@ -199,7 +204,7 @@ Future<void> showTrackActions(
             if (onRemove != null)
               _Action(
                 icon: Icons.remove_circle_outline_rounded,
-                label: 'Убрать из плейлиста',
+                label: 'Убрать из плейлиста'.tr,
                 onTap: () {
                   onRemove();
                   Navigator.pop(sheet);
@@ -238,7 +243,9 @@ Future<void> showAddToPlaylist(
           Navigator.pop(sheet);
           _toast(
             context,
-            added == 0 ? 'Уже есть в «$name»' : 'Добавлено в «$name»',
+            added == 0
+                ? 'Уже есть в «{0}»'.trArgs([name])
+                : 'Добавлено в «{0}»'.trArgs([name]),
           );
         }
 
@@ -251,16 +258,16 @@ Future<void> showAddToPlaylist(
               shrinkWrap: true,
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
-                    'Добавить в плейлист',
+                    'Добавить в плейлист'.tr,
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
                 _Action(
                   icon: Icons.add_rounded,
-                  label: 'Новый плейлист',
+                  label: 'Новый плейлист'.tr,
                   onTap: () async {
                     final name = await askPlaylistName(context);
                     if (name == null) return;
@@ -301,25 +308,25 @@ Future<String?> askPlaylistName(BuildContext context, {String initial = ''}) {
     builder: (dialog) => AlertDialog(
       backgroundColor: SegueColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Text(initial.isEmpty ? 'Новый плейлист' : 'Переименовать'),
+      title: Text(initial.isEmpty ? 'Новый плейлист'.tr : 'Переименовать'.tr),
       content: TextField(
         controller: controller,
         autofocus: true,
-        decoration: const InputDecoration(hintText: 'Название'),
+        decoration: InputDecoration(hintText: 'Название'.tr),
         onSubmitted: (v) =>
             Navigator.pop(dialog, v.trim().isEmpty ? null : v.trim()),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialog),
-          child: const Text('Отмена'),
+          child: Text('Отмена'.tr),
         ),
         FilledButton(
           onPressed: () {
             final v = controller.text.trim();
             Navigator.pop(dialog, v.isEmpty ? null : v);
           },
-          child: const Text('Готово'),
+          child: Text('Готово'.tr),
         ),
       ],
     ),
@@ -327,15 +334,7 @@ Future<String?> askPlaylistName(BuildContext context, {String initial = ''}) {
 }
 
 /// "1 трек", "3 трека", "5 треков".
-String tracksLabel(int n) {
-  final mod10 = n % 10, mod100 = n % 100;
-  final word = mod10 == 1 && mod100 != 11
-      ? 'трек'
-      : (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14))
-      ? 'трека'
-      : 'треков';
-  return '$n $word';
-}
+String tracksLabel(int n) => '$n ${L10n.plural(n, 'трек|трека|треков')}';
 
 void _toast(BuildContext context, String text) {
   ScaffoldMessenger.maybeOf(context)

@@ -15,6 +15,8 @@ import 'devices_screen.dart';
 import 'playlist_screen.dart';
 import 'settings_screen.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 enum LibrarySection { liked, playlists, downloaded, local, history }
 
 /// Which library section is open; the sidebar and home cards can set it.
@@ -42,9 +44,9 @@ class LibraryScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(22, 22, 12, 14),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Библиотека',
+                          'Библиотека'.tr,
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.w800,
@@ -53,7 +55,7 @@ class LibraryScreen extends ConsumerWidget {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Настройки',
+                        tooltip: 'Настройки'.tr,
                         icon: const Icon(Icons.tune_rounded),
                         onPressed: () => pushUnique(
                           Navigator.of(context),
@@ -61,7 +63,7 @@ class LibraryScreen extends ConsumerWidget {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Устройства',
+                        tooltip: 'Устройства'.tr,
                         icon: const Icon(Icons.devices_rounded),
                         onPressed: () => pushUnique(
                           Navigator.of(context),
@@ -78,11 +80,11 @@ class LibraryScreen extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
                       for (final (s, label) in [
-                        (LibrarySection.liked, 'Любимые'),
-                        (LibrarySection.playlists, 'Плейлисты'),
-                        (LibrarySection.downloaded, 'Скачанные'),
-                        (LibrarySection.local, 'Мои файлы'),
-                        (LibrarySection.history, 'История'),
+                        (LibrarySection.liked, 'Любимые'.tr),
+                        (LibrarySection.playlists, 'Плейлисты'.tr),
+                        (LibrarySection.downloaded, 'Скачанные'.tr),
+                        (LibrarySection.local, 'Мои файлы'.tr),
+                        (LibrarySection.history, 'История'.tr),
                       ])
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
@@ -139,9 +141,11 @@ class _Downloaded extends ConsumerWidget {
     final tracks = ref.watch(downloadedTracksProvider);
     final size = ref.read(libraryProvider).downloadsSize();
     return TrackCollectionView(
-      title: 'Скачанные',
-      subtitle:
-          '${tracksLabel(tracks.length)} · ${(size / 1e6).toStringAsFixed(0)} МБ · играют без интернета',
+      title: 'Скачанные'.tr,
+      subtitle: '{0} · {1} МБ · играют без интернета'.trArgs([
+        tracksLabel(tracks.length),
+        (size / 1e6).toStringAsFixed(0),
+      ]),
       tracks: tracks,
       cover: const CoverCollage(
         urls: [],
@@ -152,7 +156,8 @@ class _Downloaded extends ConsumerWidget {
         ),
       ),
       emptyText:
-          'Скачай трек через ••• → «Скачать», и он будет играть без интернета',
+          'Скачай трек через ••• → «Скачать», и он будет играть без интернета'
+              .tr,
       onRemove: (t) => ref.read(downloadsProvider).delete(t),
       actions: [
         if (tracks.isNotEmpty)
@@ -187,7 +192,7 @@ class _LocalFiles extends ConsumerWidget {
               FilledButton.tonalIcon(
                 onPressed: () => local.addFolder(),
                 icon: const Icon(Icons.create_new_folder_rounded),
-                label: const Text('Добавить папку'),
+                label: Text('Добавить папку'.tr),
               ),
               for (final f in folders)
                 InputChip(
@@ -209,7 +214,9 @@ class _LocalFiles extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Читаю теги и обложки… ${(scan.progress * 100).round()}%',
+                        'Читаю теги и обложки… {0}%'.trArgs([
+                          (scan.progress * 100).round(),
+                        ]),
                         style: const TextStyle(color: SegueColors.textDim),
                       ),
                       const SizedBox(height: 6),
@@ -220,9 +227,9 @@ class _LocalFiles extends ConsumerWidget {
         ),
         Expanded(
           child: TrackCollectionView(
-            title: 'Мои файлы',
+            title: 'Мои файлы'.tr,
             subtitle: folders.isEmpty
-                ? 'MP3, FLAC, M4A, OGG, WAV с твоего устройства'
+                ? 'MP3, FLAC, M4A, OGG, WAV с твоего устройства'.tr
                 : tracksLabel(tracks.length),
             tracks: tracks,
             cover: const CoverCollage(
@@ -233,7 +240,8 @@ class _LocalFiles extends ConsumerWidget {
                 colors: [Color(0xFFFFB547), Color(0xFFFF6B3D)],
               ),
             ),
-            emptyText: 'Добавь папку с музыкой — треки появятся здесь вместе с обложками',
+            emptyText: 'Добавь папку с музыкой — треки появятся здесь вместе с обложками'
+                .tr,
           ),
         ),
       ],
@@ -248,7 +256,7 @@ class _Liked extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tracks = ref.watch(likedTracksProvider);
     return TrackCollectionView(
-      title: 'Любимые треки',
+      title: 'Любимые треки'.tr,
       tracks: tracks,
       cover: const CoverCollage(
         urls: [],
@@ -256,7 +264,7 @@ class _Liked extends ConsumerWidget {
         icon: Icons.favorite_rounded,
         gradient: likedGradient,
       ),
-      emptyText: 'Нажми ♡ у трека, и он появится здесь',
+      emptyText: 'Нажми ♡ у трека, и он появится здесь'.tr,
       onReorder: (from, to) =>
           ref.read(libraryProvider).moveLiked(tracks, from, to),
       actions: [DownloadAllButton(tracks: tracks)],
@@ -283,7 +291,7 @@ class _Playlists extends ConsumerWidget {
             ),
             child: const Icon(Icons.add_rounded, size: 28),
           ),
-          title: 'Новый плейлист',
+          title: 'Новый плейлист'.tr,
           onTap: () async {
             final name = await askPlaylistName(context);
             if (name == null || !context.mounted) return;
@@ -301,8 +309,8 @@ class _Playlists extends ConsumerWidget {
             ),
             child: const Icon(Icons.download_rounded, size: 26),
           ),
-          title: 'Импорт по ссылке',
-          subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud',
+          title: 'Импорт по ссылке'.tr,
+          subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud'.tr,
           onTap: () async {
             final id = await showImportDialog(context);
             if (id != null && context.mounted) {
@@ -333,9 +341,9 @@ class _History extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tracks = ref.watch(recentlyPlayedProvider);
     if (tracks.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'Здесь появится то, что ты слушал',
+          'Здесь появится то, что ты слушал'.tr,
           style: TextStyle(color: SegueColors.textDim),
         ),
       );
@@ -352,8 +360,8 @@ class _History extends ConsumerWidget {
                 Icons.delete_sweep_rounded,
                 color: SegueColors.textDim,
               ),
-              label: const Text(
-                'Очистить историю',
+              label: Text(
+                'Очистить историю'.tr,
                 style: TextStyle(color: SegueColors.textDim),
               ),
             ),

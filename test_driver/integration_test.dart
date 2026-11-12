@@ -9,6 +9,8 @@ Future<void> main() => integrationDriver(responseDataCallback: (data) async {
       final dir = Directory(Platform.environment['SEGUE_SHOTS_DIR'] ?? 'build/screenshots')
         ..createSync(recursive: true);
       for (final e in (data ?? {}).entries) {
-        File('${dir.path}/${e.key}.png').writeAsBytesSync(base64Decode(e.value as String));
+        File('${dir.path}/${e.key}.png')
+          ..parent.createSync(recursive: true)
+          ..writeAsBytesSync(base64Decode(e.value as String));
       }
     });

@@ -9,6 +9,8 @@ import 'deezer.dart';
 import 'taste.dart';
 import 'wave_settings.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// "Волна": endless radio built from Deezer's artist radios.
 ///
 /// Artist wave: that artist and similar ones. My wave: a mix seeded by the
@@ -59,11 +61,13 @@ class Wave {
   /// Radio around one artist (from a track, the artist page…).
   Future<void> artistWave(Artist artist) async {
     final first = await _mix([artist.id]);
-    if (first.isEmpty) throw StateError('Для «${artist.name}» волна пустая');
+    if (first.isEmpty) {
+      throw StateError('Для «{0}» волна пустая'.trArgs([artist.name]));
+    }
     await player!.playEndless(
       first,
       () => _mix([artist.id]),
-      title: 'Волна: ${artist.name}',
+      title: 'Волна: {0}'.trArgs([artist.name]),
     );
   }
 
@@ -71,7 +75,7 @@ class Wave {
   Future<void> trackWave(Track track) async {
     final artist = await catalog.findArtist(track.artist);
     if (artist == null) {
-      throw StateError('Не нашёл исполнителя «${track.artist}»');
+      throw StateError('Не нашёл исполнителя «{0}»'.trArgs([track.artist]));
     }
     await artistWave(artist);
   }
@@ -115,7 +119,7 @@ class Wave {
   /// With an empty library it starts from the charts.
   Future<void> myWave([WaveSettings settings = const WaveSettings()]) async {
     final first = await myWaveBatch(settings);
-    if (first.isEmpty) throw StateError('Волна пустая');
+    if (first.isEmpty) throw StateError('Волна пустая'.tr);
     await player!.playEndless(
       first,
       () => myWaveBatch(settings),

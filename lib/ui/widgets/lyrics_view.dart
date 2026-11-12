@@ -15,6 +15,8 @@ import '../theme/theme.dart';
 import 'depth.dart';
 import 'slow_ticker.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Karaoke lyrics in the style of Spotify / Apple Music / Riff:
 /// the sung line fills with light word by word, the word being sung lifts
 /// and glows, nearby lines are softly blurred by distance, and the list
@@ -47,9 +49,9 @@ class LyricsView extends ConsumerWidget {
               ),
             ),
           ),
-          error: (_, _) => const _Message('Не получилось загрузить текст'),
+          error: (_, _) => _Message('Не получилось загрузить текст'.tr),
           data: (l) => l == null || l.lines.isEmpty
-              ? const _Message('Текст для этого трека не найден')
+              ? _Message('Текст для этого трека не найден'.tr)
               : _Lines(
                   lyrics: l,
                   translation: translation?.length == l.lines.length
@@ -103,7 +105,6 @@ class _LinesState extends ConsumerState<_Lines>
     with SlowTickerProviderStateMixin {
   final _scroll = ScrollController();
   late List<GlobalKey> _keys = _makeKeys();
-
 
   /// Position interpolated every frame: the player only reports a few times
   /// a second, which would make the word fill step instead of flow.
@@ -652,7 +653,8 @@ class LyricsPreview extends StatefulWidget {
 class _LyricsPreviewState extends State<LyricsPreview>
     with SlowTickerProviderStateMixin {
   static final _lyrics = Lyrics.parseLrc(
-    '[00:00.00]Я слышу эту песню\n[00:03.20]И она звучит везде\n[00:06.40]Ещё один круг',
+    '[00:00.00]Я слышу эту песню\n[00:03.20]И она звучит везде\n[00:06.40]Ещё один круг'
+        .tr,
   );
   late final _c = AnimationController(
     vsync: this,

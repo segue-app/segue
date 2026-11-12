@@ -5,6 +5,8 @@ import '../../core/player/player.dart';
 import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// "Играет на Xiaomi": shown wherever the player is, while the music plays
 /// on another device and this one is its remote. Nothing otherwise.
 class OutputBadge extends ConsumerWidget {
@@ -35,7 +37,7 @@ class OutputBadge extends ConsumerWidget {
                     const SizedBox(width: 5),
                     Flexible(
                       child: Text(
-                        'Играет на $name',
+                        'Играет на {0}'.trArgs([name]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

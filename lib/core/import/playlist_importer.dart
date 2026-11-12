@@ -5,6 +5,8 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
 import '../models/track.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 class ImportedPlaylist {
   const ImportedPlaylist({
     required this.name,
@@ -60,7 +62,7 @@ class PlaylistImporter {
       'YouTube' => _youtube(link),
       'SoundCloud' => _soundcloud(link),
       _ => throw ImportException(
-        'Поддерживаются ссылки Spotify, Яндекс Музыки, YouTube и SoundCloud',
+        'Поддерживаются ссылки Spotify, Яндекс Музыки, YouTube и SoundCloud'.tr,
       ),
     };
   }
@@ -71,7 +73,7 @@ class PlaylistImporter {
     final m = RegExp(r'(playlist|album)[/:]([a-zA-Z0-9]{22})').firstMatch(url);
     if (m == null) {
       throw ImportException(
-        'Не похоже на ссылку на плейлист или альбом Spotify',
+        'Не похоже на ссылку на плейлист или альбом Spotify'.tr,
       );
     }
     final res = await _get(
@@ -81,19 +83,19 @@ class PlaylistImporter {
     final data = RegExp(r'<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)</script>')
         .firstMatch(res.body);
     if (data == null) {
-      throw ImportException('Spotify не отдал плейлист. Он публичный?');
+      throw ImportException('Spotify не отдал плейлист. Он публичный?'.tr);
     }
     final entity = (jsonDecode(
       data[1]!,
     ) as Map)['props']?['pageProps']?['state']?['data']?['entity'];
     final list = (entity?['trackList'] as List?) ?? const [];
     if (list.isEmpty) {
-      throw ImportException('В плейлисте Spotify нет доступных треков');
+      throw ImportException('В плейлисте Spotify нет доступных треков'.tr);
     }
     final cover = RegExp(r'"(https://image-cdn[^"]+)"')
         .firstMatch(res.body)?[1];
     return ImportedPlaylist(
-      name: (entity['name'] as String?) ?? 'Плейлист Spotify',
+      name: (entity['name'] as String?) ?? 'Плейлист Spotify'.tr,
       service: 'Spotify',
       tracks: [
         for (final t in list.cast<Map>())
@@ -128,13 +130,15 @@ class PlaylistImporter {
       );
     } else {
       throw ImportException(
-        'Не похоже на ссылку на плейлист или альбом Яндекс Музыки',
+        'Не похоже на ссылку на плейлист или альбом Яндекс Музыки'.tr,
       );
     }
     final res = await _get(api);
     final result = (jsonDecode(res.body) as Map)['result'] as Map?;
     if (result == null) {
-      throw ImportException('Яндекс Музыка не отдала плейлист. Он публичный?');
+      throw ImportException(
+        'Яндекс Музыка не отдала плейлист. Он публичный?'.tr,
+      );
     }
 
     final raw = <Map>[
@@ -144,9 +148,9 @@ class PlaylistImporter {
       for (final vol in (result['volumes'] as List?) ?? const [])
         for (final t in vol as List) t as Map,
     ];
-    if (raw.isEmpty) throw ImportException('Плейлист пустой или закрыт');
+    if (raw.isEmpty) throw ImportException('Плейлист пустой или закрыт'.tr);
     return ImportedPlaylist(
-      name: (result['title'] as String?) ?? 'Плейлист Яндекс Музыки',
+      name: (result['title'] as String?) ?? 'Плейлист Яндекс Музыки'.tr,
       service: 'Яндекс Музыка',
       tracks: [
         for (final t in raw)
@@ -174,7 +178,9 @@ class PlaylistImporter {
   Future<ImportedPlaylist> _youtube(String url) async {
     final id = yt.PlaylistId.parsePlaylistId(url);
     if (id == null) {
-      throw ImportException('В ссылке нет плейлиста YouTube (параметр list=)');
+      throw ImportException(
+        'В ссылке нет плейлиста YouTube (параметр list=)'.tr,
+      );
     }
     final client = yt.YoutubeExplode();
     try {
@@ -209,7 +215,7 @@ class PlaylistImporter {
 
   Future<ImportedPlaylist> _soundcloud(String url) async {
     final getId = soundcloudClientId;
-    if (getId == null) throw ImportException('SoundCloud недоступен');
+    if (getId == null) throw ImportException('SoundCloud недоступен'.tr);
     final id = await getId();
     final res = await _get(
       Uri.https('api-v2.soundcloud.com', '/resolve', {
@@ -219,7 +225,7 @@ class PlaylistImporter {
     );
     final set = jsonDecode(res.body) as Map;
     if (set['kind'] != 'playlist') {
-      throw ImportException('Это не плейлист SoundCloud');
+      throw ImportException('Это не плейлист SoundCloud'.tr);
     }
     var items = ((set['tracks'] as List?) ?? const []).cast<Map>();
     // Long sets only include full data for the first few tracks.
@@ -244,7 +250,7 @@ class PlaylistImporter {
       ];
     }
     return ImportedPlaylist(
-      name: (set['title'] as String?) ?? 'Плейлист SoundCloud',
+      name: (set['title'] as String?) ?? 'Плейлист SoundCloud'.tr,
       service: 'SoundCloud',
       tracks: [
         for (final t in items)
@@ -287,15 +293,17 @@ class PlaylistImporter {
         .get(uri, headers: headers)
         .timeout(const Duration(seconds: 20));
     if (res.statusCode == 404) {
-      throw ImportException('Плейлист не найден. Проверь ссылку');
+      throw ImportException('Плейлист не найден. Проверь ссылку'.tr);
     }
     if (res.statusCode == 401 || res.statusCode == 403) {
       throw ImportException(
-        'Плейлист закрытый. Сделай его публичным и попробуй снова',
+        'Плейлист закрытый. Сделай его публичным и попробуй снова'.tr,
       );
     }
     if (res.statusCode != 200) {
-      throw ImportException('Сервис ответил ошибкой ${res.statusCode}');
+      throw ImportException(
+        'Сервис ответил ошибкой {0}'.trArgs([res.statusCode]),
+      );
     }
     return res;
   }

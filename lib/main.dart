@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_visibility.dart';
+import 'core/l10n/l10n.dart';
 import 'core/import/library_import.dart';
 import 'core/catalog/taste.dart';
 import 'core/downloads/audio_cache.dart';
@@ -149,23 +150,25 @@ Future<void> main() async {
   );
   // Songs imported earlier still show video thumbnails: swap in album
   // covers, a few at a time, in the background.
-  unawaited(() async {
-    // Each song is looked up once (Deezer may not have it at all).
-    final checked = <String>{
-      ...(jsonDecode(library.getMeta('covers_checked') ?? '[]') as List)
-          .cast<String>(),
-    };
-    final thumbs = [
-      for (final t in library.tracksWithArtworkPrefix('https://i.ytimg.com/'))
-        if (!checked.contains(t.key)) t,
-    ];
-    for (var i = 0; i < thumbs.length && i < 400; i += 4) {
-      final batch = thumbs.skip(i).take(4).toList();
-      await Future.wait([for (final t in batch) realCover(t)]);
-      checked.addAll(batch.map((t) => t.key));
-      library.setMeta('covers_checked', jsonEncode(checked.toList()));
-    }
-  }().catchError((Object e) => debugPrint('covers: $e')));
+  unawaited(
+    () async {
+      // Each song is looked up once (Deezer may not have it at all).
+      final checked = <String>{
+        ...(jsonDecode(library.getMeta('covers_checked') ?? '[]') as List)
+            .cast<String>(),
+      };
+      final thumbs = [
+        for (final t in library.tracksWithArtworkPrefix('https://i.ytimg.com/'))
+          if (!checked.contains(t.key)) t,
+      ];
+      for (var i = 0; i < thumbs.length && i < 400; i += 4) {
+        final batch = thumbs.skip(i).take(4).toList();
+        await Future.wait([for (final t in batch) realCover(t)]);
+        checked.addAll(batch.map((t) => t.key));
+        library.setMeta('covers_checked', jsonEncode(checked.toList()));
+      }
+    }().catchError((Object e) => debugPrint('covers: $e')),
+  );
   // Handoffs carry the exact YouTube version of imported songs.
   handler.matchOf = match.matched;
   handler.adoptMatch = (imported, version) {
@@ -276,7 +279,13 @@ class SegueApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    L10n.use(
+      settings.language,
+      WidgetsBinding.instance.platformDispatcher.locale.languageCode,
+    );
     return MaterialApp(
+      // A new language rebuilds everything from the top.
+      key: ValueKey(L10n.code),
       title: 'Segue',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(font: settings.font),

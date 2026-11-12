@@ -9,11 +9,13 @@ import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import 'motion.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Equalizer (10 bands + presets), speed and pitch.
 class SoundPanel extends ConsumerWidget {
   const SoundPanel({super.key});
 
-  static String _hz(int f) => f >= 1000 ? '${f ~/ 1000}к' : '$f';
+  static String _hz(int f) => f >= 1000 ? '{0}к'.trArgs([f ~/ 1000]) : '$f';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,9 +29,9 @@ class SoundPanel extends ConsumerWidget {
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Эквалайзер',
+                'Эквалайзер'.tr,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
             ),
@@ -78,7 +80,7 @@ class SoundPanel extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(18),
                               ),
                               child: Text(
-                                e.key,
+                                e.key.tr,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: fx.preset == e.key
@@ -152,7 +154,7 @@ class SoundPanel extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
         _Row(
-          title: 'Скорость',
+          title: 'Скорость'.tr,
           value: '×${fx.speed.toStringAsFixed(2)}',
           slider: Slider(
             value: fx.speed,
@@ -166,9 +168,11 @@ class SoundPanel extends ConsumerWidget {
               : () => n.update((x) => x.copyWith(speed: 1)),
         ),
         _Row(
-          title: 'Тон',
-          value:
-              '${fx.semitones > 0 ? '+' : ''}${fx.semitones.round()} полутон',
+          title: 'Тон'.tr,
+          value: '{0}{1} полутон'.trArgs([
+            fx.semitones > 0 ? '+' : '',
+            fx.semitones.round(),
+          ]),
           slider: Slider(
             value: fx.semitones,
             min: -6,
@@ -182,8 +186,9 @@ class SoundPanel extends ConsumerWidget {
               : () => n.update((x) => x.copyWith(semitones: 0)),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Скорость меняет темп без изменения тона, тон — без изменения темпа.',
+        Text(
+          'Скорость меняет темп без изменения тона, тон — без изменения темпа.'
+              .tr,
           style: TextStyle(color: SegueColors.textDim, fontSize: 12.5),
         ),
       ],
@@ -225,7 +230,7 @@ class _Row extends StatelessWidget {
           ),
         ),
         IconButton(
-          tooltip: 'Сбросить',
+          tooltip: 'Сбросить'.tr,
           onPressed: onReset,
           icon: const Icon(Icons.restart_alt_rounded, size: 20),
         ),
@@ -296,11 +301,14 @@ class _SleepTimerPanelState extends ConsumerState<SleepTimerPanel> {
         final at = player.sleepAt.value;
         final endOfTrack = player.sleepAfterTrack.value;
         final left = at?.difference(DateTime.now());
-        String status = 'Музыка сама затихнет и остановится';
-        if (endOfTrack) status = 'Остановится в конце этого трека';
+        String status = 'Музыка сама затихнет и остановится'.tr;
+        if (endOfTrack) status = 'Остановится в конце этого трека'.tr;
         if (left != null && !left.isNegative) {
           final m = left.inMinutes, sec = left.inSeconds % 60;
-          status = 'Остановится через $m:${sec.toString().padLeft(2, '0')}';
+          status = 'Остановится через {0}:{1}'.trArgs([
+            m,
+            sec.toString().padLeft(2, '0'),
+          ]);
         }
         Widget chip(String label, bool on, VoidCallback onTap) => PressScale(
           onTap: onTap,
@@ -324,8 +332,8 @@ class _SleepTimerPanelState extends ConsumerState<SleepTimerPanel> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Таймер сна',
+            Text(
+              'Таймер сна'.tr,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 2),
@@ -339,17 +347,17 @@ class _SleepTimerPanelState extends ConsumerState<SleepTimerPanel> {
               runSpacing: 8,
               children: [
                 chip(
-                  'Выкл',
+                  'Выкл'.tr,
                   at == null && !endOfTrack,
                   () => player.setSleepTimer(null),
                 ),
                 for (final m in const [15, 30, 45, 60])
-                  chip('$m мин', _minutes == m && at != null, () {
+                  chip('{0} мин'.trArgs([m]), _minutes == m && at != null, () {
                     _minutes = m;
                     player.setSleepTimer(Duration(minutes: m));
                   }),
                 chip(
-                  'До конца трека',
+                  'До конца трека'.tr,
                   endOfTrack,
                   () => player.setSleepTimer(null, endOfTrack: true),
                 ),

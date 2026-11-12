@@ -10,6 +10,8 @@ import 'artwork.dart';
 import 'motion.dart';
 import '../../core/models/track.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// "Слушать вместе": start a session, join one, see who listens and what's
 /// next.
 Future<void> showJamSheet(BuildContext context) => showModalBottomSheet<void>(
@@ -104,9 +106,9 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _title(
-        'Слушать вместе',
-        'Друзья слышат то же, что и ты, в ту же секунду — каждый на своём '
-            'устройстве, в любой сети. Добавлять песни в очередь могут все.',
+        'Слушать вместе'.tr,
+        'Друзья слышат то же, что и ты, в ту же секунду — каждый на своём устройстве, в любой сети. Добавлять песни в очередь могут все.'
+            .tr,
       ),
       SizedBox(
         width: double.infinity,
@@ -118,15 +120,15 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
           ),
           onPressed: _busy ? null : () => _run(() => jam.host()),
           icon: const Icon(Icons.group_add_rounded),
-          label: const Text(
-            'Начать и позвать друзей',
+          label: Text(
+            'Начать и позвать друзей'.tr,
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
         ),
       ),
       const SizedBox(height: 22),
-      const Text(
-        'Есть код от друга?',
+      Text(
+        'Есть код от друга?'.tr,
         style: TextStyle(fontWeight: FontWeight.w700),
       ),
       const SizedBox(height: 8),
@@ -147,7 +149,7 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
           const SizedBox(width: 10),
           OutlinedButton(
             onPressed: _busy ? null : () => _run(() => jam.join(_code.text)),
-            child: Text(_busy ? '…' : 'Войти'),
+            child: Text(_busy ? '…' : 'Войти'.tr),
           ),
         ],
       ),
@@ -164,7 +166,7 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _title('Слушаем вместе', 'Отправь друзьям ссылку или код'),
+        _title('Слушаем вместе'.tr, 'Отправь друзьям ссылку или код'.tr),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -198,19 +200,16 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
                     onPressed: () {
                       Clipboard.setData(
                         ClipboardData(
-                          text:
-                              'Послушай со мной в Segue: ${jamLink(code)} '
-                              '(или код $pretty)',
+                          text: 'Послушай со мной в Segue: {0} (или код {1})'
+                              .trArgs([jamLink(code), pretty]),
                         ),
                       );
                       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                        const SnackBar(
-                          content: Text('Приглашение скопировано'),
-                        ),
+                        SnackBar(content: Text('Приглашение скопировано'.tr)),
                       );
                     },
                     icon: const Icon(Icons.link_rounded),
-                    label: const Text('Копировать приглашение'),
+                    label: Text('Копировать приглашение'.tr),
                   ),
                 ],
               ),
@@ -222,7 +221,7 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
         Center(
           child: TextButton(
             onPressed: jam.leave,
-            child: const Text('Завершить для всех'),
+            child: Text('Завершить для всех'.tr),
           ),
         ),
       ],
@@ -233,20 +232,24 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _title(
-        'Слушаешь с ${jam.hostName.value}',
-        'Музыку ведёт ${jam.hostName.value}. Песни можно добавлять через '
-            'меню трека → «В совместную очередь»',
+        'Слушаешь с {0}'.trArgs([jam.hostName.value]),
+        'Музыку ведёт {0}. Песни можно добавлять через меню трека → «В совместную очередь»'
+            .trArgs([jam.hostName.value]),
       ),
       _members(jam, accent),
       if (jam.upcoming.value.isNotEmpty) ...[
         const SizedBox(height: 16),
-        const Text('Дальше', style: TextStyle(fontWeight: FontWeight.w800)),
+        Text('Дальше'.tr, style: TextStyle(fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         for (final t in jam.upcoming.value.take(8))
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Artwork(url: t.artworkUrl, size: 40, radius: 10),
-            title: Text(t.displayTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+            title: Text(
+              t.displayTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             subtitle: Text(
               t.artist,
               style: const TextStyle(color: SegueColors.textDim),
@@ -255,7 +258,7 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
       ],
       const SizedBox(height: 12),
       Center(
-        child: TextButton(onPressed: jam.leave, child: const Text('Выйти')),
+        child: TextButton(onPressed: jam.leave, child: Text('Выйти'.tr)),
       ),
     ],
   );
@@ -278,7 +281,7 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
                 ),
               ),
             ),
-            label: Text(m.host ? '${m.name} · ведёт' : m.name),
+            label: Text(m.host ? '{0} · ведёт'.trArgs([m.name]) : m.name),
           ),
       ],
     ),
@@ -330,9 +333,13 @@ class JamBar extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             jam.isHost.value
-                                ? 'Слушаем вместе · ${jam.members.value.length}'
-                                : 'Слушаешь с ${jam.hostName.value} · '
-                                      '${jam.members.value.length}',
+                                ? 'Слушаем вместе · {0}'.trArgs([
+                                    jam.members.value.length,
+                                  ])
+                                : 'Слушаешь с {0} · {1}'.trArgs([
+                                    jam.hostName.value,
+                                    jam.members.value.length,
+                                  ]),
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ),

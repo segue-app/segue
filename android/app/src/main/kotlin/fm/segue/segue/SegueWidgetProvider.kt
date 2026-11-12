@@ -33,7 +33,7 @@ class SegueWidgetProvider : HomeWidgetProvider() {
 
       views.setTextViewText(R.id.widget_title, title ?: "Segue")
       views.setTextViewText(
-          R.id.widget_artist, artist ?: "Нажми, чтобы выбрать музыку")
+          R.id.widget_artist, artist ?: context.getString(R.string.widget_empty))
       views.setImageViewResource(
           R.id.widget_play,
           if (playing) R.drawable.widget_pause else R.drawable.widget_play)

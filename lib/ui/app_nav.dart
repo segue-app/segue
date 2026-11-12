@@ -5,6 +5,8 @@ import '../core/catalog/deezer.dart';
 import 'screens/album_screen.dart';
 import 'screens/artist_screen.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Opens pages inside the current tab from anywhere (track menus, the
 /// full-screen player). The shell plugs its navigator in.
 abstract final class AppNav {
@@ -25,14 +27,14 @@ abstract final class AppNav {
       final artist = await ref.read(catalogProvider).findArtist(name);
       if (artist == null) {
         messenger?.showSnackBar(
-          SnackBar(content: Text('Не нашёл исполнителя «$name»')),
+          SnackBar(content: Text('Не нашёл исполнителя «{0}»'.trArgs([name]))),
         );
         return;
       }
       push(ArtistScreen.route(artist.id));
     } catch (_) {
       messenger?.showSnackBar(
-        const SnackBar(content: Text('Каталог сейчас недоступен')),
+        SnackBar(content: Text('Каталог сейчас недоступен'.tr)),
       );
     }
   }

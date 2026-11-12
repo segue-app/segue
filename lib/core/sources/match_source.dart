@@ -2,6 +2,8 @@ import '../models/track.dart';
 import 'music_source.dart';
 import 'youtube_source.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// A YouTube video considered for an imported song.
 typedef MatchCandidate = ({Track track, bool official});
 
@@ -28,7 +30,7 @@ class MatchSource implements MusicSource, FileSource {
   SourceKind get kind => SourceKind.match;
 
   @override
-  String get label => 'Подбор';
+  String get label => 'Подбор'.tr;
 
   @override
   Future<List<Track>> search(String query, {int limit = 20}) async => const [];
@@ -93,7 +95,7 @@ class MatchSource implements MusicSource, FileSource {
   Future<Track> _find(Track track) async {
     final found = await candidates(track);
     if (found.isEmpty) {
-      throw StateError('Не нашёл «${track.title}» на YouTube');
+      throw StateError('Не нашёл «{0}» на YouTube'.trArgs([track.title]));
     }
     _alternatives[track.key] = found;
     if (_alternatives.length > 50) {
@@ -205,12 +207,48 @@ class MatchSource implements MusicSource, FileSource {
   /// Words around the song in video titles that say nothing about which
   /// version it is.
   static const _noise = {
-    'official', 'video', 'audio', 'music', 'clip', 'klip', 'lyrics',
-    'lyric', 'hd', 'hq', '4k', 'feat', 'ft', 'premiere', 'premera', 'treka',
-    'klipa', 'the', 'a', 'i', 'and', 'v', 'na', 'ofitsialnyi', 'pesni',
-    'visualizer', 'tekst', 'mv', 'topic', 'prod', 'by', 'album',
-    'single', 'remastered', 'remaster', 'edit', 'radio', 'original', 'mix',
-    'explicit', 'with', 'x',
+    'official',
+    'video',
+    'audio',
+    'music',
+    'clip',
+    'klip',
+    'lyrics',
+    'lyric',
+    'hd',
+    'hq',
+    '4k',
+    'feat',
+    'ft',
+    'premiere',
+    'premera',
+    'treka',
+    'klipa',
+    'the',
+    'a',
+    'i',
+    'and',
+    'v',
+    'na',
+    'ofitsialnyi',
+    'pesni',
+    'visualizer',
+    'tekst',
+    'mv',
+    'topic',
+    'prod',
+    'by',
+    'album',
+    'single',
+    'remastered',
+    'remaster',
+    'edit',
+    'radio',
+    'original',
+    'mix',
+    'explicit',
+    'with',
+    'x',
   };
 
   static final _variantsNorm = {for (final v in _variants) norm(v)};
@@ -255,9 +293,9 @@ class MatchSource implements MusicSource, FileSource {
     // Words that are neither the song's nor packaging: someone else's
     // channel, "part 2", another song in a medley…
     final known = {..._words(wanted.title), ..._words(wanted.artist)};
-    final extra = _words(
-      t.title,
-    ).where((w) => !known.contains(w) && !_noiseNorm.contains(w) && !_isYear(w));
+    final extra = _words(t.title).where(
+      (w) => !known.contains(w) && !_noiseNorm.contains(w) && !_isYear(w),
+    );
     s -= (extra.length * 4).clamp(0, 24);
     return s;
   }
@@ -312,12 +350,49 @@ class MatchSource implements MusicSource, FileSource {
   }
 
   static const _translit = {
-    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
-    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'i', 'к': 'k', 'л': 'l', 'м': 'm',
-    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-    'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-    'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya', 'і': 'i',
-    'ї': 'i', 'є': 'e', 'ү': 'u', 'ө': 'o', 'ң': 'n', 'қ': 'k', 'ғ': 'g',
-    'ұ': 'u', 'ә': 'a', 'һ': 'h',
+    'а': 'a',
+    'б': 'b',
+    'в': 'v',
+    'г': 'g',
+    'д': 'd',
+    'е': 'e',
+    'ё': 'e',
+    'ж': 'zh',
+    'з': 'z',
+    'и': 'i',
+    'й': 'i',
+    'к': 'k',
+    'л': 'l',
+    'м': 'm',
+    'н': 'n',
+    'о': 'o',
+    'п': 'p',
+    'р': 'r',
+    'с': 's',
+    'т': 't',
+    'у': 'u',
+    'ф': 'f',
+    'х': 'h',
+    'ц': 'ts',
+    'ч': 'ch',
+    'ш': 'sh',
+    'щ': 'sch',
+    'ъ': '',
+    'ы': 'y',
+    'ь': '',
+    'э': 'e',
+    'ю': 'yu',
+    'я': 'ya',
+    'і': 'i',
+    'ї': 'i',
+    'є': 'e',
+    'ү': 'u',
+    'ө': 'o',
+    'ң': 'n',
+    'қ': 'k',
+    'ғ': 'g',
+    'ұ': 'u',
+    'ә': 'a',
+    'һ': 'h',
   };
 }

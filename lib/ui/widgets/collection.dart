@@ -12,6 +12,8 @@ import 'motion.dart';
 import 'track_actions.dart';
 import 'track_tile.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// 2×2 collage of the first covers, or a gradient tile with an icon.
 class CoverCollage extends StatelessWidget {
   const CoverCollage({
@@ -77,7 +79,7 @@ class TrackCollectionView extends ConsumerWidget {
     this.actions = const [],
     this.onRemove,
     this.onReorder,
-    this.emptyText = 'Здесь пока пусто',
+    this.emptyText,
   });
 
   final String title;
@@ -90,7 +92,7 @@ class TrackCollectionView extends ConsumerWidget {
   /// Your own playlists: tracks can be dragged into another order
   /// (from, to as the final index).
   final void Function(int from, int to)? onReorder;
-  final String emptyText;
+  final String? emptyText;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -106,14 +108,14 @@ class TrackCollectionView extends ConsumerWidget {
       children: [
         _PillButton(
           icon: Icons.play_arrow_rounded,
-          label: 'Слушать',
+          label: 'Слушать'.tr,
           color: accent,
           filled: true,
           onTap: tracks.isEmpty ? null : () => player.playList(tracks, 0),
         ),
         _PillButton(
           icon: Icons.shuffle_rounded,
-          label: 'Вперемешку',
+          label: 'Вперемешку'.tr,
           color: accent,
           onTap: tracks.isEmpty
               ? null
@@ -177,7 +179,7 @@ class TrackCollectionView extends ConsumerWidget {
             hasScrollBody: false,
             child: Center(
               child: Text(
-                emptyText,
+                emptyText ?? 'Здесь пока пусто'.tr,
                 style: const TextStyle(color: SegueColors.textDim),
               ),
             ),
@@ -346,7 +348,11 @@ class DownloadAllButton extends ConsumerWidget {
         if (missing.isEmpty) return;
         ref.read(downloadsProvider).download(missing);
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text('Скачиваем ${tracksLabel(missing.length)}')),
+          SnackBar(
+            content: Text(
+              'Скачиваем {0}'.trArgs([tracksLabel(missing.length)]),
+            ),
+          ),
         );
       },
     );

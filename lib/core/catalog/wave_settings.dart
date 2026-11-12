@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../library/library.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// "Настроить волну", as in Yandex Music: what you're doing, what kind of
 /// music, the mood and the language. Each is optional (null = any).
 class WaveSettings {
@@ -30,8 +32,12 @@ class WaveSettings {
       activity == null && character == null && mood == null && language == null;
 
   /// "Тренируюсь · Бодрое" for the card; empty when nothing is set.
-  String get summary =>
-      [activity, character, mood, language].whereType<String>().join(' · ');
+  String get summary => [
+    activity,
+    character,
+    mood,
+    language,
+  ].whereType<String>().map((s) => s.tr).join(' · ');
 
   WaveSettings copyWith({
     String? Function()? activity,

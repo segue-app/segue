@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
 import '../models/track.dart';
 import '../player/player_handler.dart';
 
@@ -122,6 +123,10 @@ class NotchBridge {
         'accent': _accent.toARGB32() & 0xFFFFFF,
         'liked': t != null && isLiked(t),
         'device': player.output.value ?? '',
+        // The native side shows these as they are.
+        'onDevice': 'на {0}'.trArgs([player.output.value ?? '']),
+        'idleText': 'Ничего не играет'.tr,
+        'openText': 'Открыть Segue'.tr,
         'volume': player.volume.value,
       });
     } catch (e) {

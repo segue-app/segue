@@ -31,6 +31,7 @@ class AppSettings {
     this.backdropSpeed = 1,
     this.backdropIntensity = 1,
     this.font = 'Manrope',
+    this.language = 'system',
     this.lyricsSize = 28,
     this.wavyProgress = true,
     this.glass = true,
@@ -64,6 +65,9 @@ class AppSettings {
   /// 0.4 … 1.4, how bright the colour clouds are.
   final double backdropIntensity;
   final String font;
+
+  /// Interface language: a code from L10n.languages, or 'system'.
+  final String language;
   final double lyricsSize;
   final bool wavyProgress;
   final bool glass;
@@ -139,6 +143,7 @@ class AppSettings {
     double? backdropSpeed,
     double? backdropIntensity,
     String? font,
+    String? language,
     double? lyricsSize,
     bool? wavyProgress,
     bool? glass,
@@ -166,6 +171,7 @@ class AppSettings {
     backdropSpeed: backdropSpeed ?? this.backdropSpeed,
     backdropIntensity: backdropIntensity ?? this.backdropIntensity,
     font: font ?? this.font,
+    language: language ?? this.language,
     lyricsSize: lyricsSize ?? this.lyricsSize,
     wavyProgress: wavyProgress ?? this.wavyProgress,
     glass: glass ?? this.glass,
@@ -195,6 +201,7 @@ class AppSettings {
     'backdropSpeed': backdropSpeed,
     'backdropIntensity': backdropIntensity,
     'font': font,
+    'language': language,
     'lyricsSize': lyricsSize,
     'wavyProgress': wavyProgress,
     'glass': glass,
@@ -229,6 +236,7 @@ class AppSettings {
       backdropSpeed: num_('backdropSpeed', d.backdropSpeed),
       backdropIntensity: num_('backdropIntensity', d.backdropIntensity),
       font: fonts.contains(j['font']) ? j['font'] as String : d.font,
+      language: j['language'] as String? ?? d.language,
       lyricsSize: num_('lyricsSize', d.lyricsSize),
       wavyProgress: pick('wavyProgress', d.wavyProgress),
       glass: pick('glass', d.glass),

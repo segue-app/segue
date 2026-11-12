@@ -57,7 +57,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@android:color/transparent"
-            android:contentDescription="Назад"
+            android:contentDescription="@string/widget_prev"
             android:src="@drawable/widget_prev" />
 
         <ImageButton
@@ -65,7 +65,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="@drawable/widget_play_background"
-            android:contentDescription="Играть или пауза"
+            android:contentDescription="@string/widget_play"
             android:src="@drawable/widget_play" />
 
         <ImageButton
@@ -73,7 +73,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@android:color/transparent"
-            android:contentDescription="Дальше"
+            android:contentDescription="@string/widget_next"
             android:src="@drawable/widget_next" />
     </LinearLayout>
 </LinearLayout>

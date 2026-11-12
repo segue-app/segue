@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'updates.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// What [Updater] is doing.
 enum UpdateStage { idle, downloading, installing, done, failed }
 
@@ -73,12 +75,12 @@ class Updater {
     final name = assetName();
     final url = name == null ? null : u.assets[name];
     if (url == null) {
-      _fail('Для этой системы нет файла обновления');
+      _fail('Для этой системы нет файла обновления'.tr);
       return;
     }
     try {
       stage.value = UpdateStage.downloading;
-      message.value = 'Скачиваем ${u.version}…';
+      message.value = 'Скачиваем {0}…'.trArgs([u.version]);
       final file = await _download(url, name!);
       stage.value = UpdateStage.installing;
       if (Platform.isAndroid) {
@@ -92,7 +94,7 @@ class Updater {
       }
     } catch (e) {
       debugPrint('update: $e');
-      _fail('Не получилось обновиться: $e');
+      _fail('Не получилось обновиться: {0}'.trArgs([e]));
     }
   }
 
@@ -127,7 +129,7 @@ class Updater {
       await sink.close();
     }
     if (total != null && got != total) {
-      throw StateError('файл скачался не до конца');
+      throw StateError('файл скачался не до конца'.tr);
     }
     return file;
   }
@@ -139,11 +141,12 @@ class Updater {
     if (r == 'permission') {
       // Settings opened: allow "install unknown apps", then tap again.
       message.value =
-          'Разреши Segue устанавливать приложения и нажми «Обновить» ещё раз';
+          'Разреши Segue устанавливать приложения и нажми «Обновить» ещё раз'
+              .tr;
       stage.value = UpdateStage.idle;
       return;
     }
-    message.value = 'Подтверди установку';
+    message.value = 'Подтверди установку'.tr;
     stage.value = UpdateStage.done;
   }
 
@@ -203,9 +206,8 @@ class Updater {
     if (revealInFinder) {
       await Process.run('/usr/bin/open', ['-R', unpackedPath!]);
     }
-    message.value =
-        'Новая версия в «Загрузках»: перетащи Segue в «Программы» '
-        'с заменой и открой заново';
+    message.value = 'Новая версия в «Загрузках»: перетащи Segue в «Программы» с заменой и открой заново'
+        .tr;
     stage.value = UpdateStage.done;
   }
 }

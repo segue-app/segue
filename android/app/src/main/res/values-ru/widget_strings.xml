@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Что играет в Segue, с кнопками</string>
+    <string name="widget_empty">Нажми, чтобы выбрать музыку</string>
+    <string name="widget_prev">Назад</string>
+    <string name="widget_play">Играть или пауза</string>
+    <string name="widget_next">Дальше</string>
+</resources>

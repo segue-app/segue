@@ -8,6 +8,8 @@ import 'artwork.dart';
 import 'jam_sheet.dart';
 import '../../core/models/track.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// The play queue: drag to reorder, swipe to remove, tap to jump.
 Future<void> showQueueSheet(BuildContext context) => showModalBottomSheet<void>(
   context: context,
@@ -45,9 +47,9 @@ class _Queue extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Очередь',
+                      'Очередь'.tr,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -55,7 +57,7 @@ class _Queue extends ConsumerWidget {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Слушать вместе',
+                    tooltip: 'Слушать вместе'.tr,
                     onPressed: () {
                       Navigator.pop(context);
                       showJamSheet(context);
@@ -78,7 +80,7 @@ class _Queue extends ConsumerWidget {
                           Icon(Icons.waves_rounded, size: 16, color: accent),
                           const SizedBox(width: 6),
                           Text(
-                            wave,
+                            wave.tr,
                             style: TextStyle(
                               color: accent,
                               fontWeight: FontWeight.w700,
@@ -92,10 +94,10 @@ class _Queue extends ConsumerWidget {
               ),
             ),
             if (wave != null)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(22, 0, 22, 8),
                 child: Text(
-                  'Волна бесконечная: новые треки добавятся сами',
+                  'Волна бесконечная: новые треки добавятся сами'.tr,
                   style: TextStyle(color: SegueColors.textDim, fontSize: 12.5),
                 ),
               ),

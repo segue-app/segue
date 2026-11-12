@@ -8,6 +8,8 @@ import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import 'artwork.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// "Обрезать трек": pick where the track starts and stops. Saved on this
 /// device and applied every time it plays.
 Future<void> showTrimSheet(BuildContext context, Track track) =>
@@ -105,13 +107,13 @@ class _TrimSheetState extends ConsumerState<_TrimSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Обрезать трек',
+            Text(
+              'Обрезать трек'.tr,
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Трек всегда будет играть только выбранный кусок',
+            Text(
+              'Трек всегда будет играть только выбранный кусок'.tr,
               style: TextStyle(color: SegueColors.textDim, fontSize: 13),
             ),
             const SizedBox(height: 16),
@@ -142,25 +144,25 @@ class _TrimSheetState extends ConsumerState<_TrimSheet> {
             ),
             const SizedBox(height: 18),
             if (total == null || total.inSeconds < 5)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  'Длина трека пока неизвестна. Включи его, и можно будет '
-                  'обрезать.',
+                  'Длина трека пока неизвестна. Включи его, и можно будет обрезать.'
+                      .tr,
                   style: TextStyle(color: SegueColors.textDim),
                 ),
               )
             else ...[
               Row(
                 children: [
-                  _Time('Начало', _fmt(_range.start)),
+                  _Time('Начало'.tr, _fmt(_range.start)),
                   const Spacer(),
                   Text(
-                    'будет ${_fmt(_range.end - _range.start)}',
+                    'будет {0}'.trArgs([_fmt(_range.end - _range.start)]),
                     style: const TextStyle(color: SegueColors.textDim),
                   ),
                   const Spacer(),
-                  _Time('Конец', _fmt(_range.end), end: true),
+                  _Time('Конец'.tr, _fmt(_range.end), end: true),
                 ],
               ),
               SliderTheme(
@@ -192,14 +194,14 @@ class _TrimSheetState extends ConsumerState<_TrimSheet> {
                     TextButton.icon(
                       onPressed: () => _listen(_range.start),
                       icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text('Послушать начало'),
+                      label: Text('Послушать начало'.tr),
                     ),
                     TextButton.icon(
                       onPressed: () => _listen(
                         (_range.end - 5).clamp(_range.start, _range.end),
                       ),
                       icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text('Послушать конец'),
+                      label: Text('Послушать конец'.tr),
                     ),
                   ],
                 ),
@@ -208,7 +210,7 @@ class _TrimSheetState extends ConsumerState<_TrimSheet> {
                 children: [
                   TextButton(
                     onPressed: () => _save(reset: true),
-                    child: const Text('Без обрезки'),
+                    child: Text('Без обрезки'.tr),
                   ),
                   const Spacer(),
                   FilledButton(
@@ -217,8 +219,8 @@ class _TrimSheetState extends ConsumerState<_TrimSheet> {
                       foregroundColor: SegueColors.ink,
                     ),
                     onPressed: _save,
-                    child: const Text(
-                      'Сохранить',
+                    child: Text(
+                      'Сохранить'.tr,
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),

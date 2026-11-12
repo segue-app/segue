@@ -77,6 +77,10 @@ final class NotchModel: ObservableObject {
 
   /// Set when the music plays on another device ("на iPhone").
   @Published var device = ""
+  /// Texts in the app's language (sent by Flutter).
+  @Published var onDevice = ""
+  @Published var idleText = "Nothing is playing"
+  @Published var openText = "Open Segue"
 
   /// 0…1, and whether the volume HUD shows (while scrolling).
   @Published var volume: Double = 1
@@ -278,6 +282,9 @@ final class NotchController {
       }
       model.liked = a["liked"] as? Bool ?? false
       model.device = a["device"] as? String ?? ""
+      model.onDevice = a["onDevice"] as? String ?? ""
+      if let t = a["idleText"] as? String { model.idleText = t }
+      if let t = a["openText"] as? String { model.openText = t }
       if !model.showVolume, let v = a["volume"] as? Double { model.volume = v }
       loadArtwork(a["artwork"] as? String ?? "")
       if !currentOpen && panel != nil { place() }
@@ -530,7 +537,7 @@ struct NotchView: View {
             .shadow(color: model.accent.opacity(0.45), radius: 10)
         }
         .buttonStyle(.plain)
-        .help("Открыть Segue")
+        .help(model.openText)
         .offset(x: model.swipe * 14)
         VStack(alignment: .leading, spacing: 3) {
           Text(model.title)
@@ -546,7 +553,7 @@ struct NotchView: View {
               // Playing on another of your devices.
               HStack(spacing: 3) {
                 Image(systemName: "iphone").font(.system(size: 9, weight: .bold))
-                Text("на \(model.device)").font(.system(size: 10, weight: .bold))
+                Text(model.onDevice).font(.system(size: 10, weight: .bold))
               }
               .foregroundColor(model.accent)
               .padding(.horizontal, 6).padding(.vertical, 2)
@@ -741,7 +748,7 @@ struct DesktopCard: View {
           Text(model.hasTrack ? model.title : "Segue")
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(.white).lineLimit(1)
-          Text(model.hasTrack ? model.artist : "Ничего не играет")
+          Text(model.hasTrack ? model.artist : model.idleText)
             .font(.system(size: 12, weight: .medium))
             .foregroundColor(.white.opacity(0.65)).lineLimit(1)
           TimelineView(.periodic(from: .now, by: 1)) { ctx in

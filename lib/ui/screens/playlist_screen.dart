@@ -5,6 +5,8 @@ import '../../core/library/library.dart';
 import '../widgets/collection.dart';
 import '../widgets/track_actions.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 class PlaylistScreen extends ConsumerWidget {
   const PlaylistScreen({super.key, required this.playlistId});
 
@@ -40,7 +42,7 @@ class PlaylistScreen extends ConsumerWidget {
                 urls: [for (final t in tracks) t.artworkUrl],
                 size: size,
               ),
-              emptyText: 'Добавляй треки через ••• → «Добавить в плейлист»',
+              emptyText: 'Добавляй треки через ••• → «Добавить в плейлист»'.tr,
               onRemove: (t) => library.removeFromPlaylist(playlistId, t),
               onReorder: (from, to) =>
                   library.movePlaylistItem(playlistId, tracks, from, to),
@@ -79,16 +81,16 @@ class PlaylistScreen extends ConsumerWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: Text('Удалить «$name»?'),
-          content: const Text('Треки останутся в поиске и в любимых.'),
+          title: Text('Удалить «{0}»?'.trArgs([name])),
+          content: Text('Треки останутся в поиске и в любимых.'.tr),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(d, false),
-              child: const Text('Отмена'),
+              child: Text('Отмена'.tr),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(d, true),
-              child: const Text('Удалить'),
+              child: Text('Удалить'.tr),
             ),
           ],
         ),

@@ -11,6 +11,8 @@ import 'package:http/http.dart' as http;
 import '../library/library_store.dart';
 import '../player/player_handler.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// A Segue device seen on the local network right now.
 class NearbyDevice {
   const NearbyDevice({
@@ -277,7 +279,7 @@ class SyncService {
         q['h'] == null ||
         q['p'] == null ||
         q['c'] == null) {
-      throw SyncException('Это не QR-код Segue');
+      throw SyncException('Это не QR-код Segue'.tr);
     }
     final device = await probe(q['h']!, int.parse(q['p']!));
     return pair(device, q['c']!);
@@ -291,7 +293,7 @@ class SyncService {
         .toList();
     if (candidates.isEmpty) {
       throw SyncException(
-        'Рядом нет устройств с Segue. Они должны быть в одной Wi-Fi-сети',
+        'Рядом нет устройств с Segue. Они должны быть в одной Wi-Fi-сети'.tr,
       );
     }
     for (final d in candidates) {
@@ -301,7 +303,7 @@ class SyncService {
         continue; // not the device showing this code
       }
     }
-    throw SyncException('Код не подошёл ни одному устройству рядом');
+    throw SyncException('Код не подошёл ни одному устройству рядом'.tr);
   }
 
   /// Accepts [code] (or a new 6-digit one) from nearby devices for
@@ -331,10 +333,12 @@ class SyncService {
         )
         .timeout(const Duration(seconds: 8));
     if (res.statusCode == 403) {
-      throw SyncException('Неверный или устаревший код');
+      throw SyncException('Неверный или устаревший код'.tr);
     }
     if (res.statusCode != 200) {
-      throw SyncException('Устройство не ответило (${res.statusCode})');
+      throw SyncException(
+        'Устройство не ответило ({0})'.trArgs([res.statusCode]),
+      );
     }
     final j = jsonDecode(res.body) as Map<String, dynamic>;
     // Join their group: from now on we share one secret with all of them.
@@ -438,7 +442,7 @@ class SyncService {
       library.savePeer(
         Peer(
           id: id,
-          name: (m['name'] as String?) ?? 'Устройство',
+          name: (m['name'] as String?) ?? 'Устройство'.tr,
           platform: (m['os'] as String?) ?? '',
           token: token,
           host: m['host'] as String?,
@@ -453,10 +457,10 @@ class SyncService {
   /// Moves what's playing here to [peerId] and pauses this device.
   Future<void> sendPlayback(String peerId) async {
     final peer = library.peer(peerId);
-    if (peer == null) throw SyncException('Устройство не найдено');
+    if (peer == null) throw SyncException('Устройство не найдено'.tr);
     final snap = player.snapshot();
     if ((snap['queue'] as List).isEmpty) {
-      throw SyncException('Сейчас ничего не играет');
+      throw SyncException('Сейчас ничего не играет'.tr);
     }
     final res = await _http
         .post(
@@ -465,21 +469,25 @@ class SyncService {
           body: jsonEncode({...snap, 'from': deviceName}),
         )
         .timeout(const Duration(seconds: 8));
-    if (res.statusCode != 200) throw SyncException('${peer.name} не ответил');
+    if (res.statusCode != 200) {
+      throw SyncException('{0} не ответил'.trArgs([peer.name]));
+    }
     await player.pause();
   }
 
   /// Takes over what's playing on [peerId] and pauses it there.
   Future<void> takePlayback(String peerId) async {
     final peer = library.peer(peerId);
-    if (peer == null) throw SyncException('Устройство не найдено');
+    if (peer == null) throw SyncException('Устройство не найдено'.tr);
     final res = await _http
         .post(_peerUri(peer, '/take'), headers: _auth(peer))
         .timeout(const Duration(seconds: 8));
     if (res.statusCode == 204) {
-      throw SyncException('На ${peer.name} ничего не играет');
+      throw SyncException('На {0} ничего не играет'.trArgs([peer.name]));
     }
-    if (res.statusCode != 200) throw SyncException('${peer.name} не ответил');
+    if (res.statusCode != 200) {
+      throw SyncException('{0} не ответил'.trArgs([peer.name]));
+    }
     await player.restore(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
@@ -543,7 +551,7 @@ class SyncService {
         peer = Peer(
           id: deviceId,
           name: Uri.decodeComponent(
-            req.headers.value('X-Segue-Name') ?? 'Устройство',
+            req.headers.value('X-Segue-Name') ?? 'Устройство'.tr,
           ),
           platform: req.headers.value('X-Segue-Os') ?? '',
           token: group,

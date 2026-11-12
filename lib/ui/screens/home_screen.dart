@@ -27,6 +27,8 @@ import 'library_screen.dart';
 import 'playlist_screen.dart';
 import '../widgets/slow_ticker.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Start page: quick access to liked songs and playlists, and what you
 /// listened to recently.
 class HomeScreen extends ConsumerWidget {
@@ -41,10 +43,10 @@ class HomeScreen extends ConsumerWidget {
 
   static String _greeting() {
     final h = DateTime.now().hour;
-    if (h < 5) return 'Доброй ночи';
-    if (h < 12) return 'Доброе утро';
-    if (h < 18) return 'Добрый день';
-    return 'Добрый вечер';
+    if (h < 5) return 'Доброй ночи'.tr;
+    if (h < 12) return 'Доброе утро'.tr;
+    if (h < 18) return 'Добрый день'.tr;
+    return 'Добрый вечер'.tr;
   }
 
   @override
@@ -97,15 +99,15 @@ class HomeScreen extends ConsumerWidget {
                     },
                   ),
                   if (recent.isNotEmpty) ...[
-                    const _SectionTitle('Недавно слушали'),
+                    _SectionTitle('Недавно слушали'.tr),
                     _Shelf(tracks: recent.take(20).toList()),
                   ],
                   if (liked.isNotEmpty) ...[
-                    const _SectionTitle('Из любимого'),
+                    _SectionTitle('Из любимого'.tr),
                     _Shelf(tracks: liked.take(20).toList()),
                   ],
                 ],
-                const _SectionTitle('Чарты'),
+                _SectionTitle('Чарты'.tr),
                 const _Charts(),
               ],
             ),
@@ -144,8 +146,8 @@ class _Welcome extends StatelessWidget {
           children: [
             const Icon(Icons.graphic_eq_rounded, size: 36),
             const SizedBox(height: 14),
-            const Text(
-              'YouTube и SoundCloud в одном месте',
+            Text(
+              'YouTube и SoundCloud в одном месте'.tr,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -153,9 +155,9 @@ class _Welcome extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Без рекламы и аккаунта. Найди трек или перенеси плейлисты из Spotify '
-              'и Яндекс Музыки — здесь появятся любимые, плейлисты и история.',
+            Text(
+              'Без рекламы и аккаунта. Найди трек или перенеси плейлисты из Spotify и Яндекс Музыки — здесь появятся любимые, плейлисты и история.'
+                  .tr,
               style: TextStyle(color: SegueColors.textDim, height: 1.4),
             ),
             const SizedBox(height: 18),
@@ -174,13 +176,13 @@ class _Welcome extends StatelessWidget {
                       color: SegueColors.text,
                       borderRadius: BorderRadius.circular(22),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.search_rounded, color: SegueColors.ink),
                         SizedBox(width: 8),
                         Text(
-                          'Найти музыку',
+                          'Найти музыку'.tr,
                           style: TextStyle(
                             color: SegueColors.ink,
                             fontWeight: FontWeight.w800,
@@ -201,13 +203,13 @@ class _Welcome extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(22),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.login_rounded),
                         SizedBox(width: 8),
                         Text(
-                          'Уже есть Segue? Войти по коду',
+                          'Уже есть Segue? Войти по коду'.tr,
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ],
@@ -228,13 +230,13 @@ class _Welcome extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(22),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.download_rounded),
                         SizedBox(width: 8),
                         Text(
-                          'Перенести плейлист',
+                          'Перенести плейлист'.tr,
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ],
@@ -275,7 +277,7 @@ class _QuickGrid extends ConsumerWidget {
           icon: Icons.favorite_rounded,
           gradient: likedGradient,
         ),
-        title: 'Любимые',
+        title: 'Любимые'.tr,
         subtitle: tracksLabel(likedCount),
         onTap: onLiked,
       ),
@@ -461,7 +463,7 @@ class _WaveCardState extends ConsumerState<_WaveCard> {
       await ref.read(waveProvider).myWave(ref.read(waveSettingsProvider));
     } catch (_) {
       messenger?.showSnackBar(
-        const SnackBar(content: Text('Волна не запустилась. Проверь интернет')),
+        SnackBar(content: Text('Волна не запустилась. Проверь интернет'.tr)),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -516,8 +518,8 @@ class _WaveCardState extends ConsumerState<_WaveCard> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Spacer(),
-                                const Text(
-                                  'Моя волна',
+                                Text(
+                                  'Моя волна'.tr,
                                   style: TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.w800,
@@ -528,9 +530,10 @@ class _WaveCardState extends ConsumerState<_WaveCard> {
                                 Text(
                                   live
                                       ? 'Играет — новые треки добавляются сами'
+                                            .tr
                                       : mine
-                                      ? 'На паузе'
-                                      : 'Бесконечный микс под тебя',
+                                      ? 'На паузе'.tr
+                                      : 'Бесконечный микс под тебя'.tr,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -540,7 +543,7 @@ class _WaveCardState extends ConsumerState<_WaveCard> {
                                 const Spacer(),
                                 _TuneButton(
                                   label: summary.isEmpty
-                                      ? 'Настроить'
+                                      ? 'Настроить'.tr
                                       : summary,
                                   active: summary.isNotEmpty,
                                   onTap: () => showWaveSettings(context),
@@ -843,7 +846,7 @@ class _WaveSettingsSheetState extends ConsumerState<_WaveSettingsSheet> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      o,
+                      o.tr,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: o == value ? SegueColors.ink : SegueColors.text,
@@ -865,40 +868,40 @@ class _WaveSettingsSheetState extends ConsumerState<_WaveSettingsSheet> {
           children: [
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Настроить волну',
+                    'Настроить волну'.tr,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                   ),
                 ),
                 if (!s.isEmpty)
                   TextButton(
                     onPressed: () => set(const WaveSettings()),
-                    child: const Text('Сбросить'),
+                    child: Text('Сбросить'.tr),
                   ),
               ],
             ),
             const SizedBox(height: 14),
             group(
-              'Под занятие',
+              'Под занятие'.tr,
               WaveSettings.activities,
               s.activity,
               (cur, v) => cur.copyWith(activity: () => v),
             ),
             group(
-              'По характеру',
+              'По характеру'.tr,
               WaveSettings.characters,
               s.character,
               (cur, v) => cur.copyWith(character: () => v),
             ),
             group(
-              'Под настроение',
+              'Под настроение'.tr,
               WaveSettings.moods,
               s.mood,
               (cur, v) => cur.copyWith(mood: () => v),
             ),
             group(
-              'По языку',
+              'По языку'.tr,
               WaveSettings.languages,
               s.language,
               (cur, v) => cur.copyWith(language: () => v),
@@ -913,8 +916,8 @@ class _WaveSettingsSheetState extends ConsumerState<_WaveSettingsSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 icon: const Icon(Icons.waves_rounded),
-                label: const Text(
-                  'Слушать',
+                label: Text(
+                  'Слушать'.tr,
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
                 onPressed: () {
@@ -993,7 +996,7 @@ class _ChartsState extends ConsumerState<_Charts> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
-                        g.value,
+                        g.value.tr,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: g.key == _genre ? accent : SegueColors.textDim,
@@ -1011,10 +1014,10 @@ class _ChartsState extends ConsumerState<_Charts> {
             padding: EdgeInsets.all(32),
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (_, _) => const Padding(
+          error: (_, _) => Padding(
             padding: EdgeInsets.all(24),
             child: Text(
-              'Чарты сейчас недоступны',
+              'Чарты сейчас недоступны'.tr,
               style: TextStyle(color: SegueColors.textDim),
             ),
           ),
@@ -1044,7 +1047,7 @@ class _ChartsState extends ConsumerState<_Charts> {
                 if (!_all && tracks.length > 10)
                   TextButton(
                     onPressed: () => setState(() => _all = true),
-                    child: Text('Показать все ${tracks.length}'),
+                    child: Text('Показать все {0}'.trArgs([tracks.length])),
                   ),
               ],
             ),

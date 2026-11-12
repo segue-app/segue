@@ -77,7 +77,8 @@ extension TrackDisplay on Track {
 }
 
 String prettyTitle(String title, String artist) {
-  String key(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-zа-яё0-9]'), '');
+  String key(String s) =>
+      s.toLowerCase().replaceAll(RegExp(r'[^a-zа-яё0-9]'), '');
   var t = title;
   // Packaging in brackets: (Official Video), [Lyrics], (Премьера клипа)…
   t = t.replaceAll(

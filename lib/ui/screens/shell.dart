@@ -38,6 +38,8 @@ import 'search_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/slow_ticker.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Whether a text field has the keyboard (then keys are text, not
 /// shortcuts). The focused element is a Focus inside the EditableText, so
 /// look up the tree.
@@ -142,20 +144,20 @@ class _ShellState extends ConsumerState<Shell> {
       if (u == null) return;
       final updater = ref.read(updaterProvider);
       if (!Updater.canInstall(u)) {
-        _toast('Вышла версия ${u.version} — см. Настройки');
+        _toast('Вышла версия {0} — см. Настройки'.trArgs([u.version]));
         return;
       }
       _messenger.currentState
         ?..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text('Вышла версия ${u.version}'),
+            content: Text('Вышла версия {0}'.trArgs([u.version])),
             duration: const Duration(seconds: 10),
             action: SnackBarAction(
-              label: 'Обновить',
+              label: 'Обновить'.tr,
               onPressed: () {
                 updater.install(u);
-                _toast('Скачиваем обновление — прогресс в Настройках');
+                _toast('Скачиваем обновление — прогресс в Настройках'.tr);
               },
             ),
           ),
@@ -182,11 +184,11 @@ class _ShellState extends ConsumerState<Shell> {
     _relayHandoffs = ref.read(connectProvider).relay.incoming.stream.listen((
       from,
     ) {
-      if (mounted) _toast('Продолжаем музыку с «$from»');
+      if (mounted) _toast('Продолжаем музыку с «{0}»'.trArgs([from]));
     });
     _handoffs = ref.read(syncProvider).incomingHandoff.stream.listen((from) {
       if (!mounted) return;
-      _toast('Продолжаем музыку с «$from»');
+      _toast('Продолжаем музыку с «{0}»'.trArgs([from]));
     });
   }
 
@@ -218,10 +220,10 @@ class _ShellState extends ConsumerState<Shell> {
 
   Future<void> _onLink(Uri uri) async {
     if (uri.scheme == 'segue' && uri.host == 'jam') {
-      _toast('Подключаемся к совместному прослушиванию…');
+      _toast('Подключаемся к совместному прослушиванию…'.tr);
       try {
         final host = await ref.read(jamProvider).join(uri.toString());
-        _toast('Слушаешь вместе с $host');
+        _toast('Слушаешь вместе с {0}'.trArgs([host]));
       } catch (e) {
         _toast('$e'.replaceFirst('Bad state: ', ''));
       }
@@ -229,14 +231,14 @@ class _ShellState extends ConsumerState<Shell> {
     }
     if (uri.scheme != 'segue' || uri.host != 'pair') return;
     final connect = ref.read(connectProvider);
-    _toast('Связываем устройства…');
+    _toast('Связываем устройства…'.tr);
     // Right after launch the relay may still be connecting.
     for (var i = 0; i < 20 && !connect.relay.connected.value; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
     try {
       final name = await connect.join(uri.toString());
-      _toast('Готово: связано с «$name». Музыка уже едет');
+      _toast('Готово: связано с «{0}». Музыка уже едет'.trArgs([name]));
     } catch (e) {
       _toast('$e');
     }
@@ -441,10 +443,10 @@ class _ShellState extends ConsumerState<Shell> {
   }
 }
 
-const _items = [
-  (Icons.home_rounded, Icons.home_outlined, 'Главная'),
-  (Icons.search_rounded, Icons.search_rounded, 'Поиск'),
-  (Icons.library_music_rounded, Icons.library_music_outlined, 'Библиотека'),
+List<(IconData, IconData, String)> get _items => [
+  (Icons.home_rounded, Icons.home_outlined, 'Главная'.tr),
+  (Icons.search_rounded, Icons.search_rounded, 'Поиск'.tr),
+  (Icons.library_music_rounded, Icons.library_music_outlined, 'Библиотека'.tr),
 ];
 
 class _BottomBar extends StatelessWidget {
@@ -574,9 +576,9 @@ class _Sidebar extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(14, 4, 4, 2),
                       child: Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Плейлисты',
+                              'Плейлисты'.tr,
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 color: SegueColors.textDim,
@@ -584,7 +586,7 @@ class _Sidebar extends ConsumerWidget {
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Новый плейлист',
+                            tooltip: 'Новый плейлист'.tr,
                             visualDensity: VisualDensity.compact,
                             onPressed: () async {
                               final name = await askPlaylistName(context);
@@ -618,7 +620,7 @@ class _Sidebar extends ConsumerWidget {
                                 size: 18,
                               ),
                             ),
-                            title: 'Любимые',
+                            title: 'Любимые'.tr,
                             onTap: () => onSelect(2),
                           ),
                           for (final p in playlists)
@@ -642,7 +644,7 @@ class _Sidebar extends ConsumerWidget {
             _SideBlock(
               child: _SideItem(
                 icon: Icons.tune_rounded,
-                label: 'Настройки',
+                label: 'Настройки'.tr,
                 selected: tab == 4 || tab == 3,
                 onTap: onSettings,
               ),

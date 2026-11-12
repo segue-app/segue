@@ -16,6 +16,8 @@ import '../theme/theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/jam_sheet.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 IconData platformIcon(String os) => switch (os) {
   'android' || 'ios' => Icons.smartphone_rounded,
   'macos' => Icons.laptop_mac_rounded,
@@ -63,10 +65,10 @@ class DevicesScreen extends ConsumerWidget {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(6, 8, 6, 6),
                       child: Text(
-                        'Устройства',
+                        'Устройства'.tr,
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w800,
@@ -74,12 +76,11 @@ class DevicesScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(6, 0, 6, 12),
                       child: Text(
-                        'Любимые, плейлисты и история — на всех твоих '
-                        'устройствах, в любой сети. Музыку можно переносить '
-                        'и управлять ею с телефона, как пультом.',
+                        'Любимые, плейлисты и история — на всех твоих устройствах, в любой сети. Музыку можно переносить и управлять ею с телефона, как пультом.'
+                            .tr,
                         style: TextStyle(color: SegueColors.textDim),
                       ),
                     ),
@@ -87,7 +88,7 @@ class DevicesScreen extends ConsumerWidget {
                     const SizedBox(height: 14),
                     const _ThisDevice(),
                     if (devices.isNotEmpty) ...[
-                      const _Header('Мои устройства'),
+                      _Header('Мои устройства'.tr),
                       for (final d in devices)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
@@ -97,8 +98,8 @@ class DevicesScreen extends ConsumerWidget {
                       Center(
                         child: TextButton(
                           onPressed: () => _confirmLeave(context, connect),
-                          child: const Text(
-                            'Отключить это устройство от остальных',
+                          child: Text(
+                            'Отключить это устройство от остальных'.tr,
                             style: TextStyle(color: SegueColors.textDim),
                           ),
                         ),
@@ -121,19 +122,19 @@ class DevicesScreen extends ConsumerWidget {
       builder: (d) => AlertDialog(
         backgroundColor: SegueColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Отключить это устройство?'),
-        content: const Text(
-          'Оно перестанет синхронизироваться с остальными. Музыка, лайки и '
-          'плейлисты здесь останутся. Связать снова можно по новому коду.',
+        title: Text('Отключить это устройство?'.tr),
+        content: Text(
+          'Оно перестанет синхронизироваться с остальными. Музыка, лайки и плейлисты здесь останутся. Связать снова можно по новому коду.'
+              .tr,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(d, false),
-            child: const Text('Отмена'),
+            child: Text('Отмена'.tr),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(d, true),
-            child: const Text('Отключить'),
+            child: Text('Отключить'.tr),
           ),
         ],
       ),
@@ -165,7 +166,10 @@ class _Status extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              online ? 'Синхронизация через интернет включена · зашифровано' : 'Нет связи с интернетом — синхронизация только в этой Wi-Fi-сети',
+              online
+                  ? 'Синхронизация через интернет включена · зашифровано'.tr
+                  : 'Нет связи с интернетом — синхронизация только в этой Wi-Fi-сети'
+                        .tr,
               style: TextStyle(color: color, fontWeight: FontWeight.w600),
             ),
           ),
@@ -203,8 +207,8 @@ class _ThisDevice extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Это устройство',
+                    Text(
+                      'Это устройство'.tr,
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
@@ -236,15 +240,15 @@ class _ThisDevice extends ConsumerWidget {
                         ),
                         onPressed: () => connect.openInvite(),
                         icon: const Icon(Icons.add_rounded),
-                        label: const Text(
-                          'Добавить устройство',
+                        label: Text(
+                          'Добавить устройство'.tr,
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
                       OutlinedButton.icon(
                         onPressed: () => showJoinDialog(context),
                         icon: const Icon(Icons.password_rounded),
-                        label: const Text('Войти по коду'),
+                        label: Text('Войти по коду'.tr),
                       ),
                       if (ScanScreen.supported)
                         OutlinedButton.icon(
@@ -253,7 +257,7 @@ class _ThisDevice extends ConsumerWidget {
                             rootNavigator: true,
                           ).push(ScanScreen.route()),
                           icon: const Icon(Icons.qr_code_scanner_rounded),
-                          label: const Text('Сканировать QR'),
+                          label: Text('Сканировать QR'.tr),
                         ),
                     ],
                   ),
@@ -290,8 +294,8 @@ class _Invite extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
-          'Код для другого устройства',
+        Text(
+          'Код для другого устройства'.tr,
           style: TextStyle(color: SegueColors.textDim),
         ),
         const SizedBox(height: 4),
@@ -308,13 +312,13 @@ class _Invite extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'На другом устройстве открой Segue → «Устройства» → «Войти по коду» '
-          'или отсканируй QR. Работает в любой сети. Код действует 10 минут.',
+        Text(
+          'На другом устройстве открой Segue → «Устройства» → «Войти по коду» или отсканируй QR. Работает в любой сети. Код действует 10 минут.'
+              .tr,
           style: TextStyle(color: SegueColors.textDim, fontSize: 13),
         ),
         const SizedBox(height: 10),
-        TextButton(onPressed: connect.closeInvite, child: const Text('Готово')),
+        TextButton(onPressed: connect.closeInvite, child: Text('Готово'.tr)),
       ],
     );
     return LayoutBuilder(
@@ -347,10 +351,10 @@ class _DeviceCard extends ConsumerWidget {
     final d = device;
     final track = remoteTrack(d.remote);
     final status = !d.online
-        ? 'Не в сети'
+        ? 'Не в сети'.tr
         : d.playing && track != null
-        ? 'Играет: ${track.title} — ${track.artist}'
-        : 'В сети';
+        ? 'Играет: {0} — {1}'.trArgs([track.title, track.artist])
+        : 'В сети'.tr;
 
     Future<void> run(Future<void> Function() f, String done) async {
       final messenger = ScaffoldMessenger.maybeOf(context);
@@ -424,10 +428,10 @@ class _DeviceCard extends ConsumerWidget {
                   color: SegueColors.textDim,
                 ),
                 onSelected: (_) => connect.forget(d.id),
-                itemBuilder: (_) => const [
+                itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'forget',
-                    child: Text('Убрать из списка'),
+                    child: Text('Убрать из списка'.tr),
                   ),
                 ],
               ),
@@ -445,20 +449,20 @@ class _DeviceCard extends ConsumerWidget {
                       () => connect.player?.outputId == d.id
                           ? connect.playHere()
                           : connect.takeFrom(d.id),
-                      'Музыка с ${d.name} играет здесь',
+                      'Музыка с {0} играет здесь'.trArgs([d.name]),
                     ),
                     icon: const Icon(Icons.headphones_rounded),
-                    label: const Text('Слушать здесь'),
+                    label: Text('Слушать здесь'.tr),
                   ),
                 if (connect.player?.outputId != d.id &&
                     (localPlaying || connect.player?.current != null))
                   OutlinedButton.icon(
                     onPressed: () => run(
                       () => connect.playOn(d.id),
-                      'Играет на ${d.name}. Этот плеер — пульт',
+                      'Играет на {0}. Этот плеер — пульт'.trArgs([d.name]),
                     ),
                     icon: const Icon(Icons.cast_rounded),
-                    label: Text('Включить на ${d.name}'),
+                    label: Text('Включить на {0}'.trArgs([d.name])),
                   ),
               ],
             ),
@@ -553,7 +557,11 @@ class _JoinDialogState extends ConsumerState<_JoinDialog> {
       if (!mounted) return;
       Navigator.pop(context);
       messenger?.showSnackBar(
-        SnackBar(content: Text('Готово: связано с «$name». Музыка уже едет')),
+        SnackBar(
+          content: Text(
+            'Готово: связано с «{0}». Музыка уже едет'.trArgs([name]),
+          ),
+        ),
       );
     } catch (e) {
       if (mounted) {
@@ -570,16 +578,16 @@ class _JoinDialogState extends ConsumerState<_JoinDialog> {
     return AlertDialog(
       backgroundColor: SegueColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: const Text('Войти по коду'),
+      title: Text('Войти по коду'.tr),
       content: SizedBox(
         width: 360,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'На устройстве, где уже есть твоя музыка: «Устройства» → '
-              '«Добавить устройство». Введи код оттуда.',
+            Text(
+              'На устройстве, где уже есть твоя музыка: «Устройства» → «Добавить устройство». Введи код оттуда.'
+                  .tr,
               style: TextStyle(color: SegueColors.textDim),
             ),
             const SizedBox(height: 14),
@@ -610,11 +618,11 @@ class _JoinDialogState extends ConsumerState<_JoinDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: Text('Отмена'.tr),
         ),
         FilledButton(
           onPressed: _busy ? null : _submit,
-          child: Text(_busy ? 'Связываем…' : 'Войти'),
+          child: Text(_busy ? 'Связываем…'.tr : 'Войти'.tr),
         ),
       ],
     );
@@ -644,7 +652,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     if (_busy) return;
     final raw = capture.barcodes.firstOrNull?.rawValue;
     if (raw == null || !raw.startsWith('segue://')) {
-      if (raw != null) setState(() => _error = 'Это не QR-код Segue');
+      if (raw != null) setState(() => _error = 'Это не QR-код Segue'.tr);
       return;
     }
     setState(() {
@@ -657,7 +665,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       if (!mounted) return;
       Navigator.pop(context);
       messenger?.showSnackBar(
-        SnackBar(content: Text('Готово: связано с «$name». Музыка уже едет')),
+        SnackBar(
+          content: Text(
+            'Готово: связано с «{0}». Музыка уже едет'.trArgs([name]),
+          ),
+        ),
       );
     } catch (e) {
       if (mounted) {
@@ -675,7 +687,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Сканировать QR'),
+        title: Text('Сканировать QR'.tr),
       ),
       body: Stack(
         children: [
@@ -702,10 +714,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
               ),
               child: Text(
                 _busy
-                    ? 'Связываем…'
+                    ? 'Связываем…'.tr
                     : (_error ??
-                          'Наведи камеру на QR-код в «Устройства» → '
-                              '«Добавить устройство» на другом устройстве'),
+                          'Наведи камеру на QR-код в «Устройства» → «Добавить устройство» на другом устройстве'
+                              .tr),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -756,7 +768,7 @@ class _WhereToPlay extends ConsumerWidget {
             messenger?.showSnackBar(SnackBar(content: Text(done)));
           } catch (e) {
             messenger?.showSnackBar(
-              SnackBar(content: Text('Не получилось: $e')),
+              SnackBar(content: Text('Не получилось: {0}'.trArgs([e]))),
             );
           }
         }
@@ -798,23 +810,23 @@ class _WhereToPlay extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(12, 0, 12, 10),
                   child: Text(
-                    'Где играть',
+                    'Где играть'.tr,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                   ),
                 ),
                 tile(
                   icon: platformIcon(Platform.operatingSystem),
-                  title: 'Это устройство',
+                  title: 'Это устройство'.tr,
                   subtitle: out == null
-                      ? 'Музыка играет здесь'
-                      : 'Нажми, чтобы музыка играла здесь',
+                      ? 'Музыка играет здесь'.tr
+                      : 'Нажми, чтобы музыка играла здесь'.tr,
                   active: out == null,
                   onTap: () => pick(
                     connect.playHere,
-                    'Музыка играет на этом устройстве',
+                    'Музыка играет на этом устройстве'.tr,
                   ),
                 ),
                 for (final d in devices)
@@ -822,29 +834,32 @@ class _WhereToPlay extends ConsumerWidget {
                     icon: platformIcon(d.platform),
                     title: d.name,
                     subtitle: out == d.id
-                        ? 'Играет там · этот плеер — пульт'
+                        ? 'Играет там · этот плеер — пульт'.tr
                         : d.playing
-                        ? 'Играет: ${remoteTrack(d.remote)?.title ?? ''}'
-                        : 'В сети',
+                        ? 'Играет: {0}'.trArgs([
+                            remoteTrack(d.remote)?.title ?? '',
+                          ])
+                        : 'В сети'.tr,
                     active: out == d.id,
                     onTap: () => pick(
                       () => connect.playOn(d.id),
-                      'Играет на ${d.name}. Этот плеер — пульт',
+                      'Играет на {0}. Этот плеер — пульт'.trArgs([d.name]),
                     ),
                   ),
                 if (devices.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(12),
                     child: Text(
-                      'Других устройств в сети нет. Добавь их в «Устройства».',
+                      'Других устройств в сети нет. Добавь их в «Устройства».'
+                          .tr,
                       style: TextStyle(color: SegueColors.textDim),
                     ),
                   ),
                 const Divider(color: SegueColors.line, height: 20),
                 tile(
                   icon: Icons.groups_rounded,
-                  title: 'Слушать вместе с друзьями',
-                  subtitle: 'Одна музыка у всех, в любой сети',
+                  title: 'Слушать вместе с друзьями'.tr,
+                  subtitle: 'Одна музыка у всех, в любой сети'.tr,
                   active: false,
                   onTap: () {
                     Navigator.pop(context);

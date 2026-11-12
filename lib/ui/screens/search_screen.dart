@@ -18,6 +18,8 @@ import '../theme/theme.dart';
 import '../widgets/motion.dart';
 import '../widgets/track_tile.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -64,10 +66,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(22, 22, 22, 14),
                       child: Text(
-                        'Поиск',
+                        'Поиск'.tr,
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w800,
@@ -82,8 +84,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         onChanged: _onChanged,
                         onSubmitted: (v) => setState(() => _query = v),
                         textInputAction: TextInputAction.search,
-                        decoration: const InputDecoration(
-                          hintText: 'Трек, артист или альбом',
+                        decoration: InputDecoration(
+                          hintText: 'Трек, артист или альбом'.tr,
                           prefixIcon: Padding(
                             padding: EdgeInsets.only(left: 6),
                             child: Icon(
@@ -241,7 +243,7 @@ class _FilterBar extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           _SourceChip(
-            label: 'Все',
+            label: 'Все'.tr,
             selected: filter == null,
             accent: accent,
             loading: r == null || !r.done,
@@ -281,9 +283,9 @@ class _Results extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (query.trim().isEmpty) {
-      return const _Hint(
+      return _Hint(
         icon: Icons.graphic_eq_rounded,
-        text: 'Найди что-нибудь — YouTube и SoundCloud в одном месте',
+        text: 'Найди что-нибудь — YouTube и SoundCloud в одном месте'.tr,
       );
     }
     final async = ref.watch(searchAllProvider(query));
@@ -319,8 +321,8 @@ class _Results extends ConsumerWidget {
       return _Hint(
         icon: failedHere ? Icons.cloud_off_rounded : Icons.search_off_rounded,
         text: failedHere
-            ? 'Источник сейчас не отвечает. Попробуй ещё раз чуть позже.'
-            : 'Ничего не нашлось',
+            ? 'Источник сейчас не отвечает. Попробуй ещё раз чуть позже.'.tr
+            : 'Ничего не нашлось'.tr,
       );
     }
     // Artists matching the query on top of the merged list.
@@ -405,8 +407,8 @@ class _ArtistRow extends ConsumerWidget {
                               fontSize: 13,
                             ),
                           ),
-                          const Text(
-                            'Артист',
+                          Text(
+                            'Артист'.tr,
                             style: TextStyle(
                               color: SegueColors.textDim,
                               fontSize: 11,

@@ -34,8 +34,7 @@ class AppVisibility {
     }
   }
 
-  static AppLifecycleState? get _life =>
-      WidgetsBinding.instance.lifecycleState;
+  static AppLifecycleState? get _life => WidgetsBinding.instance.lifecycleState;
 
   /// On screen (maybe behind the app being used).
   static bool get visible {

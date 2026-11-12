@@ -104,7 +104,8 @@ class Taste {
   /// in it that the wave doesn't become the same few artists.
   List<Track> order(List<Track> tracks, Random rnd) {
     final keys = {
-      for (final t in tracks) t.key: artist(t.artist) * 0.6 + rnd.nextDouble() * 4,
+      for (final t in tracks)
+        t.key: artist(t.artist) * 0.6 + rnd.nextDouble() * 4,
     };
     return [
       for (final t in tracks)

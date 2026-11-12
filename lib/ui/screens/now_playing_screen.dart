@@ -26,6 +26,8 @@ import '../widgets/sound_panel.dart';
 import '../widgets/track_actions.dart';
 import '../widgets/wavy_progress.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 class NowPlayingScreen extends ConsumerStatefulWidget {
   const NowPlayingScreen({super.key});
 
@@ -658,9 +660,9 @@ class _TopBar extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           if (c.maxWidth >= 2 * (5 * 52) + 150)
-            const IgnorePointer(
+            IgnorePointer(
               child: Text(
-                'Сейчас играет',
+                'Сейчас играет'.tr,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -862,15 +864,15 @@ class _DislikeButton extends ConsumerWidget {
       builder: (context, wave, _) => wave == null
           ? const SizedBox.shrink()
           : IconButton(
-              tooltip: 'Не нравится',
+              tooltip: 'Не нравится'.tr,
               icon: const Icon(Icons.thumb_down_off_alt_rounded, size: 24),
               color: SegueColors.textDim,
               onPressed: () {
                 ref.read(tasteProvider).dislike(track);
                 player.skipToNext();
                 ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                  const SnackBar(
-                    content: Text('Больше не будет в волне'),
+                  SnackBar(
+                    content: Text('Больше не будет в волне'.tr),
                     duration: Duration(seconds: 2),
                   ),
                 );

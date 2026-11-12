@@ -8,6 +8,8 @@ import '../player/player_handler.dart';
 import 'relay.dart';
 import 'sync_service.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// One of this user's other devices, however we reach it.
 @immutable
 class MyDevice {
@@ -251,8 +253,8 @@ class Connect {
     }
     throw SyncException(
       relay.connected.value
-          ? 'Код не подошёл. Проверь его или покажи новый'
-          : 'Нет интернета, и рядом в Wi-Fi нет устройства с этим кодом',
+          ? 'Код не подошёл. Проверь его или покажи новый'.tr
+          : 'Нет интернета, и рядом в Wi-Fi нет устройства с этим кодом'.tr,
     );
   }
 

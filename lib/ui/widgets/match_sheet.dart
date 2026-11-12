@@ -8,6 +8,8 @@ import '../../core/sources/sources.dart';
 import '../theme/theme.dart';
 import 'artwork.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// An imported song plays a YouTube version found automatically; here the
 /// user sees the versions found and picks the right one.
 Future<void> showMatchSheet(BuildContext context, Track track) =>
@@ -66,8 +68,8 @@ class _MatchSheetState extends ConsumerState<_MatchSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Выбери версию',
+                  Text(
+                    'Выбери версию'.tr,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
@@ -84,14 +86,14 @@ class _MatchSheetState extends ConsumerState<_MatchSheet> {
                 future: _found,
                 builder: (context, snap) {
                   if (snap.hasError) {
-                    return const Center(child: Text('Не удалось найти версии'));
+                    return Center(child: Text('Не удалось найти версии'.tr));
                   }
                   final list = snap.data;
                   if (list == null) {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (list.isEmpty) {
-                    return const Center(child: Text('Ничего не нашлось'));
+                    return Center(child: Text('Ничего не нашлось'.tr));
                   }
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -119,7 +121,7 @@ class _MatchSheetState extends ConsumerState<_MatchSheet> {
                           [
                             t.artist,
                             _len(t.duration),
-                            if (c.official) 'официальный канал',
+                            if (c.official) 'официальный канал'.tr,
                           ].where((s) => s.isNotEmpty).join(' · '),
                           style: const TextStyle(color: SegueColors.textDim),
                         ),

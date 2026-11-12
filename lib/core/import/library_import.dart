@@ -8,6 +8,8 @@ import '../library/library_store.dart';
 import '../models/track.dart';
 import 'playlist_importer.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// A whole library from another service: liked songs and playlists.
 class ImportedLibrary {
   ImportedLibrary({
@@ -60,9 +62,9 @@ class LibraryImporter {
   }) async {
     final login = yandexLogin(input);
     if (login == null) {
-      throw ImportException('Введи логин Яндекса или ссылку на профиль');
+      throw ImportException('Введи логин Яндекса или ссылку на профиль'.tr);
     }
-    progress?.call('Ищем профиль…');
+    progress?.call('Ищем профиль…'.tr);
     final res = await _http
         .get(
           Uri.parse(
@@ -71,12 +73,12 @@ class LibraryImporter {
         )
         .timeout(const Duration(seconds: 20));
     if (res.statusCode == 404) {
-      throw ImportException('Профиль «$login» не найден');
+      throw ImportException('Профиль «{0}» не найден'.trArgs([login]));
     }
     if (res.statusCode != 200) {
       throw ImportException(
-        'Профиль закрыт. В Яндекс Музыке: Настройки → Приватность → '
-        'сделать профиль публичным',
+        'Профиль закрыт. В Яндекс Музыке: Настройки → Приватность → сделать профиль публичным'
+            .tr,
       );
     }
     final kinds = [
@@ -98,7 +100,7 @@ class LibraryImporter {
       }
     }
 
-    progress?.call('Загружаем «Мне нравится»…');
+    progress?.call('Загружаем «Мне нравится»…'.tr);
     final liked = await get(3);
     final rest = [
       for (final k in kinds)
@@ -111,7 +113,7 @@ class LibraryImporter {
       while (next < rest.length) {
         final i = next++;
         found[i] = await get(rest[i].$1);
-        progress?.call('Плейлисты: ${++done} из ${rest.length}');
+        progress?.call('Плейлисты: {0} из {1}'.trArgs([++done, rest.length]));
       }
     }
 
@@ -122,7 +124,7 @@ class LibraryImporter {
     ];
     if ((liked?.tracks.isEmpty ?? true) && playlists.isEmpty) {
       throw ImportException(
-        'В профиле нет открытых треков. Проверь, что профиль публичный',
+        'В профиле нет открытых треков. Проверь, что профиль публичный'.tr,
       );
     }
     return ImportedLibrary(
@@ -174,8 +176,8 @@ class LibraryImporter {
     }
     if (liked.isEmpty && playlists.isEmpty) {
       throw ImportException(
-        'В файлах не нашлось треков. Нужны CSV из Exportify или файлы '
-        'YourLibrary.json / Playlist1.json из данных Spotify',
+        'В файлах не нашлось треков. Нужны CSV из Exportify или файлы YourLibrary.json / Playlist1.json из данных Spotify'
+            .tr,
       );
     }
     return ImportedLibrary(
@@ -212,7 +214,7 @@ class LibraryImporter {
             (it['track'] as Map?)?['artistName'],
           ),
       ];
-      final n = p['name'] as String? ?? 'Плейлист';
+      final n = p['name'] as String? ?? 'Плейлист'.tr;
       if (tracks.isEmpty) continue;
       if (n == 'Liked Songs' || n == 'Любимые треки') {
         liked.addAll(tracks);
@@ -249,10 +251,7 @@ class LibraryImporter {
         h.contains('uri') || h.contains(' id') || h.startsWith('id');
     int col(List<String> names, {List<String> not = const []}) =>
         head.indexWhere(
-          (h) =>
-              names.any(h.contains) &&
-              !idLike(h) &&
-              !not.any(h.contains),
+          (h) => names.any(h.contains) && !idLike(h) && !not.any(h.contains),
         );
     final ti = col(['track name', 'title', 'название']);
     var ai = col(['artist name', 'исполнитель'], not: ['album']);
@@ -340,9 +339,7 @@ class LibraryImporter {
       await Future.wait([
         for (final uri in uris.skip(i).take(4))
           http_
-              .get(
-                Uri.https('open.spotify.com', '/oembed', {'url': uri}),
-              )
+              .get(Uri.https('open.spotify.com', '/oembed', {'url': uri}))
               .timeout(const Duration(seconds: 10))
               .then((r) {
                 if (r.statusCode != 200) return;

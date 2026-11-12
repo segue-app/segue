@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 
 import '../player/player_handler.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Discord application id for "Listening to Segue". Created once at
 /// discord.com/developers/applications and passed at build time with
 /// `--dart-define=DISCORD_CLIENT_ID=...`; without it the status is off.
@@ -52,7 +54,7 @@ class DiscordPresence {
     return {
       'type': 2, // "Listening to"
       'details': cut(title.isEmpty ? 'Segue' : title),
-      'state': cut(playing ? (artist.isEmpty ? ' ' : artist) : 'На паузе'),
+      'state': cut(playing ? (artist.isEmpty ? ' ' : artist) : 'На паузе'.tr),
       if (playing)
         'timestamps': {
           'start': start,

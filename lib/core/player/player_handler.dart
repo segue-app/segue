@@ -13,6 +13,8 @@ import 'audio_fx.dart';
 import 'chunked_source.dart';
 import 'hls_proxy.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// What other devices need from a player: hand playback over, and control
 /// it remotely ("Spotify Connect").
 abstract interface class PlaybackControl {
@@ -463,7 +465,7 @@ class SegueAudioHandler extends BaseAudioHandler
       _openedToken = token; // nothing is coming: report what really is
       _playingCtl.add(false);
       debugPrint('play ${track.title}: $e');
-      errors.add('Не удалось воспроизвести «${track.title}»');
+      errors.add('Не удалось воспроизвести «{0}»'.trArgs([track.title]));
       // Skip broken tracks instead of stopping the whole queue.
       if (_index < _tracks.length - 1) {
         _loading = false;

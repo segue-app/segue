@@ -10,6 +10,8 @@ import '../../core/library/library.dart';
 import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// "Перенести всю библиотеку": all likes and playlists from Yandex Music or
 /// Spotify at once.
 Future<void> showLibraryImport(BuildContext context) =>
@@ -49,7 +51,7 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
 
   Future<void> _run(Future<ImportedLibrary> Function() load) async {
     setState(() {
-      _step = 'Начинаем…';
+      _step = 'Начинаем…'.tr;
       _error = null;
       _done = null;
     });
@@ -62,30 +64,30 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
         store.addToPlaylist(id, p.tracks);
       }
       setState(
-        () => _done =
-            'Готово: $likes ${_plural(likes, 'лайк', 'лайка', 'лайков')} и '
-            '${lib.playlists.length} ${_plural(lib.playlists.length, 'плейлист', 'плейлиста', 'плейлистов')} '
-            'из ${lib.service}. Треки находятся на YouTube, когда играют',
+        () => _done = 'Готово: {0} {1} и {2} {3} из {4}. Треки находятся на YouTube, когда играют'
+            .trArgs([
+              likes,
+              L10n.plural(likes, 'лайк|лайка|лайков'),
+              lib.playlists.length,
+              L10n.plural(
+                lib.playlists.length,
+                'плейлист|плейлиста|плейлистов',
+              ),
+              lib.service.tr,
+            ]),
       );
     } on ImportException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = 'Не получилось: $e');
+      setState(() => _error = 'Не получилось: {0}'.trArgs([e]));
     } finally {
       if (mounted) setState(() => _step = null);
     }
   }
 
-  static String _plural(int n, String one, String few, String many) {
-    final m10 = n % 10, m100 = n % 100;
-    if (m10 == 1 && m100 != 11) return one;
-    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-    return many;
-  }
-
   Future<void> _pickSpotify() async {
     final picked = await FilePicker.pickFiles(
-      dialogTitle: 'Файлы экспорта Spotify',
+      dialogTitle: 'Файлы экспорта Spotify'.tr,
       type: FileType.custom,
       allowedExtensions: const ['csv', 'zip', 'json', 'txt'],
     );
@@ -130,20 +132,20 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Перенести всю библиотеку',
+            Text(
+              'Перенести всю библиотеку'.tr,
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Все лайки и плейлисты разом. Уже лайкнутое не задвоится.',
+            Text(
+              'Все лайки и плейлисты разом. Уже лайкнутое не задвоится.'.tr,
               style: TextStyle(color: SegueColors.textDim),
             ),
             const SizedBox(height: 18),
             card(
-              'Яндекс Музыка',
-              'Логин или ссылка на профиль. Профиль должен быть открытым: '
-                  'Настройки → Приватность.',
+              'Яндекс Музыка'.tr,
+              'Логин или ссылка на профиль. Профиль должен быть открытым: Настройки → Приватность.'
+                  .tr,
               [
                 Row(
                   children: [
@@ -151,8 +153,8 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
                       child: TextField(
                         controller: _login,
                         enabled: !busy,
-                        decoration: const InputDecoration(
-                          hintText: 'логин или music.yandex.ru/users/…',
+                        decoration: InputDecoration(
+                          hintText: 'логин или music.yandex.ru/users/…'.tr,
                         ),
                         onSubmitted: (_) => _run(
                           () => _importer.yandex(
@@ -176,7 +178,7 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
                                 progress: (s) => setState(() => _step = s),
                               ),
                             ),
-                      child: const Text('Перенести'),
+                      child: Text('Перенести'.tr),
                     ),
                   ],
                 ),
@@ -184,10 +186,8 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
             ),
             card(
               'Spotify',
-              'Spotify не отдаёт лайки без входа, поэтому — файлами. Самое '
-                  'быстрое: exportify.app → войти → «Export All» и выбрать '
-                  'скачанный ZIP. Подойдут и данные из «Конфиденциальность → '
-                  'Скачать мои данные» (YourLibrary.json).',
+              'Spotify не отдаёт лайки без входа, поэтому — файлами. Самое быстрое: exportify.app → войти → «Export All» и выбрать скачанный ZIP. Подойдут и данные из «Конфиденциальность → Скачать мои данные» (YourLibrary.json).'
+                  .tr,
               [
                 Wrap(
                   spacing: 10,
@@ -200,13 +200,13 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
                       ),
                       onPressed: busy ? null : _pickSpotify,
                       icon: const Icon(Icons.upload_file_rounded),
-                      label: const Text('Выбрать файлы'),
+                      label: Text('Выбрать файлы'.tr),
                     ),
                     OutlinedButton.icon(
                       onPressed: () =>
                           launchUrl(Uri.parse('https://exportify.app')),
                       icon: const Icon(Icons.open_in_new_rounded),
-                      label: const Text('Открыть Exportify'),
+                      label: Text('Открыть Exportify'.tr),
                     ),
                   ],
                 ),

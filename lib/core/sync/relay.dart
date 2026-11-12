@@ -14,6 +14,8 @@ import '../library/library_store.dart';
 import '../models/track.dart';
 import '../player/player_handler.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Another device of this user, as seen through the relay.
 @immutable
 class RemoteDevice {
@@ -432,7 +434,7 @@ class Relay {
     perBroker[broker] = j['online'] == true;
     final online = perBroker.values.any((v) => v);
     final old = devices.value[id];
-    final name = j['name'] as String? ?? old?.name ?? 'Устройство';
+    final name = j['name'] as String? ?? old?.name ?? 'Устройство'.tr;
     final os = j['os'] as String? ?? old?.platform ?? '';
     devices.value = {
       ...devices.value,
@@ -495,7 +497,7 @@ class Relay {
     }
     final old =
         devices.value[id] ??
-        RemoteDevice(id: id, name: 'Устройство', platform: '');
+        RemoteDevice(id: id, name: 'Устройство'.tr, platform: '');
     devices.value = {
       ...devices.value,
       id: old.copyWith(
@@ -698,7 +700,7 @@ class Relay {
       case 'restore':
         // Another device moves its music here.
         await player.restore((j['snapshot'] as Map).cast<String, dynamic>());
-        incoming.add(j['fromName'] as String? ?? 'другого устройства');
+        incoming.add(j['fromName'] as String? ?? 'другого устройства'.tr);
     }
     _scheduleState();
   }
@@ -822,8 +824,8 @@ class Relay {
   /// Joins the group of the device showing [code]. Returns its name.
   Future<String> join(String code) async {
     final c = normalizeCode(code);
-    if (c == null) throw const FormatException('Код из 8 букв и цифр');
-    if (_clients.isEmpty) throw StateError('Нет связи с интернетом');
+    if (c == null) throw FormatException('Код из 8 букв и цифр'.tr);
+    if (_clients.isEmpty) throw StateError('Нет связи с интернетом'.tr);
     final (topic, key) = await _inviteKeys(c);
     _joinKey = key;
     final done = _joining = Completer<Map<String, dynamic>>();
@@ -840,9 +842,9 @@ class Relay {
         library.setMeta('group_token', token);
         await restart();
       }
-      return invite['name'] as String? ?? 'устройство';
+      return invite['name'] as String? ?? 'устройство'.tr;
     } on TimeoutException {
-      throw StateError('Код не найден или устарел');
+      throw StateError('Код не найден или устарел'.tr);
     } finally {
       _joining = null;
       _joinKey = null;

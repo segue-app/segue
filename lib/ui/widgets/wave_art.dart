@@ -73,7 +73,9 @@ class _WaveArtState extends State<WaveArt> {
     for (var i = 0; i < _colors.length && i < widget.colors.length; i++) {
       final next = Color.lerp(_colors[i], widget.colors[i], k)!;
       final to = widget.colors[i];
-      if ((next.r - to.r).abs() + (next.g - to.g).abs() + (next.b - to.b).abs() >
+      if ((next.r - to.r).abs() +
+              (next.g - to.g).abs() +
+              (next.b - to.b).abs() >
           0.004) {
         settling = true;
       }

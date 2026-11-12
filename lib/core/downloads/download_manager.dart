@@ -11,6 +11,8 @@ import '../library/library_store.dart';
 import '../models/track.dart';
 import '../sources/music_source.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Saves tracks to the device for offline listening.
 ///
 /// One file per track in the app's data folder, recorded in the library so
@@ -112,7 +114,7 @@ class DownloadManager {
       library.saveDownload(t, out.path, out.lengthSync());
     } catch (e) {
       debugPrint('download ${t.title} failed: $e');
-      errors.add('Не удалось скачать «${t.title}»');
+      errors.add('Не удалось скачать «{0}»'.trArgs([t.title]));
     }
   }
 

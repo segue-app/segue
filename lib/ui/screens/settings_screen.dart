@@ -23,6 +23,8 @@ import '../widgets/motion.dart';
 import '../widgets/sound_panel.dart';
 import '../widgets/wavy_progress.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Appearance settings with a live preview, in the spirit of Riff's theme
 /// editor: accent, backdrop, font, sizes, and motion.
 class SettingsScreen extends ConsumerWidget {
@@ -55,11 +57,11 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(6, 0, 6, 14),
                       child: Text(
-                        'Настройки',
+                        'Настройки'.tr,
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w800,
@@ -74,8 +76,8 @@ class SettingsScreen extends ConsumerWidget {
                       Icons.restart_alt_rounded,
                       color: SegueColors.textDim,
                     ),
-                    label: const Text(
-                      'Сбросить',
+                    label: Text(
+                      'Сбросить'.tr,
                       style: TextStyle(color: SegueColors.textDim),
                     ),
                   ),
@@ -84,14 +86,14 @@ class SettingsScreen extends ConsumerWidget {
               // Moved here from the sidebar: devices and bringing music in.
               _NavTile(
                 icon: Icons.devices_rounded,
-                title: 'Устройства',
-                subtitle: 'Синхронизация, «Где играть», вход по коду',
+                title: 'Устройства'.tr,
+                subtitle: 'Синхронизация, «Где играть», вход по коду'.tr,
                 onTap: () => Navigator.of(context).push(DevicesScreen.route()),
               ),
               _NavTile(
                 icon: Icons.link_rounded,
-                title: 'Импорт плейлиста по ссылке',
-                subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud',
+                title: 'Импорт плейлиста по ссылке'.tr,
+                subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud'.tr,
                 onTap: () async {
                   final id = await showImportDialog(context);
                   if (id != null && context.mounted) {
@@ -101,13 +103,37 @@ class SettingsScreen extends ConsumerWidget {
               ),
               _NavTile(
                 icon: Icons.move_down_rounded,
-                title: 'Перенести всю библиотеку',
-                subtitle: 'Все лайки и плейлисты из Яндекс Музыки или Spotify',
+                title: 'Перенести всю библиотеку'.tr,
+                subtitle:
+                    'Все лайки и плейлисты из Яндекс Музыки или Spotify'.tr,
                 onTap: () => showLibraryImport(context),
+              ),
+              _Section('Язык'.tr),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final e in {
+                      'system': 'Как в системе'.tr,
+                      ...L10n.languages,
+                    }.entries)
+                      ChoiceChip(
+                        label: Text(e.value),
+                        selected: s.language == e.key,
+                        onSelected: (_) =>
+                            set((x) => x.copyWith(language: e.key)),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 18),
               const _Preview(),
-              const _Section('Звук'),
+              _Section('Звук'.tr),
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
                 decoration: BoxDecoration(
@@ -118,21 +144,20 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               _Slider(
-                title: 'Сведение треков',
+                title: 'Сведение треков'.tr,
                 value: s.fadeSeconds,
                 min: 0,
                 max: 8,
                 label: s.fadeSeconds < 0.5
-                    ? 'выкл'
-                    : '${s.fadeSeconds.round()} с',
+                    ? 'выкл'.tr
+                    : '{0} с'.trArgs([s.fadeSeconds.round()]),
                 onChanged: (v) =>
                     set((x) => x.copyWith(fadeSeconds: v.roundToDouble())),
               ),
               _Tile(
-                title: 'Подстраивать темп',
-                subtitle:
-                    'Как у диджея: следующая песня подгоняется под темп '
-                    'текущей (до ±4%), потом плавно возвращается к своему',
+                title: 'Подстраивать темп'.tr,
+                subtitle: 'Как у диджея: следующая песня подгоняется под темп текущей (до ±4%), потом плавно возвращается к своему'
+                    .tr,
                 trailing: Switch(
                   value: s.matchTempo,
                   onChanged: s.fadeSeconds < 1
@@ -141,29 +166,27 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               _Tile(
-                title: 'Пропускать вступления клипов',
-                subtitle:
-                    'Разговоры в начале и сценки в конце музыкальных видео '
-                    '(по данным SponsorBlock)',
+                title: 'Пропускать вступления клипов'.tr,
+                subtitle: 'Разговоры в начале и сценки в конце музыкальных видео (по данным SponsorBlock)'
+                    .tr,
                 trailing: Switch(
                   value: s.skipIntros,
                   onChanged: (v) => set((x) => x.copyWith(skipIntros: v)),
                 ),
               ),
               _Tile(
-                title: 'Выравнивать громкость',
-                subtitle: 'Громкие и тихие треки звучат одинаково',
+                title: 'Выравнивать громкость'.tr,
+                subtitle: 'Громкие и тихие треки звучат одинаково'.tr,
                 trailing: Switch(
                   value: s.normalizeVolume,
-                  onChanged: (v) =>
-                      set((x) => x.copyWith(normalizeVolume: v)),
+                  onChanged: (v) => set((x) => x.copyWith(normalizeVolume: v)),
                 ),
               ),
               const _CacheTile(),
-              const _Section('Цвет акцента'),
+              _Section('Цвет акцента'.tr),
               _Tile(
-                title: 'Брать из обложки',
-                subtitle: 'Кнопки и прогресс окрашиваются под играющий трек',
+                title: 'Брать из обложки'.tr,
+                subtitle: 'Кнопки и прогресс окрашиваются под играющий трек'.tr,
                 trailing: Switch(
                   value: s.accentFromCover,
                   onChanged: (v) => set((x) => x.copyWith(accentFromCover: v)),
@@ -204,27 +227,27 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const _Section('Фон плеера'),
+              _Section('Фон плеера'.tr),
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 4,
                 ),
                 child: SegmentedButton<BackdropStyle>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: BackdropStyle.living,
-                      label: Text('Живой'),
+                      label: Text('Живой'.tr),
                       icon: Icon(Icons.blur_on_rounded),
                     ),
                     ButtonSegment(
                       value: BackdropStyle.calm,
-                      label: Text('Спокойный'),
+                      label: Text('Спокойный'.tr),
                       icon: Icon(Icons.water_rounded),
                     ),
                     ButtonSegment(
                       value: BackdropStyle.plain,
-                      label: Text('Однотонный'),
+                      label: Text('Однотонный'.tr),
                       icon: Icon(Icons.square_rounded),
                     ),
                   ],
@@ -234,7 +257,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               _Slider(
-                title: 'Скорость движения',
+                title: 'Скорость движения'.tr,
                 value: s.backdropSpeed,
                 min: 0.2,
                 max: 2.5,
@@ -242,14 +265,14 @@ class SettingsScreen extends ConsumerWidget {
                 onChanged: (v) => set((x) => x.copyWith(backdropSpeed: v)),
               ),
               _Slider(
-                title: 'Яркость цветов',
+                title: 'Яркость цветов'.tr,
                 value: s.backdropIntensity,
                 min: 0.4,
                 max: 1.4,
                 label: '${(s.backdropIntensity * 100).round()}%',
                 onChanged: (v) => set((x) => x.copyWith(backdropIntensity: v)),
               ),
-              const _Section('Шрифт'),
+              _Section('Шрифт'.tr),
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -289,9 +312,9 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const _Section('Размеры'),
+              _Section('Размеры'.tr),
               _Slider(
-                title: 'Масштаб интерфейса',
+                title: 'Масштаб интерфейса'.tr,
                 value: s.textScale,
                 min: 0.85,
                 max: 1.25,
@@ -299,14 +322,14 @@ class SettingsScreen extends ConsumerWidget {
                 onChanged: (v) => set((x) => x.copyWith(textScale: v)),
               ),
               _Slider(
-                title: 'Текст песен',
+                title: 'Текст песен'.tr,
                 value: s.lyricsSize,
                 min: 20,
                 max: 38,
                 label: '${s.lyricsSize.round()}',
                 onChanged: (v) => set((x) => x.copyWith(lyricsSize: v)),
               ),
-              const _Section('Анимация текста'),
+              _Section('Анимация текста'.tr),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 22,
@@ -325,18 +348,18 @@ class SettingsScreen extends ConsumerWidget {
                   vertical: 4,
                 ),
                 child: SegmentedButton<LyricsStyle>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: LyricsStyle.sweep,
-                      label: Text('Заливка'),
+                      label: Text('Заливка'.tr),
                     ),
                     ButtonSegment(
                       value: LyricsStyle.pop,
-                      label: Text('По словам'),
+                      label: Text('По словам'.tr),
                     ),
                     ButtonSegment(
                       value: LyricsStyle.line,
-                      label: Text('Строкой'),
+                      label: Text('Строкой'.tr),
                     ),
                   ],
                   selected: {s.lyricsStyle},
@@ -350,15 +373,15 @@ class SettingsScreen extends ConsumerWidget {
                   vertical: 8,
                 ),
                 child: SegmentedButton<LyricsAlign>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: LyricsAlign.left,
-                      label: Text('Слева'),
+                      label: Text('Слева'.tr),
                       icon: Icon(Icons.format_align_left_rounded),
                     ),
                     ButtonSegment(
                       value: LyricsAlign.center,
-                      label: Text('По центру'),
+                      label: Text('По центру'.tr),
                       icon: Icon(Icons.format_align_center_rounded),
                     ),
                   ],
@@ -368,7 +391,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               _Slider(
-                title: 'Свечение',
+                title: 'Свечение'.tr,
                 value: s.lyricsGlow,
                 min: 0,
                 max: 1,
@@ -376,68 +399,72 @@ class SettingsScreen extends ConsumerWidget {
                 onChanged: (v) => set((x) => x.copyWith(lyricsGlow: v)),
               ),
               _Slider(
-                title: 'Сдвиг текста',
+                title: 'Сдвиг текста'.tr,
                 value: s.lyricsOffsetMs.toDouble(),
                 min: -1500,
                 max: 1500,
-                label:
-                    '${s.lyricsOffsetMs > 0 ? '+' : ''}${(s.lyricsOffsetMs / 1000).toStringAsFixed(1)} с',
+                label: '{0}{1} с'.trArgs([
+                  s.lyricsOffsetMs > 0 ? '+' : '',
+                  (s.lyricsOffsetMs / 1000).toStringAsFixed(1),
+                ]),
                 onChanged: (v) => set(
                   (x) => x.copyWith(lyricsOffsetMs: (v / 100).round() * 100),
                 ),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(6, 0, 6, 6),
                 child: Text(
-                  'Если текст отстаёт от песни — сдвинь вправо, если спешит — влево.',
+                  'Если текст отстаёт от песни — сдвинь вправо, если спешит — влево.'
+                      .tr,
                   style: TextStyle(color: SegueColors.textDim, fontSize: 12.5),
                 ),
               ),
               _Tile(
-                title: 'Размытие соседних строк',
-                subtitle: 'Текущая строка в фокусе, остальные мягко размыты',
+                title: 'Размытие соседних строк'.tr,
+                subtitle: 'Текущая строка в фокусе, остальные мягко размыты'.tr,
                 trailing: Switch(
                   value: s.lyricsBlur,
                   onChanged: (v) => set((x) => x.copyWith(lyricsBlur: v)),
                 ),
               ),
               _Tile(
-                title: '3D-перспектива',
+                title: '3D-перспектива'.tr,
                 subtitle:
-                    'Обложка и текст развёрнуты к центру, строки уходят вглубь',
+                    'Обложка и текст развёрнуты к центру, строки уходят вглубь'
+                        .tr,
                 trailing: Switch(
                   value: s.depth3d,
                   onChanged: (v) => set((x) => x.copyWith(depth3d: v)),
                 ),
               ),
               _Tile(
-                title: 'Перевод текста',
-                subtitle: 'Под каждой строкой — перевод на язык устройства',
+                title: 'Перевод текста'.tr,
+                subtitle: 'Под каждой строкой — перевод на язык устройства'.tr,
                 trailing: Switch(
                   value: s.lyricsTranslate,
                   onChanged: (v) => set((x) => x.copyWith(lyricsTranslate: v)),
                 ),
               ),
               _Tile(
-                title: 'Подъём слова',
-                subtitle: 'Слово, которое поётся, слегка приподнимается',
+                title: 'Подъём слова'.tr,
+                subtitle: 'Слово, которое поётся, слегка приподнимается'.tr,
                 trailing: Switch(
                   value: s.lyricsLift,
                   onChanged: (v) => set((x) => x.copyWith(lyricsLift: v)),
                 ),
               ),
-              const _Section('Эффекты'),
+              _Section('Эффекты'.tr),
               _Tile(
-                title: 'Волна в прогрессе',
-                subtitle: 'Полоска колышется во время игры',
+                title: 'Волна в прогрессе'.tr,
+                subtitle: 'Полоска колышется во время игры'.tr,
                 trailing: Switch(
                   value: s.wavyProgress,
                   onChanged: (v) => set((x) => x.copyWith(wavyProgress: v)),
                 ),
               ),
               _Tile(
-                title: 'Стекло',
-                subtitle: 'Размытие под мини-плеером',
+                title: 'Стекло'.tr,
+                subtitle: 'Размытие под мини-плеером'.tr,
                 trailing: Switch(
                   value: s.glass,
                   onChanged: (v) => set((x) => x.copyWith(glass: v)),
@@ -445,10 +472,9 @@ class SettingsScreen extends ConsumerWidget {
               ),
               if (Platform.isMacOS)
                 _Tile(
-                  title: 'Виджет на рабочем столе',
-                  subtitle:
-                      'Карточка с обложкой и кнопками под окнами. Её можно '
-                      'перетащить куда угодно',
+                  title: 'Виджет на рабочем столе'.tr,
+                  subtitle: 'Карточка с обложкой и кнопками под окнами. Её можно перетащить куда угодно'
+                      .tr,
                   trailing: Switch(
                     value: s.desktopWidget,
                     onChanged: (v) => set((x) => x.copyWith(desktopWidget: v)),
@@ -456,19 +482,18 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               if (Platform.isMacOS)
                 _Tile(
-                  title: 'Живая чёлка',
-                  subtitle:
-                      'На MacBook с вырезом: что играет — вокруг камеры, '
-                      'наведи мышь для кнопок',
+                  title: 'Живая чёлка'.tr,
+                  subtitle: 'На MacBook с вырезом: что играет — вокруг камеры, наведи мышь для кнопок'
+                      .tr,
                   trailing: Switch(
                     value: s.notchIsland,
                     onChanged: (v) => set((x) => x.copyWith(notchIsland: v)),
                   ),
                 ),
               _Tile(
-                title: 'Меньше анимаций',
+                title: 'Меньше анимаций'.tr,
                 subtitle:
-                    'Фон замирает, списки появляются сразу. Бережёт батарею',
+                    'Фон замирает, списки появляются сразу. Бережёт батарею'.tr,
                 trailing: Switch(
                   value: s.reduceMotion,
                   onChanged: (v) => set((x) => x.copyWith(reduceMotion: v)),
@@ -476,9 +501,9 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const _Section('Last.fm'),
               const _LastFmTile(),
-              const _Section('Горячие клавиши'),
+              _Section('Горячие клавиши'.tr),
               const _Hotkeys(),
-              const _Section('О приложении'),
+              _Section('О приложении'.tr),
               const _About(),
             ],
           ),
@@ -518,7 +543,7 @@ class _Preview extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'И музыка продолжится там,',
+                    'И музыка продолжится там,'.tr,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -534,7 +559,7 @@ class _Preview extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    'где ты остановился',
+                    'где ты остановился'.tr,
                     style: TextStyle(
                       fontSize: s.lyricsSize * 0.8,
                       fontWeight: FontWeight.w800,
@@ -675,10 +700,12 @@ class _LastFmTile extends ConsumerWidget {
     return ValueListenableBuilder<String?>(
       valueListenable: lastFm.user,
       builder: (context, user, _) => _Tile(
-        title: user == null ? 'Скробблинг выключен' : 'Вы вошли как $user',
+        title: user == null
+            ? 'Скробблинг выключен'.tr
+            : 'Вы вошли как {0}'.trArgs([user]),
         subtitle: user == null
-            ? 'Отправлять прослушанное в профиль Last.fm'
-            : 'Каждый трек, дослушанный до половины, попадает в профиль',
+            ? 'Отправлять прослушанное в профиль Last.fm'.tr
+            : 'Каждый трек, дослушанный до половины, попадает в профиль'.tr,
         trailing: TextButton(
           onPressed: user == null
               ? () => showDialog<void>(
@@ -687,7 +714,7 @@ class _LastFmTile extends ConsumerWidget {
                   builder: (_) => _LastFmDialog(lastFm),
                 )
               : lastFm.signOut,
-          child: Text(user == null ? 'Войти' : 'Выйти'),
+          child: Text(user == null ? 'Войти'.tr : 'Выйти'.tr),
         ),
       ),
     );
@@ -735,7 +762,7 @@ class _LastFmDialogState extends State<_LastFmDialog> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Не получилось войти: проверь ключ, логин и пароль';
+          _error = 'Не получилось войти: проверь ключ, логин и пароль'.tr;
         });
       }
     }
@@ -763,21 +790,21 @@ class _LastFmDialogState extends State<_LastFmDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Last.fm выдаёт ключи каждому приложению отдельно. Создай '
-                'свой бесплатно и вставь сюда — пароль не сохраняется.',
+              Text(
+                'Last.fm выдаёт ключи каждому приложению отдельно. Создай свой бесплатно и вставь сюда — пароль не сохраняется.'
+                    .tr,
                 style: TextStyle(color: SegueColors.textDim, fontSize: 13),
               ),
               TextButton(
                 onPressed: () => launchUrl(
                   Uri.parse('https://www.last.fm/api/account/create'),
                 ),
-                child: const Text('Получить ключ на last.fm'),
+                child: Text('Получить ключ на last.fm'.tr),
               ),
               field(_key, 'API key'),
               field(_secret, 'Shared secret'),
-              field(_user, 'Логин Last.fm'),
-              field(_pass, 'Пароль', hide: true),
+              field(_user, 'Логин Last.fm'.tr),
+              field(_pass, 'Пароль'.tr, hide: true),
               if (_error != null)
                 Text(_error!, style: const TextStyle(color: Color(0xFFFF6B81))),
             ],
@@ -787,11 +814,11 @@ class _LastFmDialogState extends State<_LastFmDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: Text('Отмена'.tr),
         ),
         FilledButton(
           onPressed: _busy ? null : _submit,
-          child: Text(_busy ? 'Входим…' : 'Войти'),
+          child: Text(_busy ? 'Входим…'.tr : 'Войти'.tr),
         ),
       ],
     );
@@ -801,14 +828,14 @@ class _LastFmDialogState extends State<_LastFmDialog> {
 class _Hotkeys extends StatelessWidget {
   const _Hotkeys();
 
-  static const _keys = [
-    ('Пробел', 'Пауза / играть'),
-    ('← →', 'Перемотка на 5 секунд'),
-    ('⌘/Ctrl + ← →', 'Предыдущий / следующий трек'),
-    ('⌘/Ctrl + ↑ ↓', 'Громкость'),
-    ('M', 'Выключить звук'),
-    ('L', 'В любимые'),
-    ('⌘/Ctrl + F', 'Поиск'),
+  static List<(String, String)> get _keys => [
+    ('Пробел'.tr, 'Пауза / играть'.tr),
+    ('← →', 'Перемотка на 5 секунд'.tr),
+    ('⌘/Ctrl + ← →', 'Предыдущий / следующий трек'.tr),
+    ('⌘/Ctrl + ↑ ↓', 'Громкость'.tr),
+    ('M', 'Выключить звук'.tr),
+    ('L', 'В любимые'.tr),
+    ('⌘/Ctrl + F', 'Поиск'.tr),
   ];
 
   @override
@@ -874,20 +901,23 @@ class _About extends ConsumerWidget {
         if (stage == UpdateStage.downloading) {
           subtitle = p == null
               ? updater.message.value
-              : 'Скачиваем ${found?.version ?? ''}… ${(p * 100).round()}%';
+              : 'Скачиваем {0}… {1}%'.trArgs([
+                  found?.version ?? '',
+                  (p * 100).round(),
+                ]);
         } else if (stage == UpdateStage.installing) {
-          subtitle = 'Устанавливаем…';
+          subtitle = 'Устанавливаем…'.tr;
         } else if (updater.message.value.isNotEmpty &&
             stage != UpdateStage.idle) {
           subtitle = updater.message.value;
         } else if (update.isLoading) {
-          subtitle = 'Проверяем обновления…';
+          subtitle = 'Проверяем обновления…'.tr;
         } else if (found == null) {
-          subtitle = 'У тебя последняя версия';
+          subtitle = 'У тебя последняя версия'.tr;
         } else if (updater.message.value.isNotEmpty) {
           subtitle = updater.message.value;
         } else {
-          subtitle = 'Вышла версия ${found.version}';
+          subtitle = 'Вышла версия {0}'.trArgs([found.version]);
         }
         final Widget trailing;
         if (updater.busy) {
@@ -899,17 +929,17 @@ class _About extends ConsumerWidget {
         } else if (found == null) {
           trailing = TextButton(
             onPressed: () => ref.invalidate(updateProvider),
-            child: const Text('Проверить'),
+            child: Text('Проверить'.tr),
           );
         } else if (Updater.canInstall(found)) {
           trailing = FilledButton(
             onPressed: () => updater.install(found),
-            child: const Text('Обновить'),
+            child: Text('Обновить'.tr),
           );
         } else {
           trailing = FilledButton(
             onPressed: () => launchUrl(Uri.parse(found.url)),
-            child: const Text('Скачать'),
+            child: Text('Скачать'.tr),
           );
         }
         return _Tile(
@@ -969,18 +999,18 @@ class _CacheTile extends ConsumerWidget {
       builder: (context, bytes, _) {
         final mb = (bytes / (1024 * 1024)).round();
         return _Tile(
-          title: 'Сохранять недавние треки',
-          subtitle:
-              'До ${AudioCache.maxTracks} последних треков хранятся на '
-              'устройстве: запускаются сразу и играют без интернета. На '
-              'телефоне — только по Wi-Fi.'
-              '${bytes > 0 ? ' Сейчас $mb МБ.' : ''}',
+          title: 'Сохранять недавние треки'.tr,
+          subtitle: 'До {0} последних треков хранятся на устройстве: запускаются сразу и играют без интернета. На телефоне — только по Wi-Fi.{1}'
+              .trArgs([
+                AudioCache.maxTracks,
+                bytes > 0 ? ' Сейчас {0} МБ.'.trArgs([mb]) : '',
+              ]),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (bytes > 0)
                 IconButton(
-                  tooltip: 'Очистить',
+                  tooltip: 'Очистить'.tr,
                   icon: const Icon(Icons.delete_outline_rounded),
                   onPressed: cache.clear,
                 ),

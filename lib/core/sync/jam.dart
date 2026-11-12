@@ -14,6 +14,8 @@ import '../models/track.dart';
 import '../player/player_handler.dart';
 import 'relay.dart';
 
+import 'package:segue/core/l10n/l10n.dart';
+
 /// Someone in the session.
 @immutable
 class JamMember {
@@ -90,7 +92,7 @@ class JamService {
         ? uri.queryParameters['c'] ?? ''
         : input;
     final c = Relay.normalizeCode(raw);
-    if (c == null) throw const FormatException('Код из 8 букв и цифр');
+    if (c == null) throw FormatException('Код из 8 букв и цифр'.tr);
     await leave();
     await _open(c, asHost: false);
     final first = Completer<void>();
@@ -104,7 +106,9 @@ class JamService {
       await first.future.timeout(const Duration(seconds: 15));
     } on TimeoutException {
       await leave();
-      throw StateError('Совместное прослушивание не найдено или закончилось');
+      throw StateError(
+        'Совместное прослушивание не найдено или закончилось'.tr,
+      );
     } finally {
       hostName.removeListener(l);
     }
@@ -156,7 +160,7 @@ class JamService {
     await Future.wait([for (final h in brokers) _connect(h)]);
     if (_clients.isEmpty) {
       code.value = null;
-      throw StateError('Нет связи с интернетом');
+      throw StateError('Нет связи с интернетом'.tr);
     }
     await _send('m/$deviceId', {
       'online': true,
@@ -238,7 +242,7 @@ class JamService {
           if (j['online'] == true) {
             _memberJoined(
               parts[1],
-              j['name'] as String? ?? 'Гость',
+              j['name'] as String? ?? 'Гость'.tr,
               host: j['host'] == true,
             );
           } else {
@@ -256,13 +260,15 @@ class JamService {
     final isNew = !_memberMap.containsKey(id);
     _memberMap[id] = JamMember(id, who, host: host);
     members.value = _memberMap.values.toList();
-    if (isNew && id != deviceId && !host) events.add('$who слушает с вами');
+    if (isNew && id != deviceId && !host) {
+      events.add('{0} слушает с вами'.trArgs([who]));
+    }
   }
 
   void _memberLeft(String id) {
     final m = _memberMap.remove(id);
     members.value = _memberMap.values.toList();
-    if (m != null && id != deviceId) events.add('${m.name} вышел');
+    if (m != null && id != deviceId) events.add('{0} вышел'.trArgs([m.name]));
   }
 
   // --- host -----------------------------------------------------------------------
@@ -298,7 +304,7 @@ class JamService {
     if (!_seen.add(j['id'] as String? ?? '')) return; // once per broker pair
     final t = Track.fromJson((j['track'] as Map).cast<String, dynamic>());
     await player.addNext(t);
-    events.add('${j['from'] ?? 'Гость'} добавил «${t.title}»');
+    events.add('{0} добавил «{1}»'.trArgs([j['from'] ?? 'Гость'.tr, t.title]));
     _scheduleState();
   }
 
@@ -308,12 +314,12 @@ class JamService {
     if (j['open'] != true) {
       final who = hostName.value;
       unawaited(leave());
-      events.add('$who завершил совместное прослушивание');
+      events.add('{0} завершил совместное прослушивание'.trArgs([who]));
       return;
     }
     _hostState = j;
     _hostAt = DateTime.now();
-    hostName.value = j['host'] as String? ?? 'Друг';
+    hostName.value = j['host'] as String? ?? 'Друг'.tr;
     upcoming.value = [
       for (final t in (j['next'] as List? ?? const []))
         Track.fromJson((t as Map).cast<String, dynamic>()),
