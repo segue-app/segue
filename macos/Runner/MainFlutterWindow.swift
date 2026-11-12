@@ -6,6 +6,7 @@ import SwiftUI
 class MainFlutterWindow: NSWindow {
   private var notch: NotchController?
   private var windowChannel: FlutterMethodChannel?
+  private var updateChannel: FlutterMethodChannel?
   private var lastForeground: [String: Bool]?
 
   override func awakeFromNib() {
@@ -21,6 +22,42 @@ class MainFlutterWindow: NSWindow {
       name: "fm.segue/notch",
       binaryMessenger: flutterViewController.engine.binaryMessenger)
     notch = NotchController(channel: channel)
+
+    // In-app update: hands the job to SegueUpdater (see macos/Updater).
+    updateChannel = FlutterMethodChannel(
+      name: "fm.segue/update",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    updateChannel?.setMethodCallHandler { call, result in
+      guard call.method == "install", let a = call.arguments as? [String: String],
+        let url = a["url"]
+      else { return result(FlutterMethodNotImplemented) }
+      let helper = Bundle.main.bundleURL
+        .appendingPathComponent("Contents/Helpers/SegueUpdater.app")
+      guard FileManager.default.fileExists(atPath: helper.path) else {
+        return result("missing")
+      }
+      // Launch Services drops arguments from sandboxed apps: the job goes
+      // to the helper as a URL instead.
+      var c = URLComponents()
+      c.scheme = "segue-updater"
+      c.host = "install"
+      c.queryItems = [
+        URLQueryItem(name: "url", value: url),
+        URLQueryItem(name: "app", value: Bundle.main.bundlePath),
+        URLQueryItem(name: "pid", value: "\(ProcessInfo.processInfo.processIdentifier)"),
+        URLQueryItem(name: "v", value: a["version"]),
+        URLQueryItem(name: "t", value: a["title"]),
+        URLQueryItem(name: "d", value: a["downloading"]),
+        URLQueryItem(name: "i", value: a["installing"]),
+        URLQueryItem(name: "f", value: a["failed"]),
+      ]
+      guard let job = c.url else { return result("bad url") }
+      let cfg = NSWorkspace.OpenConfiguration()
+      cfg.createsNewApplicationInstance = true
+      NSWorkspace.shared.open([job], withApplicationAt: helper, configuration: cfg) { _, error in
+        DispatchQueue.main.async { result(error == nil ? "ok" : "\(error!.localizedDescription)") }
+      }
+    }
 
     // Whether the user can see the window: Flutter skips decoration
     // (and most redraws) while they work in another app.

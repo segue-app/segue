@@ -27,6 +27,10 @@ class Updater {
 
   final http.Client _http;
 
+  /// macOS: hand the update to SegueUpdater (off in tests of the
+  /// fallback path below).
+  bool useMacHelper = true;
+
   /// macOS: show the new app in Finder when it's ready (off in tests).
   bool revealInFinder = true;
 
@@ -79,6 +83,13 @@ class Updater {
       return;
     }
     try {
+      // macOS: the app's own helper does it all (download, swap, restart);
+      // a download made here would be refused by macOS when opened.
+      if (Platform.isMacOS &&
+          useMacHelper &&
+          await _macHelper(url, u.version)) {
+        return;
+      }
       stage.value = UpdateStage.downloading;
       message.value = 'Скачиваем {0}…'.trArgs([u.version]);
       final file = await _download(url, name!);
@@ -123,7 +134,11 @@ class Updater {
       )) {
         sink.add(chunk);
         got += chunk.length;
-        if (total != null && total > 0) progress.value = got / total;
+        // Whole percents: the screen needn't redraw for every chunk.
+        if (total != null && total > 0) {
+          final p = (got * 100 ~/ total) / 100;
+          if (p != progress.value) progress.value = p;
+        }
       }
     } finally {
       await sink.close();
@@ -188,6 +203,26 @@ class Updater {
     );
     await Process.start('sh', [script.path], mode: ProcessStartMode.detached);
     exit(0);
+  }
+
+  /// Starts SegueUpdater; it quits Segue, replaces it and opens the new
+  /// one. False if the helper isn't there (a build without it).
+  Future<bool> _macHelper(String url, String version) async {
+    final r = await _channel.invokeMethod<String>('install', {
+      'url': url,
+      'version': version,
+      'title': 'Обновление Segue'.tr,
+      'downloading': 'Скачиваем Segue'.tr,
+      'installing': 'Устанавливаем…'.tr,
+      'failed': 'Не получилось обновиться'.tr,
+    });
+    if (r == 'ok') {
+      stage.value = UpdateStage.installing;
+      message.value = 'Обновляемся: Segue перезапустится сам'.tr;
+      return true;
+    }
+    debugPrint('update helper: $r');
+    return false;
   }
 
   Future<void> _macos(File zip, String version) async {

@@ -15,7 +15,9 @@ void main() {
   ) async {
     final latest = await checkForUpdateFrom('0.0.1');
     expect(latest, isNotNull);
-    final u = Updater()..revealInFinder = false;
+    final u = Updater()
+      ..revealInFinder = false
+      ..useMacHelper = false;
     final seen = <double>[];
     u.progress.addListener(() {
       final p = u.progress.value;

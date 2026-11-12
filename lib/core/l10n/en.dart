@@ -462,4 +462,9 @@ const en = <String, String>{
   'на {0}': 'on {0}',
   'Ничего не играет': 'Nothing is playing',
   'Открыть Segue': 'Open Segue',
+  'Обновление Segue': 'Updating Segue',
+  'Скачиваем Segue': 'Downloading Segue',
+  'Не получилось обновиться': 'Couldn\'t update',
+  'Обновляемся: Segue перезапустится сам':
+      'Updating: Segue will restart by itself',
 };

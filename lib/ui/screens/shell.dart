@@ -138,6 +138,11 @@ class _ShellState extends ConsumerState<Shell> {
     links.getInitialLink().then((u) {
       if (u != null) _onLink(u);
     }).ignore();
+    // Left open for days, it still notices new releases.
+    _updateCheck = Timer.periodic(
+      const Duration(hours: 6),
+      (_) => ref.invalidate(updateProvider),
+    );
     // A newer release on GitHub: say so once, quietly.
     ref.listenManual(updateProvider, (_, next) {
       final u = next.value;
@@ -215,6 +220,7 @@ class _ShellState extends ConsumerState<Shell> {
     ?..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(msg)));
 
+  Timer? _updateCheck;
   StreamSubscription<Uri>? _links;
   NotchBridge? _notch;
 
@@ -305,6 +311,7 @@ class _ShellState extends ConsumerState<Shell> {
 
   @override
   void dispose() {
+    _updateCheck?.cancel();
     HardwareKeyboard.instance.removeHandler(_onKey);
     _errors?.cancel();
     _handoffs?.cancel();
