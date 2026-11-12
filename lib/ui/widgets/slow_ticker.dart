@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import 'frame_clock.dart';
+
 /// Use instead of [TickerProviderStateMixin] for looping decoration (a
 /// breathing logo, dancing bars, a moving wave). Ordinary tickers draw on
 /// every display refresh, up to 120 times a second, and while any one runs
@@ -15,7 +17,7 @@ mixin SlowTickerProviderStateMixin<T extends StatefulWidget> on State<T>
   final _tickers = <_SlowTicker>{};
   ValueListenable<TickerModeData>? _mode;
 
-  Duration get frameInterval => const Duration(microseconds: 33333);
+  Duration get frameInterval => Beat.interval;
 
   @override
   Ticker createTicker(TickerCallback onTick) {
@@ -71,6 +73,11 @@ class _SlowTicker extends Ticker {
   final Duration interval;
   final SlowTickerProviderStateMixin _owner;
   Timer? _wait;
+  bool _onBeat = false;
+
+  /// At 30 fps the shared [Beat], so all such animations land in the same
+  /// frames; faster ones keep their own timer.
+  bool get _useBeat => interval >= Beat.interval;
 
   @override
   void scheduleTick({bool rescheduling = false}) {
@@ -79,17 +86,34 @@ class _SlowTicker extends Ticker {
       return;
     }
     // The next frame, but not before the interval has passed.
-    if (_wait != null) return;
+    if (_wait != null || _onBeat) return;
+    if (_useBeat) {
+      _onBeat = true;
+      Beat.add(_beat);
+      return;
+    }
     _wait = Timer(interval, () {
       _wait = null;
       if (shouldScheduleTick) super.scheduleTick();
     });
   }
 
+  void _beat() {
+    _cancelBeat();
+    if (shouldScheduleTick) super.scheduleTick();
+  }
+
+  void _cancelBeat() {
+    if (!_onBeat) return;
+    _onBeat = false;
+    Beat.remove(_beat);
+  }
+
   @override
   void unscheduleTick() {
     _wait?.cancel();
     _wait = null;
+    _cancelBeat();
     super.unscheduleTick();
   }
 
@@ -97,6 +121,7 @@ class _SlowTicker extends Ticker {
   void dispose() {
     _wait?.cancel();
     _wait = null;
+    _cancelBeat();
     _owner._tickers.remove(this);
     super.dispose();
   }
