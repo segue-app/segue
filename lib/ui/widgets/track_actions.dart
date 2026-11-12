@@ -12,6 +12,7 @@ import '../theme/theme.dart';
 import '../app_nav.dart';
 import 'artwork.dart';
 import 'motion.dart';
+import 'match_sheet.dart';
 import 'trim_sheet.dart';
 
 /// Heart that pops when toggled.
@@ -176,6 +177,15 @@ Future<void> showTrackActions(
                         Navigator.pop(sheet);
                       },
                     ),
+            if (track.source == SourceKind.match)
+              _Action(
+                icon: Icons.swap_horiz_rounded,
+                label: 'Не тот трек? Другая версия',
+                onTap: () {
+                  Navigator.pop(sheet);
+                  showMatchSheet(context, track);
+                },
+              ),
             _Action(
               icon: Icons.content_cut_rounded,
               label: ref.read(trimStoreProvider).of(track) == null

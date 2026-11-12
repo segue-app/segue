@@ -214,6 +214,8 @@ class _Compact extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
           child: SeekLine(
+            // A new track starts with a fresh bar (no leftover seek).
+            key: ValueKey(player.current?.key),
             progress: progress,
             color: accent,
             onSeek: duration == null || duration == Duration.zero
@@ -369,6 +371,8 @@ class _Seek extends ConsumerWidget {
           child: SizedBox(
             height: 22,
             child: WavyProgress(
+              // A new track starts with a fresh bar (no leftover seek).
+              key: ValueKey(player.current?.key),
               progress: progress,
               playing: playing && wavy,
               color: accent,

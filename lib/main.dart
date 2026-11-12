@@ -64,7 +64,7 @@ Future<void> main() async {
   final matches = <String, dynamic>{};
   try {
     matches.addAll(
-      jsonDecode(library.getMeta('matches') ?? '{}') as Map<String, dynamic>,
+      jsonDecode(library.getMeta('matches2') ?? '{}') as Map<String, dynamic>,
     );
   } catch (_) {}
   Timer? saveMatches;
@@ -85,7 +85,7 @@ Future<void> main() async {
     saveMatches?.cancel();
     saveMatches = Timer(
       const Duration(seconds: 3),
-      () => library.setMeta('matches', jsonEncode(matches)),
+      () => library.setMeta('matches2', jsonEncode(matches)),
     );
   };
   final lastFm = LastFm(library)..attach(handler);

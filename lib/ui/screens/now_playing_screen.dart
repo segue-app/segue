@@ -590,6 +590,8 @@ class _Controls extends ConsumerWidget {
     return Column(
       children: [
         WavyProgress(
+          // A new track starts with a fresh bar (no leftover seek).
+          key: ValueKey(player.current?.key),
           progress: progress,
           // The wave can be switched off in settings.
           playing: playing && wavy,

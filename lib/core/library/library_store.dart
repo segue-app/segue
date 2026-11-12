@@ -267,7 +267,12 @@ class LibraryStore {
     if (rows.isEmpty) return;
     final json =
         jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
-    if (json['artworkUrl'] != null) return;
+    final had = json['artworkUrl'] as String?;
+    // A YouTube thumbnail came from an earlier (maybe wrong) match: a new
+    // match replaces it. Covers from Spotify/Yandex stay.
+    if (had != null && (!had.startsWith('https://i.ytimg.com/') || had == url)) {
+      return;
+    }
     json['artworkUrl'] = url;
     _db.execute(
       'UPDATE tracks SET json = ?, updated_at = ?, seq = ? WHERE key = ?',

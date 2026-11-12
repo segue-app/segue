@@ -50,6 +50,8 @@ class SegueAudioHandler extends BaseAudioHandler
       ) {
     final s = _player.stream;
     s.playing.listen((p) {
+      // Stopping the old song for the next one isn't a pause.
+      if (_switching) return;
       if (_out == null) _playingCtl.add(p);
       _broadcastState();
       _changed();
@@ -60,6 +62,9 @@ class SegueAudioHandler extends BaseAudioHandler
       if (done && !_loading) _trackEnded();
     });
     s.position.listen((pos) {
+      // While the next track loads, this is still the old one's position:
+      // it must not move the new track's progress, fades, mix or trim.
+      if (_switching) return;
       if (_out == null) _positionCtl.add(pos);
       _fadeAt(pos);
       _maybeMix(pos);
@@ -121,6 +126,18 @@ class SegueAudioHandler extends BaseAudioHandler
   final List<Track> _tracks = [];
   int _index = -1;
   int _loadToken = 0;
+
+  /// The [_loadToken] whose track is actually open in the player.
+  int _openedToken = 0;
+
+  /// The next track is on its way (the old one is already stopped).
+  bool get _switching => _openedToken != _loadToken;
+
+  /// Playing as the user sees it: a track that's loading counts.
+  bool get _localPlaying => _switching || _player.state.playing;
+
+  Duration get _localPosition =>
+      _switching ? (_trimStart ?? Duration.zero) : _player.state.position;
   bool _loading = false;
   AudioFx _fx = const AudioFx();
 
@@ -293,6 +310,12 @@ class SegueAudioHandler extends BaseAudioHandler
     final sw = Stopwatch()..start();
     _loading = true;
     mediaItem.add(_toMediaItem(track));
+    if (!mixing) {
+      // Silence the old song at once (it would play on while the new one
+      // resolves) and free the connection for the new one.
+      unawaited(_player.stop());
+      _positionCtl.add(startAt ?? Duration.zero);
+    }
     _broadcastState();
     try {
       final local = localPathFor?.call(track);
@@ -352,6 +375,10 @@ class SegueAudioHandler extends BaseAudioHandler
       // connections avoid a failed attempt (and a log line) per segment.
       await _mpv('demuxer-lavf-o', info.hls ? 'http_persistent=0' : '');
       await _player.open(Media(uri, start: startAt), play: true);
+      if (token == _loadToken) {
+        _openedToken = token;
+        if (_out == null) _playingCtl.add(_player.state.playing);
+      }
       debugPrint('load ${track.title}: opened in ${sw.elapsedMilliseconds} ms');
       onTrackStarted?.call(track);
       _changed();
@@ -359,6 +386,8 @@ class SegueAudioHandler extends BaseAudioHandler
       if (mixing) _runMix();
     } catch (e) {
       if (token != _loadToken) return;
+      _openedToken = token; // nothing is coming: report what really is
+      _playingCtl.add(false);
       debugPrint('play ${track.title}: $e');
       errors.add('Не удалось воспроизвести «${track.title}»');
       // Skip broken tracks instead of stopping the whole queue.
@@ -386,6 +415,13 @@ class SegueAudioHandler extends BaseAudioHandler
       return hit.$1;
     }
     return _sources[track.source]!.resolveStream(track);
+  }
+
+  /// Drops [track]'s prepared stream, e.g. after another version of it
+  /// was chosen; plays it again from the start if it's the current one.
+  Future<void> reloadTrack(Track track) async {
+    _resolved.remove(track.key);
+    if (_out == null && current?.key == track.key) await _playIndex(_index);
   }
 
   /// Gets the next track ready while this one plays: finds its stream
@@ -660,8 +696,8 @@ class SegueAudioHandler extends BaseAudioHandler
   Map<String, dynamic> snapshot() => {
     'queue': [for (final t in _tracks) t.toJson()],
     'index': _index,
-    'positionMs': _player.state.position.inMilliseconds,
-    'playing': _player.state.playing,
+    'positionMs': _localPosition.inMilliseconds,
+    'playing': _localPlaying,
     'volume': volume.value,
     'durationMs': mediaItem.value?.duration?.inMilliseconds,
   };
@@ -789,6 +825,9 @@ class SegueAudioHandler extends BaseAudioHandler
         at: position,
       );
     }
+    // The old song while the next one loads: a seek would land on the
+    // wrong track.
+    if (_switching) return;
     Future<void>.delayed(const Duration(milliseconds: 300), _changed);
     final copy = _copy;
     if (copy == null || _onCopy) return _player.seek(position);
@@ -807,6 +846,7 @@ class SegueAudioHandler extends BaseAudioHandler
       await _player.open(Media(path, start: position), play: wasPlaying);
     } catch (e) {
       debugPrint('seek copy: $e');
+      if (token != _loadToken) return; // another track by now
       await _player.seek(position); // best effort
     } finally {
       Future<void>.delayed(const Duration(milliseconds: 500), () {
@@ -850,7 +890,7 @@ class SegueAudioHandler extends BaseAudioHandler
 
   void _broadcastState() {
     final st = _player.state;
-    final playing = _out != null ? _remotePlaying : st.playing;
+    final playing = _out != null ? _remotePlaying : _localPlaying;
     playbackState.add(
       playbackState.value.copyWith(
         controls: [
@@ -866,7 +906,7 @@ class SegueAudioHandler extends BaseAudioHandler
                   ? AudioProcessingState.idle
                   : AudioProcessingState.ready),
         playing: playing,
-        updatePosition: _out != null ? _remotePosition() : st.position,
+        updatePosition: _out != null ? _remotePosition() : _localPosition,
         bufferedPosition: st.buffer,
         speed: _fx.speed,
         queueIndex: _index < 0 ? null : _index,
@@ -890,11 +930,11 @@ class SegueAudioHandler extends BaseAudioHandler
   Timer? _remoteTick;
   double _localVolume = 1;
 
-  bool get isPlaying => _out != null ? _remotePlaying : _player.state.playing;
+  bool get isPlaying => _out != null ? _remotePlaying : _localPlaying;
 
   /// Where playback is now, here or on the device this one controls.
   Duration get position =>
-      _out != null ? _remotePosition() : _player.state.position;
+      _out != null ? _remotePosition() : _localPosition;
 
   /// Becomes the remote for device [id]: this player stops making sound and
   /// shows what plays there; its buttons control it.
@@ -923,8 +963,8 @@ class SegueAudioHandler extends BaseAudioHandler
     _remoteTick?.cancel();
     volume.value = _localVolume;
     _applyVolume();
-    _playingCtl.add(_player.state.playing);
-    _positionCtl.add(_player.state.position);
+    _playingCtl.add(_localPlaying);
+    _positionCtl.add(_localPosition);
     _broadcastState();
   }
 

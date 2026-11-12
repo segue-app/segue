@@ -1,5 +1,6 @@
 // Plays real tracks through the real player (libmpv) — muted — and checks
 // that playback, seeking and the audio effects chain all work. Network needed.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -108,6 +109,53 @@ void main() {
     }
     // ignore: avoid_print
     print('SWITCH ms: $times');
+    await player.stop();
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
+  testWidgets('a quick skip: old song stops, new one starts at 0', (
+    tester,
+  ) async {
+    MediaKit.ensureInitialized();
+    final yt = YouTubeSource();
+    final player = SegueAudioHandler({SourceKind.youtube: yt});
+    await player.setVolume(0); // silent
+    final tracks = await yt.search('zivert life', limit: 3);
+    await player.playList(tracks, 0);
+    await player.positionStream
+        .firstWhere((p) => p > const Duration(seconds: 1))
+        .timeout(const Duration(seconds: 40));
+    // Deep into the first song, then skip twice in a row.
+    await player.seek(const Duration(seconds: 90));
+    await player.positionStream
+        .firstWhere((p) => p > const Duration(seconds: 90))
+        .timeout(const Duration(seconds: 20));
+    final seen = <Duration>[];
+    final sub = player.positionStream.listen(seen.add);
+    unawaited(player.skipToNext());
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    // The old song must already be silent: no more of its positions.
+    // Stopped (nothing loaded) or already the next song near its start.
+    final at = double.tryParse(await player.debugProperty('time-pos')) ?? 0;
+    // Seeking while the next one loads must not carry over.
+    await player.seek(const Duration(seconds: 120));
+    await player.skipToNext();
+    await player.positionStream
+        .firstWhere((p) => p > const Duration(seconds: 2))
+        .timeout(const Duration(seconds: 40));
+    await Future<void>.delayed(const Duration(seconds: 1));
+    await sub.cancel();
+    final pos = player.position;
+    // ignore: avoid_print
+    print(
+      'QUICK SKIP: mpv at ${at}s 150ms after skip, now ${player.current?.title} '
+      'at ${pos.inMilliseconds}ms; positions after skip: '
+      '${seen.map((d) => d.inSeconds).toSet()}',
+    );
+    expect(player.index, 2);
+    expect(at, lessThan(10));
+    expect(pos, lessThan(const Duration(seconds: 15)));
+    // Nothing from the old song's 90 s+ leaked after the skip.
+    expect(seen.where((d) => d > const Duration(seconds: 30)), isEmpty);
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 3)));
 

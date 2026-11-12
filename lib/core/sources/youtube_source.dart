@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -6,7 +7,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 import '../models/track.dart';
 import 'music_source.dart';
 
-/// YouTube search (youtube_explode_dart) and audio streams.
+/// YouTube search and audio streams.
 ///
 /// Streams come from YouTube's internal player API using the visionOS client
 /// (the same approach yt-dlp uses), because most other clients now get
@@ -25,7 +26,22 @@ class YouTubeSource implements MusicSource, FileSource {
   String get label => 'YouTube';
 
   @override
-  Future<List<Track>> search(String query, {int limit = 20}) async {
+  Future<List<Track>> search(String query, {int limit = 20}) async => [
+    for (final c in await searchDetailed(query, limit: limit)) c.track,
+  ];
+
+  /// Search results with what helps tell the original from re-uploads:
+  /// whether the channel is the artist's own ("- Topic", verified artist).
+  Future<List<({Track track, bool official})>> searchDetailed(
+    String query, {
+    int limit = 20,
+  }) async {
+    try {
+      final found = await _innertubeSearch(query);
+      if (found.isNotEmpty) return found.take(limit).toList();
+    } catch (_) {
+      // Falls through to the page scraper.
+    }
     final yt.VideoSearchList results;
     try {
       results = await _client.search.search(query);
@@ -38,19 +54,110 @@ class YouTubeSource implements MusicSource, FileSource {
         .where((v) => !v.isLive)
         .take(limit)
         .map(
-          (v) => Track(
-            id: v.id.value,
-            source: kind,
-            title: v.title,
-            artist: _cleanArtist(v.author),
-            // hq720 is 16:9 without the black letterbox bars that the
-            // 4:3 "high" thumbnail has; Artwork falls back if it's missing.
-            artworkUrl: 'https://i.ytimg.com/vi/${v.id.value}/hq720.jpg',
-            duration: v.duration,
+          (v) => (
+            track: _track(v.id.value, v.title, v.author, v.duration),
+            official: v.author.endsWith(' - Topic'),
           ),
         )
         .toList();
   }
+
+  Track _track(String id, String title, String author, Duration? d) => Track(
+    id: id,
+    source: kind,
+    title: title,
+    artist: _cleanArtist(author),
+    // hq720 is 16:9 without the black letterbox bars that the 4:3 "high"
+    // thumbnail has; Artwork falls back if it's missing.
+    artworkUrl: 'https://i.ytimg.com/vi/$id/hq720.jpg',
+    duration: d,
+  );
+
+  /// YouTube's own search API, as the website calls it. Unlike scraping
+  /// the results page it doesn't run into the "unusual traffic" check
+  /// after a burst of searches (an import plays many new songs in a row).
+  Future<List<({Track track, bool official})>> _innertubeSearch(
+    String query,
+  ) async {
+    final visitor = await _visitor('jNQXAC9IVRw');
+    final res = await _http
+        .post(
+          Uri.parse(
+            'https://www.youtube.com/youtubei/v1/search?prettyPrint=false',
+          ),
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': _webUa,
+            'Origin': 'https://www.youtube.com',
+            'X-Goog-Visitor-Id': ?visitor,
+          },
+          body: jsonEncode({
+            'context': {
+              'client': {
+                'clientName': 'WEB',
+                'clientVersion': '2.20251110.01.00',
+                'hl': 'en',
+                'gl': 'US',
+                'visitorData': ?visitor,
+              },
+            },
+            'query': query,
+            'params': 'EgIQAQ%3D%3D', // videos only
+          }),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (res.statusCode != 200) throw StateError('search ${res.statusCode}');
+    final out = <({Track track, bool official})>[];
+    void walk(Object? o) {
+      if (o is Map) {
+        final v = o['videoRenderer'];
+        if (v is Map) {
+          final r = _fromRenderer(v);
+          if (r != null) out.add(r);
+          return;
+        }
+        o.values.forEach(walk);
+      } else if (o is List) {
+        o.forEach(walk);
+      }
+    }
+
+    walk(jsonDecode(res.body));
+    return out;
+  }
+
+  ({Track track, bool official})? _fromRenderer(Map v) {
+    String text(Object? o) {
+      if (o is! Map) return '';
+      if (o['simpleText'] is String) return o['simpleText'] as String;
+      return [
+        for (final r in (o['runs'] as List? ?? const []))
+          (r as Map)['text'] ?? '',
+      ].join();
+    }
+
+    final id = v['videoId'] as String?;
+    final length = text(v['lengthText']);
+    // No length: a live stream or an upcoming premiere.
+    if (id == null || length.isEmpty) return null;
+    var secs = 0;
+    for (final part in length.split(':')) {
+      secs = secs * 60 + (int.tryParse(part) ?? 0);
+    }
+    final author = text(v['ownerText']);
+    final badges = jsonEncode(v['ownerBadges'] ?? const []);
+    return (
+      track: _track(id, text(v['title']), author, Duration(seconds: secs)),
+      official:
+          author.endsWith(' - Topic') ||
+          badges.contains('VERIFIED_ARTIST') ||
+          badges.contains('Official Artist Channel'),
+    );
+  }
+
+  static const _webUa =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
   @override
   Future<StreamInfo> resolveStream(Track track) => _resolve(track, hls: true);
@@ -241,27 +348,46 @@ class YouTubeSource implements MusicSource, FileSource {
     yt.YoutubeApiClient.androidVr,
   ];
 
+  /// All fallback clients at once; the first that serves the whole file
+  /// wins (one after another this took up to half a minute).
   Future<StreamInfo> _explodeFallback(String id) async {
+    final done = Completer<StreamInfo>();
+    var left = _fallbackClients.length;
     for (final client in _fallbackClients) {
-      try {
-        final manifest = await _client.videos.streams.getManifest(
-          id,
-          ytClients: [client],
-        );
-        final audio = manifest.audioOnly;
-        if (audio.isEmpty) continue;
-        final mp4 = audio.where((s) => s.container == yt.StreamContainer.mp4);
-        final s = (mp4.isNotEmpty ? mp4 : audio).withHighestBitrate();
-        final info = StreamInfo(
-          s.url,
-          contentLength: s.size.totalBytes,
-          mimeType: s.codec.mimeType,
-          chunked: true,
-        );
-        if (await _servesWholeFile(info)) return info;
-      } catch (_) {}
+      unawaited(
+        _tryClient(id, client)
+            .then((info) {
+              if (info != null && !done.isCompleted) done.complete(info);
+            })
+            .whenComplete(() {
+              if (--left == 0 && !done.isCompleted) {
+                done.completeError(StateError('fallback clients exhausted'));
+              }
+            }),
+      );
     }
-    throw StateError('fallback clients exhausted');
+    return done.future.timeout(const Duration(seconds: 20));
+  }
+
+  Future<StreamInfo?> _tryClient(String id, yt.YoutubeApiClient client) async {
+    try {
+      final manifest = await _client.videos.streams
+          .getManifest(id, ytClients: [client])
+          .timeout(const Duration(seconds: 12));
+      final audio = manifest.audioOnly;
+      if (audio.isEmpty) return null;
+      final mp4 = audio.where((s) => s.container == yt.StreamContainer.mp4);
+      final s = (mp4.isNotEmpty ? mp4 : audio).withHighestBitrate();
+      final info = StreamInfo(
+        s.url,
+        contentLength: s.size.totalBytes,
+        mimeType: s.codec.mimeType,
+        chunked: true,
+      );
+      return await _servesWholeFile(info) ? info : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Many clients serve only the start of a file, so probe near the end too.
@@ -269,17 +395,15 @@ class YouTubeSource implements MusicSource, FileSource {
     if (info.hls) return true; // playlist was just fetched successfully
     final len = info.contentLength;
     final probes = [0, if (len != null && len > 2000000) len - 200000];
-    for (final start in probes) {
-      try {
-        final res = await _http
+    final ok = await Future.wait([
+      for (final start in probes)
+        _http
             .get(info.url, headers: {'Range': 'bytes=$start-${start + 1023}'})
-            .timeout(const Duration(seconds: 8));
-        if (res.statusCode != 200 && res.statusCode != 206) return false;
-      } catch (_) {
-        return false;
-      }
-    }
-    return true;
+            .timeout(const Duration(seconds: 6))
+            .then((r) => r.statusCode == 200 || r.statusCode == 206)
+            .catchError((Object _) => false),
+    ]);
+    return ok.every((v) => v);
   }
 
   /// Official artist channels end with " - Topic".
