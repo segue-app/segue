@@ -14,7 +14,7 @@
   <a href="https://github.com/segue-app/segue/releases/latest"><img src="https://img.shields.io/github/v/release/segue-app/segue?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7&color=ff9a76" alt="Последний релиз"></a>
   <a href="https://github.com/segue-app/segue/releases"><img src="https://img.shields.io/github/downloads/segue-app/segue/total?label=%D1%81%D0%BA%D0%B0%D1%87%D0%B8%D0%B2%D0%B0%D0%BD%D0%B8%D0%B9&color=7b5cff" alt="Скачиваний"></a>
   <a href="https://github.com/segue-app/segue/actions/workflows/ci.yml"><img src="https://github.com/segue-app/segue/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/platforms-Android%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-2b2b33" alt="Платформы">
+  <img src="https://img.shields.io/badge/platforms-Android%20%7C%20Android%20Auto%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-2b2b33" alt="Платформы">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/segue-app/segue?color=2b2b33" alt="Лицензия GPL-3.0"></a>
 </p>
 
@@ -46,6 +46,8 @@
   Библиотека хранится файлом на твоём устройстве.
 - **Все устройства как один плеер.** Начни на ноутбуке и продолжи на
   телефоне с той же секунды, или управляй ноутбуком с телефона.
+- **И в машине.** Через Android Auto «Моя волна», лайки и плейлисты на
+  экране машины, с голосовым поиском.
 - **На твоём языке.** Русский и английский, переключается в настройках.
 - **Лёгкий.** Около 0,3% процессора на паузе, а пока окно скрыто, ничего не
   рисуется (замер на MacBook с Apple Silicon).
@@ -57,7 +59,7 @@
 
 | Платформа | Файл | Примечание |
 | --- | --- | --- |
-| **Android** | `segue-android-arm64.apk` | Почти все телефоны. Старые: `-armv7`, эмуляторы: `-x86_64` |
+| **Android** | `segue-android-arm64.apk` | Почти все телефоны. Старые: `-armv7`, эмуляторы: `-x86_64`. Работает с [Android Auto](#в-машине-android-auto) |
 | **Windows** | `segue-windows-x64.zip` | Распакуй куда угодно и запусти `segue.exe` |
 | **macOS** | `segue-macos.zip` | Распакуй и перенеси в «Программы». Приложение не нотаризовано: в первый раз открой через правый клик → **Открыть** |
 | **Linux** | `segue-linux-x64.tar.gz` | Нужен libmpv: `sudo apt install libmpv2` |
@@ -129,8 +131,6 @@
 - **Живая чёлка** на MacBook: текущий трек вокруг камеры; наведи курсор для
   управления, прокрути для громкости, смахни для переключения
 - Карточка плеера на рабочем столе macOS, виджет на домашнем экране Android
-- **Android Auto**: «Моя волна», любимые, плейлисты и недавние на экране
-  машины, с поиском и голосом («включи … в Segue»)
 - Горячие клавиши:
 
   | Клавиша | Действие |
@@ -142,6 +142,18 @@
   | `M` | Без звука |
   | `L` | Лайк |
   | `⌘/Ctrl` + `F` | Поиск |
+
+### В машине (Android Auto)
+
+- «Моя волна», любимые, плейлисты и недавние на экране машины
+- Выбранный трек играет вместе с остальным списком
+- Поиск и голос: «включи … в Segue» ищет сначала в твоей библиотеке, потом
+  на YouTube; «включи Segue» запускает волну
+
+Android Auto показывает только приложения из Google Play, поэтому Segue
+нужно один раз разрешить: в настройках Android Auto на телефоне нажми
+10 раз на **Версия**, затем **⋮ → Настройки для разработчиков →
+Неизвестные источники**.
 
 ### Интеграции
 

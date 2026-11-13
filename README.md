@@ -14,7 +14,7 @@
   <a href="https://github.com/segue-app/segue/releases/latest"><img src="https://img.shields.io/github/v/release/segue-app/segue?label=release&color=ff9a76" alt="Latest release"></a>
   <a href="https://github.com/segue-app/segue/releases"><img src="https://img.shields.io/github/downloads/segue-app/segue/total?color=7b5cff" alt="Downloads"></a>
   <a href="https://github.com/segue-app/segue/actions/workflows/ci.yml"><img src="https://github.com/segue-app/segue/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/platforms-Android%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-2b2b33" alt="Platforms">
+  <img src="https://img.shields.io/badge/platforms-Android%20%7C%20Android%20Auto%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-2b2b33" alt="Platforms">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/segue-app/segue?color=2b2b33" alt="License: GPL-3.0"></a>
 </p>
 
@@ -46,6 +46,8 @@
   Your library is a file on your device.
 - **All your devices as one player.** Start on the laptop, continue on the
   phone at the same second, or use the phone as a remote.
+- **In the car too.** Android Auto puts My wave, your likes and playlists
+  on the car screen, with voice search.
 - **In your language.** English and Russian, switched in Settings.
 - **Light.** About 0.3% CPU when paused and no drawing at all while its window is
   hidden (measured on an Apple Silicon MacBook).
@@ -57,7 +59,7 @@ After the first install, Segue updates itself: **Settings → Update**.
 
 | Platform | File | Notes |
 | --- | --- | --- |
-| **Android** | `segue-android-arm64.apk` | Most phones. Older ones: `-armv7`; emulators: `-x86_64` |
+| **Android** | `segue-android-arm64.apk` | Most phones. Older ones: `-armv7`; emulators: `-x86_64`. Works with [Android Auto](#in-the-car-android-auto) |
 | **Windows** | `segue-windows-x64.zip` | Unzip anywhere and run `segue.exe` |
 | **macOS** | `segue-macos.zip` | Unzip and move to Applications. The app isn't notarized: the first time, right-click → **Open** |
 | **Linux** | `segue-linux-x64.tar.gz` | Needs libmpv: `sudo apt install libmpv2` |
@@ -129,8 +131,6 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - MacBook **living notch**: now playing around the camera; hover for
   controls, scroll for volume, swipe to skip
 - Desktop now-playing card on macOS, home-screen widget on Android
-- **Android Auto**: My wave, liked songs, playlists and recent plays on the
-  car screen, with search and voice ("play … on Segue")
 - Keyboard shortcuts:
 
   | Key | Action |
@@ -142,6 +142,17 @@ iOS has no prebuilt app (it needs Apple signing); you can
   | `M` | Mute |
   | `L` | Like |
   | `⌘/Ctrl` + `F` | Search |
+
+### In the car (Android Auto)
+
+- My wave, liked songs, playlists and recent plays on the car screen
+- A song you pick plays with the rest of its list
+- Search and voice: "play … on Segue" looks in your library first, then
+  on YouTube; "play Segue" starts My wave
+
+Android Auto shows apps from Google Play only, so allow Segue once: in
+Android Auto's settings on the phone, tap **Version** 10 times, then
+**⋮ → Developer settings → Unknown sources**.
 
 ### Integrations
 
