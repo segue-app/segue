@@ -39,6 +39,8 @@ import 'core/library/library_store.dart';
 import 'ui/screens/shell.dart';
 import 'ui/theme/theme.dart';
 import 'core/sync/shared_playlists.dart';
+import 'core/player/car_browser.dart';
+import 'core/catalog/wave_settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -250,6 +252,14 @@ Future<void> main() async {
     ),
   );
 
+  final wave = Wave(catalog, library, handler, taste: taste);
+  handler.car = CarBrowser(
+    library: library,
+    playList: handler.playList,
+    startWave: () => wave.myWave(WaveSettingsNotifier.load(library)),
+    search: (q) => youtube.search(q, limit: 25),
+  );
+
   runApp(
     ProviderScope(
       overrides: [
@@ -263,9 +273,7 @@ Future<void> main() async {
         downloadsProvider.overrideWithValue(downloads),
         audioCacheProvider.overrideWithValue(audioCache),
         catalogProvider.overrideWithValue(catalog),
-        waveProvider.overrideWithValue(
-          Wave(catalog, library, handler, taste: taste),
-        ),
+        waveProvider.overrideWithValue(wave),
         tasteProvider.overrideWithValue(taste),
         sharedPlaylistsProvider.overrideWithValue(sharedPlaylists),
         localLibraryProvider.overrideWithValue(localLibrary),

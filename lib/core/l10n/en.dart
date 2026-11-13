@@ -492,4 +492,16 @@ const en = <String, String>{
   'Плейлист не найден. Проверь код': 'Playlist not found. Check the code',
   'Добавляй песни в мой плейлист «{0}» в Segue: {1} (или код {2})':
       'Add songs to my playlist “{0}” in Segue: {1} (or code {2})',
+  'Резервная копия': 'Backup',
+  'Библиотека в файле': 'Library to a file',
+  'Любимые, плейлисты, история и настройки. Восстановление добавляет их к тому, что уже есть':
+      'Likes, playlists, history and settings. Restoring adds them to what\'s already here',
+  'Сохранить резервную копию': 'Save a backup',
+  'Копия сохранена': 'Backup saved',
+  'Файл резервной копии': 'Backup file',
+  'Восстановлено: {0}, {1}': 'Restored: {0}, {1}',
+  'любимый трек|любимых трека|любимых треков': 'liked song|liked songs',
+  'Восстановить': 'Restore',
+  'Это не резервная копия Segue': 'This isn\'t a Segue backup',
+  'Недавние': 'Recent',
 };

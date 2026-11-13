@@ -34,6 +34,22 @@ class Taste {
     } catch (_) {}
   }
 
+  /// What's learnt, for a backup file.
+  Map<String, dynamic> export() => {
+    'a': Map<String, double>.of(_artists),
+    'd': _disliked.toList(),
+  };
+
+  /// Adds what a backup knew: artists this device has no opinion on yet,
+  /// and the songs disliked there.
+  void merge(Map<String, dynamic> j) {
+    (j['a'] as Map? ?? const {}).forEach((k, v) {
+      if (k is String && v is num) _artists.putIfAbsent(k, () => v.toDouble());
+    });
+    _disliked.addAll((j['d'] as List? ?? const []).whereType<String>());
+    _persist();
+  }
+
   void _persist() {
     _save?.cancel();
     _save = Timer(const Duration(seconds: 3), () {

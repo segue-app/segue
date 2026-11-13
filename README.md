@@ -74,6 +74,8 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - **My wave**: an endless mix that learns from you. Songs you play to the
   end bring more of that artist, songs you skip bring less, and 👎 removes
   a song for good. Tune it by activity, mood, character and language
+- **Radios** by genre and mood, and **smart playlists** that fill
+  themselves: On repeat, Not heard in a while, This month's likes
 - **Import** playlists by link from Spotify, Yandex Music, YouTube and
   SoundCloud, or your whole library (a Yandex Music profile, Spotify via
   Exportify or your data export). Imported songs are matched to the right
@@ -82,6 +84,8 @@ iOS has no prebuilt app (it needs Apple signing); you can
   kept on the device by themselves (they start at once and play without
   internet)
 - Your own music folders
+- **Share a song** as a short link: it opens in Segue, or on a web page
+  with the cover and a YouTube player for anyone without the app
 
 ### Sound
 
@@ -115,12 +119,18 @@ iOS has no prebuilt app (it needs Apple signing); you can
   another
 - **Listen together**: share a code and friends hear the same song at the
   same second on their own devices, and add to the shared queue
+- **Shared playlists**: invite friends to a playlist and everyone's edits
+  appear for all
+- **Backup**: save your whole library (likes, playlists, history,
+  settings and what My wave learnt) to a file and restore it on any device
 
 ### Desktop and home screen
 
 - MacBook **living notch**: now playing around the camera; hover for
   controls, scroll for volume, swipe to skip
 - Desktop now-playing card on macOS, home-screen widget on Android
+- **Android Auto**: My wave, liked songs, playlists and recent plays on the
+  car screen, with search and voice ("play … on Segue")
 - Keyboard shortcuts:
 
   | Key | Action |

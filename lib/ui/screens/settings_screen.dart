@@ -1,12 +1,16 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/catalog/taste.dart';
 import '../../core/integrations/lastfm.dart';
+import '../../core/library/backup.dart';
+import '../../core/library/library.dart';
 import '../../core/downloads/audio_cache.dart';
 import '../../core/integrations/updater.dart';
 import '../../core/integrations/updates.dart';
@@ -499,6 +503,8 @@ class SettingsScreen extends ConsumerWidget {
                   onChanged: (v) => set((x) => x.copyWith(reduceMotion: v)),
                 ),
               ),
+              _Section('Резервная копия'.tr),
+              const _BackupTile(),
               const _Section('Last.fm'),
               const _LastFmTile(),
               _Section('Горячие клавиши'.tr),
@@ -1026,4 +1032,105 @@ class _CacheTile extends ConsumerWidget {
       },
     );
   }
+}
+
+/// Saves the whole library to a file, or brings one back.
+class _BackupTile extends ConsumerStatefulWidget {
+  const _BackupTile();
+
+  @override
+  ConsumerState<_BackupTile> createState() => _BackupTileState();
+}
+
+class _BackupTileState extends ConsumerState<_BackupTile> {
+  bool _busy = false;
+
+  void _say(String text) => ScaffoldMessenger.maybeOf(
+    context,
+  )?.showSnackBar(SnackBar(content: Text(text)));
+
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    try {
+      final saved = await FilePicker.saveFile(
+        dialogTitle: 'Сохранить резервную копию'.tr,
+        fileName: Backup.fileName(DateTime.now()),
+        bytes: Backup.encode(
+          ref.read(libraryProvider),
+          taste: ref.read(tasteProvider),
+        ),
+        mimeType: 'application/json',
+      );
+      if (saved != null && mounted) _say('Копия сохранена'.tr);
+    } catch (e) {
+      if (mounted) _say('Не получилось: {0}'.trArgs([e]));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restore() async {
+    final picked = await FilePicker.pickFiles(
+      dialogTitle: 'Файл резервной копии'.tr,
+      // Phones' file pickers often don't know .json: any file, checked below.
+      type: Platform.isAndroid || Platform.isIOS
+          ? FileType.any
+          : FileType.custom,
+      allowedExtensions: Platform.isAndroid || Platform.isIOS
+          ? null
+          : const ['json'],
+    );
+    if (picked.isEmpty || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final backup = Backup.decode(await picked.first.readAsBytes());
+      final s = Backup.restore(
+        ref.read(libraryProvider),
+        backup,
+        taste: ref.read(tasteProvider),
+      );
+      if (mounted) {
+        _say(
+          'Восстановлено: {0}, {1}'.trArgs([
+            '${s.liked} ${L10n.plural(s.liked, 'любимый трек|любимых трека|любимых треков')}',
+            '${s.playlists} ${L10n.plural(s.playlists, 'плейлист|плейлиста|плейлистов')}',
+          ]),
+        );
+      }
+    } on FormatException {
+      if (mounted) _say('Это не резервная копия Segue'.tr);
+    } catch (e) {
+      if (mounted) _say('Не получилось: {0}'.trArgs([e]));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _Tile(
+    title: 'Библиотека в файле'.tr,
+    subtitle:
+        'Любимые, плейлисты, история и настройки. Восстановление добавляет их к тому, что уже есть'
+            .tr,
+    trailing: _busy
+        ? const SizedBox.square(
+            dimension: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Сохранить'.tr,
+                icon: const Icon(Icons.save_alt_rounded),
+                onPressed: _save,
+              ),
+              IconButton(
+                tooltip: 'Восстановить'.tr,
+                icon: const Icon(Icons.settings_backup_restore_rounded),
+                onPressed: _restore,
+              ),
+            ],
+          ),
+  );
 }

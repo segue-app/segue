@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../library/library.dart';
+import '../library/library_store.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
@@ -84,8 +85,11 @@ class WaveSettingsNotifier extends Notifier<WaveSettings> {
   static const _key = 'wave_settings';
 
   @override
-  WaveSettings build() {
-    final raw = ref.read(libraryProvider).getMeta(_key);
+  WaveSettings build() => load(ref.read(libraryProvider));
+
+  /// The saved settings, outside the UI too (Android Auto).
+  static WaveSettings load(LibraryStore library) {
+    final raw = library.getMeta(_key);
     if (raw == null) return const WaveSettings();
     try {
       return WaveSettings.fromJson(jsonDecode(raw) as Map<String, dynamic>);

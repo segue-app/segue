@@ -10,6 +10,7 @@ import 'package:media_kit/media_kit.dart' hide Track;
 import '../models/track.dart';
 import '../sources/music_source.dart';
 import 'audio_fx.dart';
+import 'car_browser.dart';
 import 'chunked_source.dart';
 import 'hls_proxy.dart';
 
@@ -1194,6 +1195,33 @@ class SegueAudioHandler extends BaseAudioHandler
       });
     });
   }
+
+  /// Android Auto's menu and voice requests (set in main()).
+  CarBrowser? car;
+
+  @override
+  Future<List<MediaItem>> getChildren(
+    String parentMediaId, [
+    Map<String, dynamic>? options,
+  ]) async => await car?.children(parentMediaId) ?? const [];
+
+  @override
+  Future<void> playFromMediaId(
+    String mediaId, [
+    Map<String, dynamic>? extras,
+  ]) async => car?.play(mediaId);
+
+  @override
+  Future<List<MediaItem>> search(
+    String query, [
+    Map<String, dynamic>? extras,
+  ]) async => await car?.find(query) ?? const [];
+
+  @override
+  Future<void> playFromSearch(
+    String query, [
+    Map<String, dynamic>? extras,
+  ]) async => car?.playSearch(query);
 
   @override
   Future<void> play() {
