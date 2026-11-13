@@ -14,6 +14,9 @@ import 'album_screen.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../widgets/collection.dart';
+import '../widgets/track_actions.dart';
+
 /// Artist: photo, play / wave, popular tracks, releases, similar artists.
 class ArtistScreen extends ConsumerWidget {
   const ArtistScreen({super.key, required this.artistId});
@@ -147,6 +150,16 @@ class _Body extends ConsumerWidget {
                         index: i,
                         child: TrackTile(tracks: top, index: i),
                       ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: TextButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          ArtistTracksScreen.route(a.id, a.name, a.picture),
+                        ),
+                        icon: const Icon(Icons.queue_music_rounded),
+                        label: Text('Все треки'.tr),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -333,6 +346,58 @@ class _Pill extends StatelessWidget {
               style: TextStyle(color: fg, fontWeight: FontWeight.w700),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// All of an artist's songs, popular first, then by release.
+class ArtistTracksScreen extends ConsumerWidget {
+  const ArtistTracksScreen({
+    super.key,
+    required this.artistId,
+    required this.name,
+    this.picture,
+  });
+
+  final int artistId;
+  final String name;
+  final String? picture;
+
+  static Route<void> route(int id, String name, String? picture) =>
+      MaterialPageRoute(
+        settings: RouteSettings(name: '/artist/$id/tracks'),
+        builder: (_) =>
+            ArtistTracksScreen(artistId: id, name: name, picture: picture),
+      );
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final all = ref.watch(artistAllTracksProvider(artistId));
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+      ),
+      body: all.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, _) => Center(
+          child: Text(
+            'Не удалось загрузить артиста'.tr,
+            style: TextStyle(color: SegueColors.textDim),
+          ),
+        ),
+        data: (tracks) => TrackCollectionView(
+          title: name,
+          subtitle: tracksLabel(tracks.length),
+          tracks: tracks,
+          playContext: 'artist:$artistId',
+          cover: CoverCollage(
+            urls: [picture],
+            size: MediaQuery.sizeOf(context).width > 600 ? 200.0 : 180.0,
+          ),
         ),
       ),
     );

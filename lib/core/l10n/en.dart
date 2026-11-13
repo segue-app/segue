@@ -467,4 +467,5 @@ const en = <String, String>{
   'Не получилось обновиться': 'Couldn\'t update',
   'Обновляемся: Segue перезапустится сам':
       'Updating: Segue will restart by itself',
+  'Все треки': 'All tracks',
 };

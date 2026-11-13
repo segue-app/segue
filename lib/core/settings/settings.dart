@@ -280,7 +280,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
   void update(AppSettings Function(AppSettings s) change) {
     state = change(state);
-    ref.read(libraryProvider).setMeta(_key, jsonEncode(state.toJson()));
+    ref.read(libraryProvider)
+      ..setMeta(_key, jsonEncode(state.toJson()))
+      ..touchPrefs();
   }
 
   void reset() => update((_) => const AppSettings());

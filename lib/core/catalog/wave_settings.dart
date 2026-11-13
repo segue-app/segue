@@ -96,7 +96,9 @@ class WaveSettingsNotifier extends Notifier<WaveSettings> {
 
   void set(WaveSettings value) {
     state = value;
-    ref.read(libraryProvider).setMeta(_key, jsonEncode(value.toJson()));
+    ref.read(libraryProvider)
+      ..setMeta(_key, jsonEncode(value.toJson()))
+      ..touchPrefs();
   }
 }
 

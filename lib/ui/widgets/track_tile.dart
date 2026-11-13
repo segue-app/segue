@@ -21,7 +21,11 @@ class TrackTile extends ConsumerWidget {
     required this.index,
     this.sourceLabel,
     this.onRemove,
+    this.playContext,
   });
+
+  /// Where this list is ('liked', 'playlist:ID'), passed to the player.
+  final String? playContext;
 
   final List<Track> tracks;
   final int index;
@@ -53,7 +57,9 @@ class TrackTile extends ConsumerWidget {
       scale: 0.98,
       hoverRadius: 18,
       onWarm: () => ref.read(playerProvider).warm(t),
-      onTap: () => ref.read(playerProvider).playList(tracks, index),
+      onTap: () => ref
+          .read(playerProvider)
+          .tapTrack(tracks, index, context: playContext),
       onLongPress: () => showTrackActions(context, ref, t, onRemove: onRemove),
       child: AnimatedContainer(
         duration: SegueMotion.medium,

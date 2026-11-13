@@ -311,6 +311,41 @@ final artistPageProvider = FutureProvider.family<ArtistPage, int>((
   return (artist: artist, top: top, albums: albums, related: related);
 });
 
+/// Every song of an artist: the popular ones first, then the releases from
+/// newest to oldest (a song on a single and an album appears once).
+final artistAllTracksProvider = FutureProvider.family<List<Track>, int>((
+  ref,
+  id,
+) async {
+  final c = ref.read(catalogProvider);
+  final artist = await c.artist(id);
+  final (top, albums) = await (
+    c.topTracks(id, limit: 100),
+    c.albums(id, artist.name),
+  ).wait;
+  final out = <Track>[];
+  final seen = <String>{};
+  void add(Iterable<Track> ts) {
+    for (final t in ts) {
+      final key = t.title.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (seen.add(key)) out.add(t);
+    }
+  }
+
+  add(top);
+  // Six releases at a time: quick, and polite to the API.
+  for (var i = 0; i < albums.length; i += 6) {
+    final batch = await Future.wait([
+      for (final a in albums.skip(i).take(6))
+        c.album(a.id).then((r) => r.$2).catchError((Object _) => <Track>[]),
+    ]);
+    for (final ts in batch) {
+      add(ts);
+    }
+  }
+  return out;
+});
+
 final albumPageProvider = FutureProvider.family<(Album, List<Track>), int>(
   (ref, id) => ref.read(catalogProvider).album(id),
 );

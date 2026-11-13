@@ -279,6 +279,7 @@ class _QuickGrid extends ConsumerWidget {
         ),
         title: 'Любимые'.tr,
         subtitle: tracksLabel(likedCount),
+        playContext: 'liked',
         onTap: onLiked,
       ),
       for (final p in playlists)
@@ -286,6 +287,7 @@ class _QuickGrid extends ConsumerWidget {
           cover: CoverCollage(urls: [p.coverUrl], size: 56, radius: 14),
           title: p.name,
           subtitle: tracksLabel(p.count),
+          playContext: 'playlist:${p.id}',
           onTap: () =>
               pushUnique(Navigator.of(context), PlaylistScreen.route(p.id)),
         ),
@@ -307,12 +309,13 @@ class _QuickGrid extends ConsumerWidget {
   }
 }
 
-class _QuickTile extends StatelessWidget {
+class _QuickTile extends ConsumerWidget {
   const _QuickTile({
     required this.cover,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.playContext,
   });
 
   final Widget cover;
@@ -320,15 +323,36 @@ class _QuickTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
 
+  /// The tile lights up while music from this list plays.
+  final String? playContext;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final player = ref.read(playerProvider);
+    return ValueListenableBuilder<String?>(
+      valueListenable: player.playContext,
+      builder: (context, ctx, _) {
+        final mine = playContext != null && ctx == playContext;
+        final playing =
+            mine && ref.watch(playingProvider.select((v) => v.value ?? false));
+        final accent = mine
+            ? ref.watch(currentColorsProvider.select((c) => c.accent))
+            : SegueColors.text;
+        return _tile(mine, playing, accent);
+      },
+    );
+  }
+
+  Widget _tile(bool mine, bool playing, Color accent) {
     return PressScale(
       scale: 0.97,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
+          color: mine
+              ? accent.withValues(alpha: 0.14)
+              : Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
@@ -343,7 +367,10 @@ class _QuickTile extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: mine ? accent : null,
+                    ),
                   ),
                   Text(
                     subtitle,
@@ -355,6 +382,15 @@ class _QuickTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (mine)
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: SizedBox(
+                  width: 24,
+                  height: 18,
+                  child: EqualizerBars(active: playing, color: accent),
+                ),
+              ),
           ],
         ),
       ),
@@ -401,7 +437,7 @@ class _Shelf extends ConsumerWidget {
           return StaggeredEntrance(
             index: i % 8,
             child: PressScale(
-              onTap: () => ref.read(playerProvider).playList(tracks, i),
+              onTap: () => ref.read(playerProvider).tapTrack(tracks, i),
               onLongPress: () => showTrackActions(context, ref, t),
               child: SizedBox(
                 width: 148,

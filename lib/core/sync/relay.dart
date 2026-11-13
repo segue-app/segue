@@ -240,6 +240,7 @@ class Relay {
 
     _libSub = library.changes.listen((_) => _scheduleLibrary());
     _playerSub = player.stateChanges.listen((_) => _scheduleState());
+    _prefsSub = library.prefsChanges.listen((_) => _schedulePrefs());
     // While music plays, say where it is every few seconds: others always
     // have a fresh position, timed by their own clock.
     _stateBeat?.cancel();
@@ -257,6 +258,7 @@ class Relay {
     _stateBeat?.cancel();
     await _libSub?.cancel();
     await _playerSub?.cancel();
+    await _prefsSub?.cancel();
     for (final s in _subs) {
       await s.cancel();
     }
@@ -342,6 +344,24 @@ class Relay {
     }
     _scheduleLibrary(immediately: true);
     _scheduleState();
+    _schedulePrefs();
+  }
+
+  StreamSubscription<void>? _prefsSub;
+  Timer? _prefsDebounce;
+
+  void _schedulePrefs() {
+    _prefsDebounce?.cancel();
+    _prefsDebounce = Timer(const Duration(seconds: 2), () async {
+      // Never changed here: nothing to offer (a fresh install takes the
+      // others' settings instead).
+      if (library.prefsAt == 0 || _key == null) return;
+      await _publish(
+        '$_base/x/$_me',
+        await _sealJson(library.exportPrefs()),
+        retain: true,
+      );
+    });
   }
 
   Future<void> _publishTo(
@@ -401,6 +421,12 @@ class Relay {
           if (j != null) _onState(from, j, arrived: arrived, stored: stored);
         case 'l':
           if (parts.length == 3) await _onLibraryPart(from, parts[2], data);
+        case 'x':
+          // Settings from another device: newer ones are taken.
+          final j = await _openJson(data);
+          if (j != null && library.importPrefs(j)) {
+            debugPrint('relay: settings from $from');
+          }
       }
     }
   }

@@ -158,4 +158,29 @@ void main() {
     await b.stop();
     // A really leaving is still seen.
   }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('settings follow you to another device, its own stay', () async {
+    final libA = LibraryStore.memory(), libB = LibraryStore.memory();
+    final a = Relay(library: libA, player: FakePlayer(), deviceName: () => 'Mac');
+    final b = Relay(library: libB, player: FakePlayer(), deviceName: () => 'Phone');
+    // The phone has its own interface scale; a fresh install otherwise.
+    libB.setMeta('appearance', '{"textScale":1.3}');
+    await a.start();
+    await b.start();
+    await b.join(await a.openInvite());
+    // On the Mac: a new accent font and an equalizer preset.
+    libA
+      ..setMeta('appearance', '{"font":"Inter","textScale":0.9}')
+      ..setMeta('audio_fx', '{"preset":"Бас","eqOn":true}')
+      ..touchPrefs();
+    await _until(() => (libB.getMeta('audio_fx') ?? '').contains('Бас'));
+    final app = libB.getMeta('appearance')!;
+    // ignore: avoid_print
+    print('PREFS on the phone: $app');
+    expect(app, contains('"font":"Inter"'));
+    expect(app, contains('"textScale":1.3')); // its own, kept
+    a.closeInvite();
+    await a.stop();
+    await b.stop();
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

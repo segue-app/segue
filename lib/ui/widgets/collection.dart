@@ -80,7 +80,12 @@ class TrackCollectionView extends ConsumerWidget {
     this.onRemove,
     this.onReorder,
     this.emptyText,
+    this.playContext,
   });
+
+  /// Where these songs are ('liked', 'playlist:ID'): playing from here
+  /// marks this list as the one playing.
+  final String? playContext;
 
   final String title;
   final String? subtitle;
@@ -111,7 +116,9 @@ class TrackCollectionView extends ConsumerWidget {
           label: 'Слушать'.tr,
           color: accent,
           filled: true,
-          onTap: tracks.isEmpty ? null : () => player.playList(tracks, 0),
+          onTap: tracks.isEmpty
+              ? null
+              : () => player.playList(tracks, 0, context: playContext),
         ),
         _PillButton(
           icon: Icons.shuffle_rounded,
@@ -119,7 +126,11 @@ class TrackCollectionView extends ConsumerWidget {
           color: accent,
           onTap: tracks.isEmpty
               ? null
-              : () => player.playList([...tracks]..shuffle(), 0),
+              : () => player.playList(
+                  [...tracks]..shuffle(),
+                  0,
+                  context: playContext,
+                ),
         ),
         ...actions,
       ],
@@ -203,6 +214,7 @@ class TrackCollectionView extends ConsumerWidget {
                           child: TrackTile(
                             tracks: tracks,
                             index: i,
+                            playContext: playContext,
                             onRemove: onRemove == null
                                 ? null
                                 : () => onRemove!(tracks[i]),
@@ -236,6 +248,7 @@ class TrackCollectionView extends ConsumerWidget {
                       child: TrackTile(
                         tracks: tracks,
                         index: i,
+                        playContext: playContext,
                         onRemove: onRemove == null
                             ? null
                             : () => onRemove!(tracks[i]),

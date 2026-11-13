@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'now_playing_screen.dart';
 
+import '../../core/catalog/wave_settings.dart';
 import '../../core/settings/settings.dart';
 import '../../core/integrations/notch.dart';
 import '../../core/downloads/audio_cache.dart';
@@ -138,6 +139,13 @@ class _ShellState extends ConsumerState<Shell> {
     links.getInitialLink().then((u) {
       if (u != null) _onLink(u);
     }).ignore();
+    // Settings that came from another device: show them at once.
+    _prefsApplied = ref.read(libraryProvider).prefsApplied.stream.listen((_) {
+      ref
+        ..invalidate(settingsProvider)
+        ..invalidate(audioFxProvider)
+        ..invalidate(waveSettingsProvider);
+    });
     // Left open for days, it still notices new releases.
     _updateCheck = Timer.periodic(
       const Duration(hours: 6),
@@ -221,6 +229,7 @@ class _ShellState extends ConsumerState<Shell> {
     ..showSnackBar(SnackBar(content: Text(msg)));
 
   Timer? _updateCheck;
+  StreamSubscription<void>? _prefsApplied;
   StreamSubscription<Uri>? _links;
   NotchBridge? _notch;
 
@@ -312,6 +321,7 @@ class _ShellState extends ConsumerState<Shell> {
   @override
   void dispose() {
     _updateCheck?.cancel();
+    _prefsApplied?.cancel();
     HardwareKeyboard.instance.removeHandler(_onKey);
     _errors?.cancel();
     _handoffs?.cancel();

@@ -750,6 +750,80 @@ class LibraryStore {
     return r.isEmpty ? null : r.first['value'] as String;
   }
 
+  // --- Preferences that follow you to your other devices ------------------
+
+  /// Settings keys kept in sync between devices (each a JSON object).
+  static const syncedPrefs = ['appearance', 'audio_fx', 'wave_settings'];
+
+  /// Appearance settings that belong to one device, never synced.
+  static const devicePrefs = {
+    'textScale',
+    'notchIsland',
+    'desktopWidget',
+    'offlineCache',
+  };
+
+  final _prefsChanges = StreamController<void>.broadcast();
+
+  /// The user changed a synced setting here (the relay sends it on).
+  Stream<void> get prefsChanges => _prefsChanges.stream;
+
+  /// Settings received from another device were applied here.
+  final prefsApplied = StreamController<void>.broadcast();
+
+  /// When the synced settings were last changed (ms since epoch; 0 =
+  /// never on this device, so another device's win).
+  int get prefsAt => int.tryParse(getMeta('prefs_at') ?? '') ?? 0;
+
+  /// Call after the user changed a synced setting.
+  void touchPrefs() {
+    setMeta('prefs_at', '${DateTime.now().millisecondsSinceEpoch}');
+    _prefsChanges.add(null);
+  }
+
+  /// The synced settings, as sent to other devices.
+  Map<String, dynamic> exportPrefs() {
+    final out = <String, dynamic>{'at': prefsAt};
+    for (final k in syncedPrefs) {
+      final raw = getMeta(k);
+      if (raw == null) continue;
+      try {
+        final j = Map<String, dynamic>.of(
+          (jsonDecode(raw) as Map).cast<String, dynamic>(),
+        );
+        if (k == 'appearance') {
+          j.removeWhere((key, _) => devicePrefs.contains(key));
+        }
+        out[k] = j;
+      } catch (_) {}
+    }
+    return out;
+  }
+
+  /// Takes [prefs] from another device if they're newer than ours.
+  /// This device's own appearance keys (scale, notch…) stay as they are.
+  bool importPrefs(Map<String, dynamic> prefs) {
+    final at = prefs['at'] as int? ?? 0;
+    if (at <= prefsAt) return false;
+    for (final k in syncedPrefs) {
+      final v = prefs[k];
+      if (v is! Map) continue;
+      final merged = Map<String, dynamic>.of(v.cast<String, dynamic>());
+      if (k == 'appearance') {
+        try {
+          final mine = jsonDecode(getMeta(k) ?? '{}') as Map;
+          for (final d in devicePrefs) {
+            if (mine.containsKey(d)) merged[d] = mine[d];
+          }
+        } catch (_) {}
+      }
+      setMeta(k, jsonEncode(merged));
+    }
+    setMeta('prefs_at', '$at');
+    prefsApplied.add(null);
+    return true;
+  }
+
   void setMeta(String key, String value) => _db.execute(
     'INSERT INTO meta (key, value) VALUES (?, ?) '
     'ON CONFLICT(key) DO UPDATE SET value = excluded.value',

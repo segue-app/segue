@@ -320,6 +320,35 @@ void main() {
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 2)));
 
+  testWidgets('tapping the playing song pauses and resumes it', (
+    tester,
+  ) async {
+    MediaKit.ensureInitialized();
+    final yt = YouTubeSource();
+    final player = SegueAudioHandler({SourceKind.youtube: yt});
+    await player.setVolume(0);
+    final list = await yt.search('zivert life audio', limit: 2);
+    await player.tapTrack(list, 0, context: 'playlist:test');
+    await player.positionStream
+        .firstWhere((p) => p > const Duration(seconds: 5))
+        .timeout(const Duration(seconds: 40));
+    await player.tapTrack(list, 0); // the same song: pause
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    final pausedAt = player.position;
+    expect(player.isPlaying, isFalse);
+    await player.tapTrack(list, 0); // again: goes on, not from the start
+    await Future<void>.delayed(const Duration(seconds: 1));
+    // ignore: avoid_print
+    print(
+      'TAP paused at ${pausedAt.inMilliseconds} ms, now ${player.position.inMilliseconds} ms, '
+      'context ${player.playContext.value}',
+    );
+    expect(player.isPlaying, isTrue);
+    expect(player.position, greaterThan(pausedAt));
+    expect(player.playContext.value, 'playlist:test');
+    await player.stop();
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
   testWidgets('trimmed track starts and ends at its trim', (tester) async {
     MediaKit.ensureInitialized();
     final yt = YouTubeSource();
@@ -385,13 +414,17 @@ void main() {
     }
     final switchedAt = sw.elapsedMilliseconds;
     final speed = double.parse(await player.debugProperty('speed'));
+    final pitchKept = await player.debugProperty('audio-pitch-correction');
     await Future<void>.delayed(const Duration(seconds: 8));
     final later = double.parse(await player.debugProperty('speed'));
     // ignore: avoid_print
     print(
       'MIX switched after ${switchedAt}ms (music ends ~13s after the seek), '
-      'speed at start $speed, 8s later $later',
+      'speed at start $speed, 8s later $later, pitch kept: $pitchKept, '
+      'hand-over slip ${player.lastMixSlip?.inMilliseconds} ms',
     );
+    expect(pitchKept, 'yes'); // tempo changes, the key doesn't
+    expect(player.lastMixSlip!.inMilliseconds.abs(), lessThan(150));
     expect(player.index, 1);
     expect(switchedAt, lessThan(11000)); // before the old song's music ended
     expect(speed, lessThan(0.999)); // brought to Despacito's slower tempo

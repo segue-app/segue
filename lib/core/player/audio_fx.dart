@@ -54,6 +54,27 @@ class AudioFx {
   /// mpv `speed`: carries the pitch shift (tempo is corrected by scaletempo).
   double get mpvSpeed => math.pow(2, semitones / 12).toDouble();
 
+  /// No pitch shift: speed (and a DJ mix's tempo) goes straight to mpv's
+  /// `speed` with its own pitch correction (scaletempo2), which follows
+  /// speed changes smoothly and keeps the pitch.
+  bool get plainPitch => semitones == 0;
+
+  /// mpv `speed` for these settings at a mix [tempo].
+  double mpvSpeedAt(double tempo) =>
+      plainPitch ? speed * tempo : mpvSpeed * tempo;
+
+  /// mpv `af` for these settings: EQ only when the pitch is plain (speed
+  /// is handled by mpv itself), else EQ plus our tempo correction.
+  String get mpvAf {
+    if (!plainPitch) return mpvFilters;
+    return [
+      if (eqOn)
+        for (var i = 0; i < bands.length; i++)
+          if (gains[i].abs() >= 0.05)
+            'lavfi=[equalizer=f=${bands[i]}:t=o:w=1:g=${gains[i].toStringAsFixed(1)}]',
+    ].join(',');
+  }
+
   /// mpv `af` value for these settings ('' when nothing to do).
   ///
   /// EQ bands first (one lavfi graph each), tempo correction last: libmpv
@@ -129,7 +150,9 @@ class AudioFxNotifier extends Notifier<AudioFx> {
 
   void update(AudioFx Function(AudioFx fx) change) {
     state = change(state);
-    ref.read(libraryProvider).setMeta(_key, jsonEncode(state.toJson()));
+    ref.read(libraryProvider)
+      ..setMeta(_key, jsonEncode(state.toJson()))
+      ..touchPrefs();
   }
 }
 

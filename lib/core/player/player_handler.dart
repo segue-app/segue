@@ -227,12 +227,29 @@ class SegueAudioHandler extends BaseAudioHandler
     _changed();
   }
 
+  /// A tap on a song in a list: the song that's playing pauses or goes on
+  /// (like Yandex Music), any other starts from the beginning.
+  Future<void> tapTrack(List<Track> list, int index, {String? context}) {
+    final t = list[index];
+    if (current?.key == t.key) {
+      if (context != null) playContext.value = context;
+      return isPlaying ? pause() : play();
+    }
+    return playList(list, index, context: context);
+  }
+
+  /// Where the queue came from ('liked', 'playlist:ID'…), so the screen
+  /// can mark that playlist as the one playing.
+  final playContext = ValueNotifier<String?>(null);
+
   /// Replaces the queue with [list] and starts playing [list[start]].
   Future<void> playList(
     List<Track> list,
     int start, {
     Duration? startAt,
+    String? context,
   }) async {
+    playContext.value = context;
     if (_out != null) {
       // Remote: it plays there.
       final from = start > 50 ? start - 50 : 0;
@@ -584,12 +601,17 @@ class SegueAudioHandler extends BaseAudioHandler
     final native = _player.platform;
     if (native is! NativePlayer) return;
     try {
-      await native.setProperty('audio-pitch-correction', 'no');
+      // Pitch kept by mpv itself unless a pitch shift is wanted (then the
+      // speed carries the shift and our scaletempo restores the tempo).
+      await native.setProperty(
+        'audio-pitch-correction',
+        fx.plainPitch ? 'yes' : 'no',
+      );
       await native.setProperty(
         'speed',
-        (fx.mpvSpeed * _tempo).toStringAsFixed(6),
+        fx.mpvSpeedAt(_tempo).toStringAsFixed(6),
       );
-      await native.setProperty('af', fx.mpvFilters);
+      await native.setProperty('af', fx.mpvAf);
     } catch (e) {
       debugPrint('fx: $e');
     }
@@ -623,8 +645,11 @@ class SegueAudioHandler extends BaseAudioHandler
   bool _mixStarting = false;
 
   Future<void> _setTempo(double t) async {
+    // With a pitch shift on, the tempo can't change without the pitch:
+    // the mix then keeps each song's own tempo.
+    if (!_fx.plainPitch) t = 1;
     _tempo = t;
-    await _mpv('speed', (_fx.mpvSpeed * t).toStringAsFixed(6));
+    await _mpv('speed', _fx.mpvSpeedAt(t).toStringAsFixed(6));
   }
 
   // --- gapless ---------------------------------------------------------------
@@ -818,8 +843,10 @@ class SegueAudioHandler extends BaseAudioHandler
     final end = _trimEnd ?? mediaItem.value?.duration;
     if (end == null || end < const Duration(seconds: 30)) return;
     final left = end - pos;
-    if (left > Duration(milliseconds: (fadeSeconds * 1000).round()) ||
-        left < const Duration(seconds: 1)) {
+    // The hand-over takes ~2.5 s to prepare (see _startMix): begin that
+    // much earlier, so the crossfade keeps its full length.
+    if (left > Duration(milliseconds: (fadeSeconds * 1000).round() + 2800) ||
+        left < const Duration(seconds: 4)) {
       return;
     }
     unawaited(_startMix(pos));
@@ -832,35 +859,13 @@ class SegueAudioHandler extends BaseAudioHandler
     final uri = _currentUri;
     if (uri == null) return;
     _mixStarting = true;
+    final token = _loadToken;
     try {
-      final tail = _tail ??= Player(
-        configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error),
-      );
-      final native = tail.platform;
-      if (native is NativePlayer) {
-        await native.setProperty('cache-on-disk', 'no');
-        await native.setProperty('audio-pitch-correction', 'no');
-        await native.setProperty(
-          'demuxer-lavf-o',
-          _currentHls ? 'http_persistent=0' : '',
-        );
-        await native.setProperty(
-          'speed',
-          (_fx.mpvSpeed * _tempo).toStringAsFixed(6),
-        );
-        await native.setProperty('af', _fx.mpvFilters);
-      }
-      _tailNormGain = _normGain;
-      await tail.setVolume(volume.value * _sleepGain * _tailNormGain * 100);
-      final from = pos + const Duration(milliseconds: 350);
-      await tail.open(Media(uri, start: from), play: true);
-      await tail.stream.position
-          .firstWhere((p) => p > from)
-          .timeout(const Duration(seconds: 3));
-      // Tempo of the next song against this one's (as it plays now).
+      // Tempo first (usually known already): the hand-over below must not
+      // wait for anything.
       _mixTempo = 1;
       final bpm = bpmFor;
-      if (matchTempo && bpm != null) {
+      if (matchTempo && _fx.plainPitch && bpm != null) {
         final next = _tracks[_index + 1];
         final both =
             await (
@@ -875,6 +880,52 @@ class SegueAudioHandler extends BaseAudioHandler
           _mixTempo = (a * _tempo / b).clamp(0.96, 1.04);
         }
       }
+      if (token != _loadToken) return;
+
+      final tail = _tail ??= Player(
+        configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error),
+      );
+      final native = tail.platform;
+      if (native is NativePlayer) {
+        await native.setProperty('cache-on-disk', 'no');
+        await native.setProperty(
+          'audio-pitch-correction',
+          _fx.plainPitch ? 'yes' : 'no',
+        );
+        await native.setProperty(
+          'demuxer-lavf-o',
+          _currentHls ? 'http_persistent=0' : '',
+        );
+        await native.setProperty(
+          'speed',
+          _fx.mpvSpeedAt(_tempo).toStringAsFixed(6),
+        );
+        await native.setProperty('af', _fx.mpvAf);
+      }
+      _tailNormGain = _normGain;
+      // The second player waits, silent and paused, a little ahead of this
+      // one; when this one reaches that moment, they swap in one go. (Both
+      // playing the song at once, slightly apart, sounded doubled.)
+      final at = _player.state.position + const Duration(milliseconds: 2500);
+      await tail.setVolume(0);
+      await tail.open(Media(uri, start: at), play: false);
+      await tail.stream.duration
+          .firstWhere((d) => d > Duration.zero)
+          .timeout(const Duration(seconds: 3));
+      await Future<void>.delayed(const Duration(milliseconds: 300)); // buffer
+      if (token != _loadToken) return;
+      if (_player.state.position >= at) {
+        throw StateError('the second player was too slow');
+      }
+      await _player.stream.position
+          .firstWhere((p) => p >= at - const Duration(milliseconds: 25))
+          .timeout(const Duration(seconds: 4));
+      if (token != _loadToken) return;
+      unawaited(tail.play());
+      unawaited(
+        tail.setVolume(volume.value * _sleepGain * _tailNormGain * 100),
+      );
+      lastMixSlip = _player.state.position - at;
       // From here the tail carries the old song; the main one goes on.
       _edgeGain = 0;
       await _applyVolume();
@@ -886,6 +937,10 @@ class SegueAudioHandler extends BaseAudioHandler
       _mixStarting = false;
     }
   }
+
+  /// How far apart the two players were at the last hand-over (tests).
+  @visibleForTesting
+  Duration? lastMixSlip;
 
   /// Equal-power crossfade: the new song rises while the old one falls.
   void _runMix() {

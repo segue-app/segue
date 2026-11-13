@@ -43,6 +43,7 @@ class PlaylistScreen extends ConsumerWidget {
                 size: size,
               ),
               emptyText: 'Добавляй треки через ••• → «Добавить в плейлист»'.tr,
+              playContext: 'playlist:$playlistId',
               onRemove: (t) => library.removeFromPlaylist(playlistId, t),
               onReorder: (from, to) =>
                   library.movePlaylistItem(playlistId, tracks, from, to),
