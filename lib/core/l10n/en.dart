@@ -468,4 +468,28 @@ const en = <String, String>{
   'Обновляемся: Segue перезапустится сам':
       'Updating: Segue will restart by itself',
   'Все треки': 'All tracks',
+  'Плейлист друга': 'A friend\'s playlist',
+  'Присоединиться по коду': 'Join with a code',
+  'Часто слушаю': 'On repeat',
+  'Что играло больше всего за месяц': 'What you played most this month',
+  'Давно не включал': 'Not heard in a while',
+  'Любимое, что не звучало полтора месяца':
+      'Favourites you haven\'t played for six weeks',
+  'Лайки за месяц': 'This month\'s likes',
+  'Всё, что понравилось за последние 30 дней':
+      'Everything you liked in the last 30 days',
+  'Послушай побольше, и здесь появится подборка':
+      'Listen a bit more and a selection will appear here',
+  'Радио: {0}': 'Radio: {0}',
+  'Для тебя': 'For you',
+  'Совместный плейлист': 'Shared playlist',
+  'Друзья с кодом добавляют, убирают и переставляют песни: у всех один и тот же список, в любой сети.': 'Friends with the code add, remove and reorder songs: everyone has the same list, on any network.',
+  'Сделать совместным': 'Make it shared',
+  'Перестать участвовать': 'Leave',
+  'Введи код из приглашения': 'Enter the code from the invitation',
+  'Поделиться': 'Share',
+  'Ссылка скопирована': 'Link copied',
+  'Плейлист не найден. Проверь код': 'Playlist not found. Check the code',
+  'Добавляй песни в мой плейлист «{0}» в Segue: {1} (или код {2})':
+      'Add songs to my playlist “{0}” in Segue: {1} (or code {2})',
 };

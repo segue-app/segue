@@ -41,6 +41,7 @@ import 'package:segue/core/sync/sync.dart';
 import 'package:segue/core/sync/sync_service.dart';
 import 'package:segue/main.dart';
 import 'package:segue/ui/widgets/motion.dart';
+import 'package:segue/core/sync/shared_playlists.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -132,6 +133,9 @@ void main() {
             ),
           ),
           downloadsProvider.overrideWithValue(downloads),
+          sharedPlaylistsProvider.overrideWithValue(
+            SharedPlaylists(library: library, deviceName: () => 'Mac'),
+          ),
           audioCacheProvider.overrideWithValue(
             AudioCache(
               library: library,

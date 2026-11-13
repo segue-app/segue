@@ -463,6 +463,17 @@ class LibraryStore {
     return id;
   }
 
+  /// Makes playlist [id] exactly [tracks], in that order (a shared
+  /// playlist taking a friend's version).
+  void replacePlaylistItems(String id, List<Track> tracks) {
+    _db.execute(
+      'UPDATE playlist_items SET deleted = 1, updated_at = ?, seq = ? '
+      'WHERE playlist_id = ? AND deleted = 0',
+      [_now, _nextSeq, id],
+    );
+    addToPlaylist(id, tracks);
+  }
+
   void renamePlaylist(String id, String name) {
     _db.execute(
       'UPDATE playlists SET name = ?, updated_at = ?, seq = ? WHERE id = ?',
@@ -597,6 +608,43 @@ class LibraryStore {
   );
 
   // --- History ----------------------------------------------------------------
+
+  // --- Smart playlists: put together from what you do -------------------
+
+  static const _day = 24 * 60 * 60 * 1000;
+
+  /// "Часто слушаю": played most in the last 30 days (at least twice).
+  List<Track> smartOnRepeat({int limit = 50}) => _tracks(
+    'SELECT t.json FROM (SELECT track_key, COUNT(*) AS n, MAX(played_at) AS last '
+    'FROM history WHERE played_at > ? GROUP BY track_key HAVING n >= 2 '
+    'ORDER BY n DESC, last DESC LIMIT ?) h JOIN tracks t ON t.key = h.track_key '
+    'ORDER BY h.n DESC, h.last DESC',
+    [DateTime.now().millisecondsSinceEpoch - 30 * _day, limit],
+  );
+
+  /// "Давно не включал": songs you used to play (3+ times) or liked, not
+  /// heard for 45 days.
+  List<Track> smartForgotten({int limit = 50}) {
+    final cutoff = DateTime.now().millisecondsSinceEpoch - 45 * _day;
+    return _tracks(
+      'SELECT t.json FROM tracks t '
+      'LEFT JOIN (SELECT track_key, COUNT(*) AS n, MAX(played_at) AS last '
+      'FROM history GROUP BY track_key) h ON h.track_key = t.key '
+      'LEFT JOIN likes l ON l.track_key = t.key AND l.deleted = 0 '
+      'WHERE (h.n >= 3 OR l.track_key IS NOT NULL) '
+      'AND COALESCE(h.last, 0) < ? '
+      'AND (h.n >= 3 OR l.liked_at < ?) '
+      'ORDER BY COALESCE(h.n, 0) DESC, l.liked_at DESC LIMIT ?',
+      [cutoff, cutoff, limit],
+    );
+  }
+
+  /// "Лайки за месяц": liked in the last 30 days, newest first.
+  List<Track> smartNewLikes({int limit = 100}) => _tracks(
+    'SELECT t.json FROM likes l JOIN tracks t ON t.key = l.track_key '
+    'WHERE l.deleted = 0 AND l.liked_at > ? ORDER BY l.liked_at DESC LIMIT ?',
+    [DateTime.now().millisecondsSinceEpoch - 30 * _day, limit],
+  );
 
   void recordPlay(Track t) {
     _saveTrack(t);

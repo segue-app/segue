@@ -17,6 +17,8 @@ import 'settings_screen.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../widgets/shared_playlist_sheet.dart';
+
 enum LibrarySection { liked, playlists, downloaded, local, history }
 
 /// Which library section is open; the sidebar and home cards can set it.
@@ -314,6 +316,25 @@ class _Playlists extends ConsumerWidget {
           subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud'.tr,
           onTap: () async {
             final id = await showImportDialog(context);
+            if (id != null && context.mounted) {
+              pushUnique(Navigator.of(context), PlaylistScreen.route(id));
+            }
+          },
+        ),
+        _Row(
+          leading: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.group_rounded, size: 26),
+          ),
+          title: 'Плейлист друга'.tr,
+          subtitle: 'Присоединиться по коду'.tr,
+          onTap: () async {
+            final id = await askJoinSharedPlaylist(context, ref);
             if (id != null && context.mounted) {
               pushUnique(Navigator.of(context), PlaylistScreen.route(id));
             }

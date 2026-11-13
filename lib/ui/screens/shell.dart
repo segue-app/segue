@@ -41,6 +41,10 @@ import '../widgets/slow_ticker.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../../core/share/track_link.dart';
+import '../../core/models/track.dart';
+import '../../core/sync/shared_playlists.dart';
+
 /// Whether a text field has the keyboard (then keys are text, not
 /// shortcuts). The focused element is a Focus inside the EditableText, so
 /// look up the tree.
@@ -234,6 +238,40 @@ class _ShellState extends ConsumerState<Shell> {
   NotchBridge? _notch;
 
   Future<void> _onLink(Uri uri) async {
+    // A friend's shared playlist (segue://playlist?c=…): join it.
+    if (uri.scheme == 'segue' && uri.host == 'playlist') {
+      try {
+        final id = await ref.read(sharedPlaylistsProvider).join(uri.toString());
+        final nav = _navigators[_tab].currentState;
+        if (nav != null) unawaited(nav.push(PlaylistScreen.route(id)));
+      } catch (e) {
+        _toast('$e'.replaceFirst('Bad state: ', ''));
+      }
+      return;
+    }
+    // A shared song (segue://track?d=…): play it.
+    if (uri.scheme == 'segue' && uri.host == 'track') {
+      final shared = TrackLink.decode(uri);
+      if (shared == null) return;
+      final player = ref.read(playerProvider);
+      final y = shared.youtubeId;
+      if (y != null && shared.track.source == SourceKind.match) {
+        player.adoptMatch?.call(
+          shared.track,
+          Track(
+            id: y,
+            source: SourceKind.youtube,
+            title: shared.track.title,
+            artist: shared.track.artist,
+            artworkUrl: 'https://i.ytimg.com/vi/$y/hq720.jpg',
+            duration: shared.track.duration,
+          ),
+        );
+      }
+      await player.playList([shared.track], 0);
+      _toast('Играет: {0}'.trArgs([shared.track.displayTitle]));
+      return;
+    }
     if (uri.scheme == 'segue' && uri.host == 'jam') {
       _toast('Подключаемся к совместному прослушиванию…'.tr);
       try {

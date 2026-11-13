@@ -129,6 +129,51 @@ class Wave {
 
   static const myWaveTitle = 'Моя волна';
 
+  /// Radio of a genre, one tap: what's popular in it here and radios of
+  /// its artists, a fresh set of artists for each portion.
+  Future<void> genreWave(int genre, String name) async {
+    Future<List<Track>> batch() async {
+      final chart = await catalog.chart(genre: genre, limit: 50);
+      final names = <String>[];
+      for (final t in chart) {
+        if (t.artist.trim().isNotEmpty && !names.contains(t.artist)) {
+          names.add(t.artist);
+        }
+      }
+      names.shuffle(_rnd);
+      final ids = <int>[];
+      for (final n in names.take(10)) {
+        if (ids.length >= 4) break;
+        final a = await catalog.findArtist(n).catchError((Object _) => null);
+        if (a != null && !ids.contains(a.id)) ids.add(a.id);
+      }
+      final radio = ids.isEmpty ? <Track>[] : await _mix(ids);
+      chart.shuffle(_rnd);
+      final recent = _recent();
+      final seen = <String>{};
+      return taste.order([
+        for (final t in _interleave([radio, chart], [2, 1]))
+          if (!recent.contains(t.key) && seen.add(t.key)) t,
+      ], _rnd);
+    }
+
+    final first = await batch();
+    if (first.isEmpty) throw StateError('Волна пустая'.tr);
+    await player!.playEndless(first, batch, title: 'Радио: {0}'.trArgs([name]));
+  }
+
+  /// Radio of a mood (Бодрое, Спокойное…), shaped by your taste.
+  Future<void> moodWave(String mood) async {
+    final settings = WaveSettings(mood: mood);
+    final first = await myWaveBatch(settings);
+    if (first.isEmpty) throw StateError('Волна пустая'.tr);
+    await player!.playEndless(
+      first,
+      () => myWaveBatch(settings),
+      title: 'Радио: {0}'.trArgs([mood.tr]),
+    );
+  }
+
   /// One portion of My wave. Exposed for tests.
   Future<List<Track>> myWaveBatch(WaveSettings settings) async {
     final instrumental = settings.language == 'Без слов';

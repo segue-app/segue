@@ -58,3 +58,17 @@ final localTracksProvider = Provider<List<Track>>(
 final foldersProvider = Provider<List<String>>(
   (ref) => _read(ref, (s) => [for (final f in s.folders()) f.path]),
 );
+
+/// Smart playlists, put together from listening (see LibraryStore).
+enum SmartList { onRepeat, forgotten, newLikes }
+
+final smartTracksProvider = Provider.family<List<Track>, SmartList>(
+  (ref, kind) => _read(
+    ref,
+    (s) => switch (kind) {
+      SmartList.onRepeat => s.smartOnRepeat(),
+      SmartList.forgotten => s.smartForgotten(),
+      SmartList.newLikes => s.smartNewLikes(),
+    },
+  ),
+);

@@ -7,6 +7,9 @@ import '../widgets/track_actions.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../../core/sync/shared_playlists.dart';
+import '../widgets/shared_playlist_sheet.dart';
+
 class PlaylistScreen extends ConsumerWidget {
   const PlaylistScreen({super.key, required this.playlistId});
 
@@ -47,8 +50,15 @@ class PlaylistScreen extends ConsumerWidget {
               onRemove: (t) => library.removeFromPlaylist(playlistId, t),
               onReorder: (from, to) =>
                   library.movePlaylistItem(playlistId, tracks, from, to),
+              subtitle: ref.watch(sharedCodesProvider).containsKey(playlistId)
+                  ? 'Совместный плейлист'.tr
+                  : null,
               actions: [
                 DownloadAllButton(tracks: tracks),
+                HeaderIconButton(
+                  icon: Icons.group_add_rounded,
+                  onTap: () => showSharedPlaylistSheet(context, playlistId),
+                ),
                 HeaderIconButton(
                   icon: Icons.edit_rounded,
                   onTap: () async {

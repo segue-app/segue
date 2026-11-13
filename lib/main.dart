@@ -38,6 +38,7 @@ import 'core/library/library.dart';
 import 'core/library/library_store.dart';
 import 'ui/screens/shell.dart';
 import 'ui/theme/theme.dart';
+import 'core/sync/shared_playlists.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -239,6 +240,15 @@ Future<void> main() async {
       await relay.start();
     }().catchError((Object e) => debugPrint('relay off: $e')),
   );
+  final sharedPlaylists = SharedPlaylists(
+    library: library,
+    deviceName: () => sync.deviceName,
+  );
+  unawaited(
+    sharedPlaylists.start().catchError(
+      (Object e) => debugPrint('shared playlists: $e'),
+    ),
+  );
 
   runApp(
     ProviderScope(
@@ -257,6 +267,7 @@ Future<void> main() async {
           Wave(catalog, library, handler, taste: taste),
         ),
         tasteProvider.overrideWithValue(taste),
+        sharedPlaylistsProvider.overrideWithValue(sharedPlaylists),
         localLibraryProvider.overrideWithValue(localLibrary),
         lastFmProvider.overrideWithValue(lastFm),
         trimStoreProvider.overrideWithValue(trims),

@@ -38,6 +38,7 @@ import 'package:segue/main.dart';
 import 'package:segue/ui/widgets/motion.dart';
 import 'package:segue/ui/widgets/track_actions.dart';
 import 'package:segue/ui/widgets/track_tile.dart';
+import 'package:segue/core/sync/shared_playlists.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -173,6 +174,9 @@ void main() {
             ),
           ),
           downloadsProvider.overrideWithValue(downloads),
+          sharedPlaylistsProvider.overrideWithValue(
+            SharedPlaylists(library: library, deviceName: () => 'Mac'),
+          ),
           waveProvider.overrideWithValue(Wave(Catalog(), library, handler)),
           lastFmProvider.overrideWithValue(LastFm(library)),
           localLibraryProvider.overrideWithValue(localLibrary),
@@ -389,8 +393,9 @@ void main() {
     await shot(tester, '07d_home_wave_charts');
     await tester.tap(find.text('Настроить'));
     await settle(tester, 1);
-    await tester.tap(find.text('Грустное'));
-    await tester.tap(find.text('Русский'));
+    // In the sheet (the radios on the home screen have the same words).
+    await tester.tap(find.text('Грустное').last);
+    await tester.tap(find.text('Русский').last);
     await settle(tester, 1);
     await shot(tester, '07e_wave_settings');
     await tester.tap(find.text('Слушать'));

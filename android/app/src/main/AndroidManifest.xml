@@ -42,6 +42,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="segue" android:host="pair" />
                 <data android:scheme="segue" android:host="jam" />
+                <data android:scheme="segue" android:host="track" />
+                <data android:scheme="segue" android:host="playlist" />
             </intent-filter>
         </activity>
         <!-- Background playback and media controls (audio_service). -->

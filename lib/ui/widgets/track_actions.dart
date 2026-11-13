@@ -17,6 +17,15 @@ import 'trim_sheet.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../core/share/track_link.dart';
+import '../../core/sources/match_source.dart';
+import '../../core/sources/sources.dart';
+
 /// Heart that pops when toggled.
 class LikeButton extends ConsumerWidget {
   const LikeButton({
@@ -73,8 +82,10 @@ Future<void> showTrackActions(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
+    // Taller than a small window: scrolls instead of being cut off.
+    isScrollControlled: true,
     builder: (sheet) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -143,6 +154,14 @@ Future<void> showTrackActions(
                   _toast(context, 'Отправлено: сыграет следующим у всех'.tr);
                 },
               ),
+            _Action(
+              icon: Icons.ios_share_rounded,
+              label: 'Поделиться'.tr,
+              onTap: () {
+                Navigator.pop(sheet);
+                shareTrack(context, ref, track);
+              },
+            ),
             _Action(
               icon: Icons.playlist_play_rounded,
               label: 'Играть следующим'.tr,
@@ -360,4 +379,21 @@ class _Action extends StatelessWidget {
       onTap: onTap,
     );
   }
+}
+
+/// "Поделиться": a link that opens the song in Segue, or on YouTube for
+/// friends without it. Phones get the system share sheet; computers copy.
+Future<void> shareTrack(BuildContext context, WidgetRef ref, Track t) async {
+  final match = ref.read(sourcesProvider)[SourceKind.match];
+  final youtubeId = t.source == SourceKind.match && match is MatchSource
+      ? match.matched(t)?.id
+      : null;
+  final text =
+      '${t.displayTitle} — ${t.artist}\n${TrackLink.webLink(t, youtubeId: youtubeId)}';
+  if (Platform.isAndroid || Platform.isIOS) {
+    await SharePlus.instance.share(ShareParams(text: text));
+    return;
+  }
+  await Clipboard.setData(ClipboardData(text: text));
+  if (context.mounted) _toast(context, 'Ссылка скопирована'.tr);
 }

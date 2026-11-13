@@ -29,6 +29,8 @@ import '../widgets/slow_ticker.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import 'smart_playlist_screen.dart';
+
 /// Start page: quick access to liked songs and playlists, and what you
 /// listened to recently.
 class HomeScreen extends ConsumerWidget {
@@ -78,6 +80,8 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const _WaveCard(),
+                const SizedBox(height: 12),
+                const _Radios(),
                 const SizedBox(height: 18),
                 if (empty)
                   _Welcome(
@@ -98,6 +102,7 @@ class HomeScreen extends ConsumerWidget {
                       onOpenLibrary();
                     },
                   ),
+                  const _ForYou(),
                   if (recent.isNotEmpty) ...[
                     _SectionTitle('Недавно слушали'.tr),
                     _Shelf(tracks: recent.take(20).toList()),
@@ -305,6 +310,169 @@ class _QuickGrid extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// One-tap radios under My wave: moods, then genres.
+class _Radios extends ConsumerStatefulWidget {
+  const _Radios();
+
+  @override
+  ConsumerState<_Radios> createState() => _RadiosState();
+}
+
+class _RadiosState extends ConsumerState<_Radios> {
+  String? _starting;
+
+  Future<void> _start(String id, Future<void> Function() run) async {
+    if (_starting != null) return;
+    setState(() => _starting = id);
+    try {
+      await run();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text('Волна не запустилась. Проверь интернет'.tr)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _starting = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final wave = ref.read(waveProvider);
+    final player = ref.read(playerProvider);
+    final accent = ref.watch(currentColorsProvider.select((c) => c.accent));
+    final items =
+        <(String id, String label, IconData icon, Future<void> Function())>[
+          for (final m in WaveSettings.moods)
+            ('mood:$m', m.tr, Icons.mood_rounded, () => wave.moodWave(m)),
+          for (final g in Catalog.genres.entries)
+            if (g.key != 0)
+              (
+                'genre:${g.key}',
+                g.value.tr,
+                Icons.radio_rounded,
+                () => wave.genreWave(g.key, g.value.tr),
+              ),
+        ];
+    return ValueListenableBuilder<String?>(
+      valueListenable: player.waveTitle,
+      builder: (context, playingWave, _) => SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: items.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final (id, label, icon, run) = items[i];
+            final on = playingWave == 'Радио: {0}'.trArgs([label]);
+            final busy = _starting == id;
+            return PressScale(
+              onTap: () => _start(id, run),
+              child: AnimatedContainer(
+                duration: SegueMotion.fast,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: on
+                      ? accent.withValues(alpha: 0.22)
+                      : Colors.white.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            icon,
+                            size: 16,
+                            color: on ? accent : SegueColors.textDim,
+                          ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: on ? accent : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// "Для тебя": smart playlists that fill themselves from your listening.
+class _ForYou extends ConsumerWidget {
+  const _ForYou();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lists = [
+      for (final k in SmartList.values)
+        if (ref.watch(smartTracksProvider(k).select((t) => t.length)) >= 3) k,
+    ];
+    if (lists.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle('Для тебя'.tr),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: LayoutBuilder(
+            builder: (context, c) {
+              final cols = c.maxWidth > 560 ? 3 : 2;
+              final w = (c.maxWidth - 10 * (cols - 1)) / cols;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final k in lists)
+                    SizedBox(
+                      width: w,
+                      child: _QuickTile(
+                        cover: CoverCollage(
+                          urls: const [],
+                          size: 56,
+                          radius: 14,
+                          icon: smartInfo(k).icon,
+                          gradient: LinearGradient(
+                            colors: smartInfo(k).gradient,
+                          ),
+                        ),
+                        title: smartInfo(k).title,
+                        subtitle: tracksLabel(
+                          ref.watch(
+                            smartTracksProvider(k).select((t) => t.length),
+                          ),
+                        ),
+                        playContext: 'smart:${k.name}',
+                        onTap: () => pushUnique(
+                          Navigator.of(context),
+                          SmartPlaylistScreen.route(k),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

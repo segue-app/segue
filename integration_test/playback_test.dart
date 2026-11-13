@@ -19,6 +19,7 @@ import 'package:segue/core/sources/soundcloud_source.dart';
 import 'package:segue/core/sources/youtube_source.dart';
 import 'package:segue/core/sources/sponsorblock.dart';
 import 'package:segue/core/catalog/deezer.dart';
+import 'package:segue/core/catalog/wave.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -348,6 +349,31 @@ void main() {
     expect(player.playContext.value, 'playlist:test');
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 2)));
+
+  testWidgets('one-tap radios: a genre and a mood', (tester) async {
+    MediaKit.ensureInitialized();
+    final yt = YouTubeSource();
+    final match = MatchSource(yt);
+    final player = SegueAudioHandler({
+      SourceKind.youtube: yt,
+      SourceKind.match: match,
+    });
+    await player.setVolume(0);
+    final wave = Wave(Catalog(), LibraryStore.memory(), player);
+    await wave.genreWave(152, 'Рок');
+    final rock = player.tracks;
+    // ignore: avoid_print
+    print('RADIO ${player.waveTitle.value}: ${rock.length} songs, '
+        '${rock.map((t) => t.artist).toSet().length} artists, e.g. '
+        '${rock.take(4).map((t) => '${t.artist} – ${t.title}').join('; ')}');
+    expect(rock.length, greaterThan(15));
+    expect(rock.map((t) => t.artist).toSet().length, greaterThan(4));
+    await wave.moodWave('Спокойное');
+    // ignore: avoid_print
+    print('RADIO ${player.waveTitle.value}: ${player.tracks.length} songs');
+    expect(player.tracks.length, greaterThan(10));
+    await player.stop();
+  }, timeout: const Timeout(Duration(minutes: 3)));
 
   testWidgets('trimmed track starts and ends at its trim', (tester) async {
     MediaKit.ensureInitialized();

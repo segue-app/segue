@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   bonsoir_windows
   media_kit_libs_windows_video
+  share_plus
   url_launcher_windows
 )
 
