@@ -1,0 +1,516 @@
+<!doctype html>
+<!--
+  Pictures for the README, drawn in HTML and saved by headless Chrome
+  (see render.sh). Open art.html#hero:en to see one.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=block" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0c0f;
+    --bg2: #141217;
+    --card: #1b191f;
+    --line: rgba(255,255,255,.08);
+    --text: #f5f2f7;
+    --dim: #a8a2ad;
+    --accent: #ff9a76;
+    --orange: #ffb86b;
+    --pink: #ff5e8a;
+    --violet: #7b5cff;
+    --grad: linear-gradient(100deg, var(--orange), var(--pink) 48%, var(--violet));
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; }
+  body {
+    font-family: Inter, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+  }
+  .art { display: none; position: relative; overflow: hidden; }
+  .art.on { display: block; }
+  .grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* A dark rounded panel with soft colour light, shared by all cards. */
+  .panel {
+    border-radius: 28px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    position: relative;
+  }
+  .glow { position: absolute; inset: 0; pointer-events: none; }
+  .noise {
+    position: absolute; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* ---------------- Hero ---------------- */
+  #hero { width: 1280px; height: 660px; }
+  #hero .panel { position: absolute; inset: 0; }
+  #hero .glow {
+    background:
+      radial-gradient(40% 60% at 8% 10%, rgba(255,184,107,.30), transparent 70%),
+      radial-gradient(40% 60% at 40% 100%, rgba(255,94,138,.20), transparent 70%),
+      radial-gradient(45% 70% at 95% 20%, rgba(123,92,255,.38), transparent 70%);
+  }
+  #hero .copy { position: absolute; left: 72px; top: 0; bottom: 0; width: 520px; display: flex; flex-direction: column; justify-content: center; }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 34px; }
+  .brand img { width: 54px; height: 54px; }
+  .brand span { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; }
+  #hero h1 { font-size: 60px; line-height: 1.02; font-weight: 800; letter-spacing: -0.045em; }
+  #hero p.sub { margin-top: 22px; font-size: 19px; line-height: 1.55; color: var(--dim); max-width: 455px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; max-width: 470px; }
+  html[lang=ru] #hero h1 { font-size: 54px; max-width: 480px; }
+  .chip {
+    font-size: 15px; font-weight: 600; padding: 9px 15px; border-radius: 999px;
+    background: rgba(255,255,255,.06); border: 1px solid var(--line); color: #e9e4ec;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--grad); display: inline-block; }
+
+  .window {
+    position: absolute; border-radius: 16px; overflow: hidden;
+    background: #0b0a0d; border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 40px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.4);
+  }
+  .window .bar { height: 30px; display: flex; align-items: center; gap: 7px; padding: 0 13px; background: #161419; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .window .bar b { width: 11px; height: 11px; border-radius: 50%; background: #3a3640; }
+  .window .bar b:nth-child(1) { background: #ff5f57; } .window .bar b:nth-child(2) { background: #febc2e; } .window .bar b:nth-child(3) { background: #28c840; }
+  .window img { display: block; width: 100%; }
+  #hero .window { left: 650px; top: 120px; width: 800px; }
+  .phone {
+    position: absolute; border-radius: 38px; overflow: hidden; background: #000;
+    border: 7px solid #050506; outline: 1px solid rgba(255,255,255,.14);
+    box-shadow: 0 40px 80px rgba(0,0,0,.6);
+  }
+  .phone img { display: block; width: 100%; }
+  #hero .phone { left: 572px; top: 236px; width: 200px; }
+
+  /* ---------------- Feature cards ---------------- */
+  .card { width: 620px; height: 470px; }
+  .card .panel { position: absolute; inset: 0; }
+  .card .stage { position: absolute; left: 0; right: 0; top: 0; height: 288px; overflow: hidden; }
+  .card .text { position: absolute; left: 36px; right: 36px; top: 314px; }
+  .card .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .card h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.035em; margin-top: 8px; }
+  .card p { font-size: 17px; line-height: 1.5; color: var(--dim); margin-top: 8px; }
+  .card .fade { position: absolute; left: 0; right: 0; bottom: 0; height: 90px; background: linear-gradient(transparent, var(--bg)); }
+  .g-warm { background: radial-gradient(60% 80% at 20% 0%, rgba(255,184,107,.32), transparent 70%), radial-gradient(60% 80% at 90% 30%, rgba(255,94,138,.22), transparent 70%); }
+  .g-cool { background: radial-gradient(60% 80% at 80% 0%, rgba(123,92,255,.38), transparent 70%), radial-gradient(50% 70% at 10% 40%, rgba(255,94,138,.18), transparent 70%); }
+  .g-mix { background: radial-gradient(55% 80% at 15% 10%, rgba(255,154,118,.28), transparent 70%), radial-gradient(55% 80% at 85% 10%, rgba(123,92,255,.32), transparent 70%); }
+
+  /* My wave */
+  .crop { position: absolute; overflow: hidden; border-radius: 22px; box-shadow: 0 24px 60px rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.1); }
+  .crop img { position: absolute; display: block; }
+  .float { position: absolute; }
+  .pill { font-size: 14px; font-weight: 600; padding: 9px 14px; border-radius: 999px; background: rgba(22,20,26,.86); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(8px); white-space: nowrap; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .pill em { font-style: normal; color: var(--dim); font-weight: 500; margin-right: 6px; }
+
+  /* Import */
+  .src { position: absolute; left: 44px; width: 196px; height: 50px; border-radius: 14px; background: #1a181e; border: 1px solid var(--line); display: flex; align-items: center; gap: 12px; padding: 0 16px; font-weight: 700; font-size: 16px; }
+  .src i { width: 22px; height: 22px; border-radius: 7px; flex: none; }
+  .dest { position: absolute; right: 36px; top: 54px; width: 262px; border-radius: 20px; background: #19171d; border: 1px solid rgba(255,255,255,.12); padding: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .dest .head { display: flex; gap: 12px; align-items: center; }
+  .dest .cover { width: 50px; height: 50px; border-radius: 12px; background: var(--grad); display: grid; place-items: center; font-size: 22px; }
+  .dest .t { font-weight: 800; font-size: 16px; } .dest .s { color: var(--dim); font-size: 13px; margin-top: 2px; }
+  .row { display: flex; align-items: center; gap: 10px; margin-top: 11px; font-size: 13px; }
+  .row .a { width: 30px; height: 30px; border-radius: 8px; flex: none; }
+  .row .n { flex: 1; } .row .n b { display: block; font-size: 13px; } .row .n span { color: var(--dim); font-size: 12px; }
+  .ok { color: #7be0a4; font-weight: 800; font-size: 14px; }
+
+  /* Lyrics */
+  .lyr { position: absolute; left: 50px; top: 40px; right: 40px; }
+  .lyr div { font-size: 25px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.25; margin-bottom: 14px; color: rgba(245,242,247,.28); }
+  .lyr div.now { color: rgba(245,242,247,.42); font-size: 31px; }
+  .lyr div.now b { color: #fff; text-shadow: 0 0 22px rgba(255,184,140,.55); font-weight: 800; }
+  .lyr div.tr { font-size: 17px; font-weight: 500; color: var(--dim); margin-top: -8px; letter-spacing: 0; }
+
+  /* Devices */
+  .dev-laptop { position: absolute; left: 60px; top: 74px; width: 300px; height: 166px; border-radius: 14px; background: #121015; border: 2px solid #2c2932; box-shadow: 0 30px 60px rgba(0,0,0,.5); }
+  .dev-laptop:after { content: ""; position: absolute; left: -26px; right: -26px; bottom: -16px; height: 14px; border-radius: 0 0 14px 14px; background: #2a2730; }
+  .dev-phone { position: absolute; right: 70px; top: 40px; width: 124px; height: 236px; border-radius: 26px; background: #121015; border: 2px solid #2c2932; box-shadow: 0 30px 60px rgba(0,0,0,.5); }
+  .np { position: absolute; left: 16px; right: 16px; bottom: 16px; }
+  .np .art { display: block; position: static; }
+  .np .cv { border-radius: 10px; background: url(../../docs/screenshots/en/phone-player.jpg) center 22% / 260% auto; }
+  .np .nm { font-size: 12px; font-weight: 700; margin-top: 8px; }
+  .np .bar2 { height: 4px; border-radius: 2px; background: rgba(255,255,255,.15); margin-top: 8px; position: relative; }
+  .np .bar2 i { position: absolute; left: 0; top: 0; bottom: 0; width: 42%; border-radius: 2px; background: var(--grad); }
+  .np .tm { font-size: 11px; color: var(--dim); margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .arc { position: absolute; left: 0; top: 0; }
+  .mini { position: absolute; left: 16px; top: 13px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; }
+  .mini img { width: 16px; }
+  .lock { position: absolute; left: 357px; top: 8px; transform: translateX(-50%); }
+
+  /* Sound */
+  .wave { position: absolute; left: 0; right: 0; top: 40px; height: 120px; }
+  .eq { position: absolute; left: 70px; right: 70px; bottom: 34px; height: 92px; display: flex; align-items: flex-end; gap: 14px; }
+  .eq { gap: 0; justify-content: space-between; }
+  .eq div { width: 6px; height: 100%; border-radius: 3px; background: rgba(255,255,255,.1); position: relative; }
+  .eq div i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: linear-gradient(to top, #7b5cff, #ff5e8a 60%, #ffb86b); }
+  .eq div b { position: absolute; left: 50%; width: 22px; height: 22px; margin: 0 0 -11px -11px; border-radius: 50%; background: #f5f2f7; box-shadow: 0 4px 14px rgba(0,0,0,.5), 0 0 0 4px rgba(255,154,118,.25); }
+
+  /* Android Auto */
+  .car { position: absolute; left: 40px; right: 40px; top: 30px; height: 236px; border-radius: 22px; background: #0f0e12; border: 2px solid #26232b; box-shadow: 0 30px 70px rgba(0,0,0,.55); overflow: hidden; display: flex; }
+  .car .rail { width: 64px; background: #16141a; display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 20px; }
+  .car .rail i { width: 26px; height: 26px; border-radius: 8px; background: #2b2831; }
+  .car .rail i.on { background: var(--grad); }
+  .car .main { flex: 1; padding: 18px 20px; }
+  .car .ttl { font-size: 15px; font-weight: 700; color: var(--dim); }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+  .tile { height: 98px; border-radius: 14px; position: relative; overflow: hidden; background: #1d1b22; }
+  .tile b { position: absolute; left: 10px; bottom: 9px; font-size: 13px; font-weight: 700; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  .car .now { margin-top: 14px; height: 52px; border-radius: 14px; background: #1b1920; display: flex; align-items: center; gap: 12px; padding: 0 12px; }
+  .car .now .c { width: 34px; height: 34px; border-radius: 8px; background: url(../../docs/screenshots/en/phone-player.jpg) center 22% / 260% auto; }
+  .car .now .x { flex: 1; font-size: 13px; } .car .now .x b { display: block; } .car .now .x span { color: var(--dim); font-size: 12px; }
+  .car .now .pp { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; }
+
+  /* ---------------- Download buttons ---------------- */
+  .btn { width: 260px; height: 72px; }
+  .btn .in {
+    position: absolute; inset: 0; border-radius: 18px; background: #151318;
+    border: 1px solid rgba(255,255,255,.1);
+    display: flex; align-items: center; gap: 14px; padding: 0 20px;
+  }
+  .btn .in:before { content: ""; position: absolute; inset: 0; border-radius: 18px; padding: 1.5px; background: var(--grad); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: .9; }
+  .btn svg { flex: none; }
+  .btn .l1 { font-size: 12px; font-weight: 600; color: var(--dim); letter-spacing: .02em; }
+  .btn .l2 { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; margin-top: 1px; }
+  .btn .ext { margin-left: auto; font-size: 13px; color: var(--dim); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---------------- Architecture ---------------- */
+  #arch { width: 1280px; height: 500px; }
+  #arch .panel { position: absolute; inset: 0; }
+  #arch .glow { background: radial-gradient(40% 60% at 50% 0%, rgba(123,92,255,.25), transparent 70%), radial-gradient(30% 50% at 0% 100%, rgba(255,154,118,.16), transparent 70%); }
+  .col { position: absolute; top: 70px; }
+  .col h3 { font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 16px; }
+  .box { border-radius: 16px; background: #18161c; border: 1px solid var(--line); padding: 14px 16px; margin-bottom: 12px; }
+  .box b { display: block; font-size: 17px; font-weight: 700; }
+  .box span { display: block; font-size: 14px; color: var(--dim); margin-top: 3px; line-height: 1.4; }
+  .core { border-radius: 24px; padding: 20px; background: linear-gradient(#18161c, #18161c) padding-box, var(--grad) border-box; border: 1.5px solid transparent; }
+  .core .box { background: #201e25; }
+  .core .logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; margin-bottom: 14px; }
+  .core .logo img { width: 30px; }
+  .lines { position: absolute; inset: 0; }
+  .tag { position: absolute; font-size: 13px; font-weight: 600; color: var(--dim); background: #0d0c0f; padding: 2px 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="art" id="hero">
+  <div class="panel"><div class="glow"></div><div class="noise"></div>
+    <div class="copy">
+      <div class="brand"><img src="../../assets/brand/segue_mark.svg"><span>segue</span></div>
+      <h1 data-t="hero.h1"></h1>
+      <p class="sub" data-t="hero.sub"></p>
+      <div class="chips">
+        <span class="chip"><i></i><span data-t="hero.c1"></span></span>
+        <span class="chip"><i></i><span data-t="hero.c2"></span></span>
+        <span class="chip"><i></i><span data-t="hero.c3"></span></span>
+      </div>
+    </div>
+    <div class="window"><div class="bar"><b></b><b></b><b></b></div><img data-shot="home"></div>
+    <div class="phone"><img data-shot="phone-player"></div>
+  </div>
+</div>
+
+<!-- MY WAVE -->
+<div class="art card" id="wave">
+  <div class="panel"><div class="glow g-warm"></div><div class="noise"></div>
+    <div class="stage">
+      <div class="crop" style="left:44px; top:40px; width:532px; height:128px;">
+        <img data-shot="home" style="width:972px; left:-303px; top:-58px;">
+      </div>
+      <div class="float" style="left:44px; right:44px; top:190px; display:flex; gap:10px; justify-content:center;">
+        <div class="pill"><em data-t="wave.k1"></em><span data-t="wave.v1"></span></div>
+        <div class="pill"><em data-t="wave.k2"></em><span data-t="wave.v2"></span></div>
+        <div class="pill">👎 <span data-t="wave.v3"></span></div>
+      </div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="wave.e"></div>
+      <h2 data-t="wave.h"></h2>
+      <p data-t="wave.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT -->
+<div class="art card" id="import">
+  <div class="panel"><div class="glow g-cool"></div><div class="noise"></div>
+    <div class="stage">
+      <svg class="lines" width="620" height="288">
+        <defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#ffb86b" stop-opacity=".2"/><stop offset="1" stop-color="#ff5e8a" stop-opacity=".9"/></linearGradient></defs>
+        <path d="M240 59 C 300 59, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.5" fill="none"/>
+        <path d="M240 119 C 300 119, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.5" fill="none"/>
+        <path d="M240 179 C 300 179, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.5" fill="none"/>
+        <path d="M240 239 C 300 239, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.5" fill="none"/>
+      </svg>
+      <div class="src" style="top:34px"><i style="background:#1ed760"></i>Spotify</div>
+      <div class="src" style="top:94px"><i style="background:#ffcc00"></i><span data-t="imp.yandex"></span></div>
+      <div class="src" style="top:154px"><i style="background:#ff2a2a"></i>YouTube</div>
+      <div class="src" style="top:214px"><i style="background:#ff7700"></i>SoundCloud</div>
+      <div class="dest">
+        <div class="head"><div class="cover">♥</div><div><div class="t" data-t="imp.title"></div><div class="s" data-t="imp.count"></div></div></div>
+        <div class="row"><div class="a" style="background:url(../../docs/screenshots/en/home.jpg) -124.6px -87.7px / 293px auto"></div><div class="n"><b>Ice On My Teeth</b><span>ATEEZ</span></div><span class="ok">✓</span></div>
+        <div class="row"><div class="a" style="background:url(../../docs/screenshots/en/home.jpg) -223.5px -87.7px / 293px auto"></div><div class="n"><b>earthquake</b><span>JISOO</span></div><span class="ok">✓</span></div>
+        <div class="row"><div class="a" style="background:url(../../docs/screenshots/en/home.jpg) -157.4px -87.7px / 293px auto"></div><div class="n"><b>I Want You</b><span>Denon Reed</span></div><span class="ok">✓</span></div>
+      </div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="imp.e"></div>
+      <h2 data-t="imp.h"></h2>
+      <p data-t="imp.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- LYRICS -->
+<div class="art card" id="lyrics">
+  <div class="panel"><div class="glow g-mix"></div><div class="noise"></div>
+    <div class="stage">
+      <div class="lyr">
+        <div>City lights are calling out my name</div>
+        <div class="now"><b>Every word you sing</b> to me</div>
+        <div class="tr" data-t="lyr.tr"></div>
+        <div>Turn it up and let the night begin</div>
+      </div>
+      <div class="fade"></div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="lyr.e"></div>
+      <h2 data-t="lyr.h"></h2>
+      <p data-t="lyr.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- DEVICES -->
+<div class="art card" id="devices">
+  <div class="panel"><div class="glow g-cool"></div><div class="noise"></div>
+    <div class="stage">
+      <div class="dev-laptop"><div class="mini"><img src="../../assets/brand/segue_mark.svg">segue</div>
+        <div class="np" style="display:flex; gap:12px; align-items:flex-end;">
+          <div class="cv" style="width:86px; height:86px; flex:none;"></div>
+          <div style="flex:1"><div class="nm">Луна не знает пути</div><div class="bar2"><i></i></div><div class="tm">0:42</div></div>
+        </div>
+      </div>
+      <div class="dev-phone">
+        <div class="np"><div class="cv" style="width:100%; height:88px;"></div><div class="nm">Луна не знает пути</div><div class="bar2"><i></i></div><div class="tm">0:42</div></div>
+      </div>
+      <svg class="arc" width="620" height="288">
+        <defs><linearGradient id="ag" x1="0" x2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset=".5" stop-color="#ff5e8a"/><stop offset="1" stop-color="#7b5cff"/></linearGradient></defs>
+        <path d="M300 70 C 330 22, 380 18, 414 58" stroke="url(#ag)" stroke-width="3" fill="none" stroke-dasharray="2 9" stroke-linecap="round"/>
+        <path d="M402 54 L 415 61 L 418 46" stroke="#7b5cff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="lock pill">🔒 <span data-t="dev.lock"></span></div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="dev.e"></div>
+      <h2 data-t="dev.h"></h2>
+      <p data-t="dev.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- SOUND -->
+<div class="art card" id="sound">
+  <div class="panel"><div class="glow g-warm"></div><div class="noise"></div>
+    <div class="stage">
+      <svg class="wave" width="620" height="120" id="wavesvg"></svg>
+      <div class="float pill" style="left:240px; top:22px;" data-t="snd.x"></div>
+      <div class="eq" id="eq"></div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="snd.e"></div>
+      <h2 data-t="snd.h"></h2>
+      <p data-t="snd.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ANDROID AUTO -->
+<div class="art card" id="auto">
+  <div class="panel"><div class="glow g-mix"></div><div class="noise"></div>
+    <div class="stage">
+      <div class="car">
+        <div class="rail"><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="main">
+          <div class="ttl">Segue</div>
+          <div class="tiles">
+            <div class="tile" style="background: radial-gradient(80% 90% at 20% 20%, #ffb86b, transparent), radial-gradient(80% 90% at 90% 90%, #7b5cff, transparent), #ff5e8a;"><b data-t="auto.wave"></b></div>
+            <div class="tile" style="background: linear-gradient(135deg, #ff5e8a, #c04bff);"><b data-t="auto.liked"></b></div>
+            <div class="tile" style="background: url(../../docs/screenshots/en/home.jpg) -407px -287px / 959px auto;"><b data-t="auto.lists"></b></div>
+            <div class="tile" style="background: url(../../docs/screenshots/en/home.jpg) -515px -287px / 959px auto;"><b data-t="auto.recent"></b></div>
+          </div>
+          <div class="now"><div class="c"></div><div class="x"><b>Луна не знает пути</b><span>Тайпан</span></div><div class="pp"><svg width="12" height="14"><rect x="0" width="4" height="14" rx="1" fill="#1b1214"/><rect x="8" width="4" height="14" rx="1" fill="#1b1214"/></svg></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="auto.e"></div>
+      <h2 data-t="auto.h"></h2>
+      <p data-t="auto.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- DOWNLOAD BUTTONS -->
+<div class="art btn" id="btn-android"><div class="in">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ff9a76" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg>
+  <div><div class="l1" data-t="btn.get"></div><div class="l2">Android</div></div><div class="ext">.apk</div></div></div>
+<div class="art btn" id="btn-windows"><div class="in">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ff9a76" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+  <div><div class="l1" data-t="btn.get"></div><div class="l2">Windows</div></div><div class="ext">.zip</div></div></div>
+<div class="art btn" id="btn-macos"><div class="in">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ff9a76" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="11" rx="1.8"/><path d="M2 19h20"/></svg>
+  <div><div class="l1" data-t="btn.get"></div><div class="l2">macOS</div></div><div class="ext">.zip</div></div></div>
+<div class="art btn" id="btn-linux"><div class="in">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ff9a76" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12.5 15H17"/></svg>
+  <div><div class="l1" data-t="btn.get"></div><div class="l2">Linux</div></div><div class="ext">.tar.gz</div></div></div>
+
+<!-- ARCHITECTURE -->
+<div class="art" id="arch">
+  <div class="panel"><div class="glow"></div><div class="noise"></div>
+    <svg class="lines" width="1280" height="500">
+      <defs><linearGradient id="al" x1="0" x2="1"><stop offset="0" stop-color="#ffb86b" stop-opacity=".25"/><stop offset="1" stop-color="#ff5e8a" stop-opacity=".9"/></linearGradient>
+      <linearGradient id="ar" x1="0" x2="1"><stop offset="0" stop-color="#ff5e8a" stop-opacity=".9"/><stop offset="1" stop-color="#7b5cff" stop-opacity=".35"/></linearGradient></defs>
+      <path d="M352 139 C 400 139, 400 268, 452 268" stroke="url(#al)" stroke-width="2.5" fill="none"/>
+      <path d="M352 224 C 400 224, 400 268, 452 268" stroke="url(#al)" stroke-width="2.5" fill="none"/>
+      <path d="M352 309 C 400 309, 400 268, 452 268" stroke="url(#al)" stroke-width="2.5" fill="none"/>
+      <path d="M352 394 C 400 394, 400 268, 452 268" stroke="url(#al)" stroke-width="2.5" fill="none"/>
+      <path d="M828 268 C 880 268, 880 178, 930 178" stroke="url(#ar)" stroke-width="2.5" fill="none"/>
+      <path d="M828 268 C 880 268, 880 357, 930 357" stroke="url(#ar)" stroke-width="2.5" fill="none"/>
+    </svg>
+    <div class="col" style="left:60px; width:292px;">
+      <h3 data-t="arch.in"></h3>
+      <div class="box"><b>YouTube · SoundCloud</b><span data-t="arch.s1"></span></div>
+      <div class="box"><b>Deezer</b><span data-t="arch.s2"></span></div>
+      <div class="box"><b>NetEase · LRCLIB</b><span data-t="arch.s3"></span></div>
+      <div class="box"><b data-t="arch.imp"></b><span data-t="arch.s4"></span></div>
+    </div>
+    <div class="col" style="left:452px; width:376px; top:96px;">
+      <div class="core">
+        <div class="logo"><img src="../../assets/brand/segue_mark.svg">Segue</div>
+        <div class="box"><b data-t="arch.p"></b><span data-t="arch.p2"></span></div>
+        <div class="box"><b data-t="arch.m"></b><span data-t="arch.m2"></span></div>
+        <div class="box"><b data-t="arch.l"></b><span data-t="arch.l2"></span></div>
+      </div>
+    </div>
+    <div class="col" style="left:930px; width:292px; top:110px;">
+      <h3 data-t="arch.out"></h3>
+      <div class="box"><b data-t="arch.lan"></b><span data-t="arch.lan2"></span></div>
+      <div class="box" style="margin-top:96px"><b data-t="arch.net"></b><span data-t="arch.net2"></span></div>
+    </div>
+    <div class="tag" style="left:842px; top:236px;">AES-256-GCM</div>
+  </div>
+</div>
+
+<script>
+const T = {
+  en: {
+    'hero.h1': 'One player for <span class="grad-text">all your music</span>',
+    'hero.sub': 'YouTube and SoundCloud in one search, your Spotify and Yandex Music library, in sync on every device.',
+    'hero.c1': 'Free and open source', 'hero.c2': 'No account', 'hero.c3': 'No ads',
+    'wave.e': 'My wave', 'wave.h': 'A mix that learns from you',
+    'wave.p': 'Songs you finish bring more of that artist, skips bring less. Plus radios by genre and mood.',
+    'wave.k1': 'Mood', 'wave.v1': 'Calm', 'wave.k2': 'Activity', 'wave.v2': 'Workout', 'wave.v3': 'never again',
+    'imp.e': 'Import', 'imp.h': 'Bring your library with you',
+    'imp.p': 'Paste a playlist link or your whole Spotify or Yandex Music library. Each song is matched to the right version.',
+    'imp.yandex': 'Yandex Music', 'imp.title': 'Liked', 'imp.count': '248 songs matched',
+    'lyr.e': 'Lyrics', 'lyr.h': 'Karaoke, word by word',
+    'lyr.p': 'Each word lights up as it\'s sung, with a translation under every line.',
+    'lyr.tr': 'Каждое слово, что ты поёшь мне',
+    'dev.e': 'Your devices', 'dev.h': 'Laptop and phone, one player',
+    'dev.p': 'Move the music to another device at the same second, use the phone as a remote, listen together with friends.',
+    'dev.lock': 'end-to-end encrypted',
+    'snd.e': 'Sound', 'snd.h': 'Flows like a DJ set',
+    'snd.p': 'Gapless albums, crossfades matched to the tempo, even loudness and a 10-band equalizer.',
+    'snd.x': 'tempo-matched crossfade',
+    'auto.e': 'Android Auto', 'auto.h': 'On the road too',
+    'auto.p': 'My wave, likes and playlists on the car screen. Ask for a song by voice, too.',
+    'auto.wave': 'My wave', 'auto.liked': 'Liked', 'auto.lists': 'Playlists', 'auto.recent': 'Recent',
+    'btn.get': 'Download for',
+    'arch.in': 'Sources', 'arch.out': 'Your other devices',
+    'arch.s1': 'Audio streams, search', 'arch.s2': 'Catalogue, charts, covers',
+    'arch.s3': 'Word- and line-timed lyrics', 'arch.s4': 'Playlists and likes to import', 'arch.imp': 'Spotify · Yandex Music',
+    'arch.p': 'Player', 'arch.p2': 'libmpv via media_kit: gapless, crossfades, EQ',
+    'arch.m': 'Matching', 'arch.m2': 'Finds the right version of every imported song',
+    'arch.l': 'Library', 'arch.l2': 'SQLite on the device; the newest change wins',
+    'arch.lan': 'Same Wi-Fi', 'arch.lan2': 'Found over mDNS, talk directly',
+    'arch.net': 'Anywhere', 'arch.net2': 'Two public MQTT brokers; they only see ciphertext',
+  },
+  ru: {
+    'hero.h1': 'Один плеер для <span class="grad-text">всей твоей музыки</span>',
+    'hero.sub': 'YouTube и SoundCloud в одном поиске, твоя библиотека из Spotify и Яндекс Музыки, синхронно на всех устройствах.',
+    'hero.c1': 'Бесплатно и открыто', 'hero.c2': 'Без аккаунта', 'hero.c3': 'Без рекламы',
+    'wave.e': 'Моя волна', 'wave.h': 'Микс, который учится на тебе',
+    'wave.p': 'Дослушал — этого артиста станет больше, пропустил — меньше. И радио по жанрам и настроению.',
+    'wave.k1': 'Настроение', 'wave.v1': 'Спокойное', 'wave.k2': 'Занятие', 'wave.v2': 'Тренировка', 'wave.v3': 'больше не играть',
+    'imp.e': 'Импорт', 'imp.h': 'Забери свою библиотеку',
+    'imp.p': 'Вставь ссылку на плейлист или перенеси всю библиотеку Spotify или Яндекс Музыки. Каждая песня найдётся в нужной версии.',
+    'imp.yandex': 'Яндекс Музыка', 'imp.title': 'Мне нравится', 'imp.count': '248 треков подобрано',
+    'lyr.e': 'Текст песен', 'lyr.h': 'Караоке, слово за словом',
+    'lyr.p': 'Каждое слово загорается, когда его поют, а под строкой — перевод.',
+    'lyr.tr': 'Каждое слово, что ты поёшь мне',
+    'dev.e': 'Твои устройства', 'dev.h': 'Ноутбук и телефон — один плеер',
+    'dev.p': 'Переноси музыку на другое устройство с той же секунды, управляй с телефона, слушай вместе с друзьями.',
+    'dev.lock': 'сквозное шифрование',
+    'snd.e': 'Звук', 'snd.h': 'Играет как DJ-сет',
+    'snd.p': 'Альбомы без пауз, переходы с подгонкой темпа, ровная громкость и 10-полосный эквалайзер.',
+    'snd.x': 'переход с подгонкой темпа',
+    'auto.e': 'Android Auto', 'auto.h': 'И в дороге',
+    'auto.p': '«Моя волна», лайки и плейлисты на экране машины. Песню можно попросить голосом.',
+    'auto.wave': 'Моя волна', 'auto.liked': 'Любимые', 'auto.lists': 'Плейлисты', 'auto.recent': 'Недавние',
+    'btn.get': 'Скачать для',
+    'arch.in': 'Источники', 'arch.out': 'Твои другие устройства',
+    'arch.s1': 'Аудиопотоки и поиск', 'arch.s2': 'Каталог, чарты, обложки',
+    'arch.s3': 'Текст по словам и строкам', 'arch.s4': 'Плейлисты и лайки для импорта', 'arch.imp': 'Spotify · Яндекс Музыка',
+    'arch.p': 'Плеер', 'arch.p2': 'libmpv (media_kit): без пауз, переходы, EQ',
+    'arch.m': 'Подбор', 'arch.m2': 'Находит нужную версию каждой песни',
+    'arch.l': 'Библиотека', 'arch.l2': 'SQLite; побеждает более новое изменение',
+    'arch.lan': 'Одна Wi-Fi сеть', 'arch.lan2': 'Находят друг друга по mDNS, общаются напрямую',
+    'arch.net': 'Где угодно', 'arch.net2': 'Два публичных MQTT-брокера; они видят только шифр',
+  },
+};
+
+const [id, lang] = (location.hash.slice(1) || 'hero:en').split(':');
+const t = T[lang] || T.en;
+document.querySelectorAll('[data-t]').forEach(el => { el.innerHTML = t[el.dataset.t] ?? el.dataset.t; });
+document.querySelectorAll('[data-shot]').forEach(el => { el.src = `../../docs/screenshots/${lang}/${el.dataset.shot}.jpg`; });
+document.getElementById(id).classList.add('on');
+document.documentElement.lang = lang;
+
+// Sound: two songs overlapping, the second coming in as the first fades.
+(() => {
+  const svg = document.getElementById('wavesvg');
+  const W = 620, H = 120, n = 150;
+  const make = (from, to, color, phase) => {
+    let top = '', bottom = '';
+    for (let i = 0; i <= n; i++) {
+      const x = from + (to - from) * i / n;
+      const p = i / n;
+      const env = from === 0 ? (p < .55 ? 1 : Math.max(0, 1 - (p - .55) / .45)) : (p < .45 ? p / .45 : 1);
+      const a = (0.35 + 0.65 * Math.abs(Math.sin(i * 0.37 + phase) * Math.sin(i * 0.11 + phase * 2))) * env * 46;
+      top += `${i ? 'L' : 'M'}${x.toFixed(1)} ${(H / 2 - a).toFixed(1)} `;
+      bottom = `L${x.toFixed(1)} ${(H / 2 + a).toFixed(1)} ` + bottom;
+    }
+    return `<path d="${top}${bottom}Z" fill="${color}" />`;
+  };
+  svg.innerHTML = `<defs>
+      <linearGradient id="w1" x1="0" x2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset="1" stop-color="#ff5e8a"/></linearGradient>
+      <linearGradient id="w2" x1="0" x2="1"><stop offset="0" stop-color="#ff5e8a"/><stop offset="1" stop-color="#7b5cff"/></linearGradient></defs>`
+    + make(0, 400, 'url(#w1)', 0.3).replace('/>', ' opacity=".85"/>')
+    + make(230, 620, 'url(#w2)', 1.7).replace('/>', ' opacity=".8" style="mix-blend-mode:screen"/>');
+  const eq = document.getElementById('eq');
+  [62, 74, 58, 44, 50, 66, 80, 72, 56, 64].forEach(h => {
+    const d = document.createElement('div'); d.innerHTML = `<i style="height:${h}%"></i><b style="bottom:${h}%"></b>`; eq.appendChild(d);
+  });
+})();
+</script>
+</body>
+</html>

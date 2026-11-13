@@ -15,5 +15,6 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter analyze
+      # Infos (such as deprecations in a newer Flutter) are shown, not fatal.
+      - run: flutter analyze --no-fatal-infos
       - run: flutter test --exclude-tags live

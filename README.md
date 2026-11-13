@@ -1,13 +1,5 @@
 <p align="center">
-  <img src="assets/brand/icon_256.png" width="112" alt="Segue">
-</p>
-
-<h1 align="center">Segue</h1>
-
-<p align="center">
-  <b>One music player for everything you listen to.</b><br>
-  YouTube and SoundCloud in one search, your Spotify and Yandex Music library,<br>
-  in sync across your computer and phone. Free, open source, no account, no server.
+  <a href="https://segue-app.github.io/segue/"><img src="assets/readme/en/hero.webp" width="100%" alt="Segue: one player for all your music, on desktop and phone"></a>
 </p>
 
 <p align="center">
@@ -20,22 +12,37 @@
 
 <p align="center">
   <a href="#download">Download</a> ·
-  <a href="#features">Features</a> ·
+  <a href="#all-features">Features</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#build-from-source">Build</a> ·
+  <a href="https://segue-app.github.io/segue/">Website</a> ·
   <a href="README.ru.md">Русский</a>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/en/home.jpg" width="820" alt="Segue on a desktop: My wave, playlists and recently played">
+  <a href="https://github.com/segue-app/segue/releases/latest/download/segue-android-arm64.apk"><img src="assets/readme/en/btn-android.webp" width="196" alt="Download for Android"></a>
+  <a href="https://github.com/segue-app/segue/releases/latest/download/segue-windows-x64.zip"><img src="assets/readme/en/btn-windows.webp" width="196" alt="Download for Windows"></a>
+  <a href="https://github.com/segue-app/segue/releases/latest/download/segue-macos.zip"><img src="assets/readme/en/btn-macos.webp" width="196" alt="Download for macOS"></a>
+  <a href="https://github.com/segue-app/segue/releases/latest/download/segue-linux-x64.tar.gz"><img src="assets/readme/en/btn-linux.webp" width="196" alt="Download for Linux"></a>
+</p>
+
+<p align="center"><sub>Free · open source · no account, no ads · updates itself</sub></p>
+
+## Highlights
+
+<p align="center">
+  <img src="assets/readme/en/wave.webp" width="49%" alt="My wave: a mix that learns from you">
+  <img src="assets/readme/en/import.webp" width="49%" alt="Import from Spotify, Yandex Music, YouTube and SoundCloud">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/en/phone-home.jpg" width="230" alt="Home on a phone">
-  &nbsp;
-  <img src="docs/screenshots/en/phone-player.jpg" width="230" alt="Now playing on a phone">
-  &nbsp;
-  <img src="docs/screenshots/en/phone-lyrics.jpg" width="230" alt="Synced lyrics on a phone">
+  <img src="assets/readme/en/lyrics.webp" width="49%" alt="Word-by-word karaoke lyrics with translation">
+  <img src="assets/readme/en/devices.webp" width="49%" alt="Laptop and phone as one player, end-to-end encrypted">
+</p>
+
+<p align="center">
+  <img src="assets/readme/en/sound.webp" width="49%" alt="Tempo-matched crossfades and an equalizer">
+  <img src="assets/readme/en/auto.webp" width="49%" alt="Android Auto: wave, likes and playlists in the car">
 </p>
 
 ## Why Segue
@@ -59,7 +66,7 @@ After the first install, Segue updates itself: **Settings → Update**.
 
 | Platform | File | Notes |
 | --- | --- | --- |
-| **Android** | `segue-android-arm64.apk` | Most phones. Older ones: `-armv7`; emulators: `-x86_64`. Works with [Android Auto](#in-the-car-android-auto) |
+| **Android** | `segue-android-arm64.apk` | Most phones. Older ones: `-armv7`; emulators: `-x86_64`. Works with [Android Auto](#all-features) |
 | **Windows** | `segue-windows-x64.zip` | Unzip anywhere and run `segue.exe` |
 | **macOS** | `segue-macos.zip` | Unzip and move to Applications. The app isn't notarized: the first time, right-click → **Open** |
 | **Linux** | `segue-linux-x64.tar.gz` | Needs libmpv: `sudo apt install libmpv2` |
@@ -67,9 +74,22 @@ After the first install, Segue updates itself: **Settings → Update**.
 iOS has no prebuilt app (it needs Apple signing); you can
 [build it from source](#build-from-source).
 
-## Features
+## A closer look
 
-### Listen
+<p align="center">
+  <img src="docs/screenshots/en/lyrics.jpg" width="100%" alt="Synced lyrics next to the cover on a desktop">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/en/phone-home.jpg" width="32%" alt="Home on a phone">
+  <img src="docs/screenshots/en/phone-player.jpg" width="32%" alt="Now playing on a phone">
+  <img src="docs/screenshots/en/phone-lyrics.jpg" width="32%" alt="Synced lyrics on a phone">
+</p>
+
+## All features
+
+<details open>
+<summary><b>Listen</b></summary>
 
 - **One search** across YouTube and SoundCloud, with source filters
 - Artist and album pages, charts by genre, similar artists
@@ -89,7 +109,10 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - **Share a song** as a short link: it opens in Segue, or on a web page
   with the cover and a YouTube player for anyone without the app
 
-### Sound
+</details>
+
+<details>
+<summary><b>Sound</b></summary>
 
 - **Gapless playback**: live albums and mixes flow without a pause
 - **DJ-style mixing**: overlapping crossfades with the next song brought to
@@ -99,7 +122,10 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - Trim any track to the part you want
 - Sleep timer that fades out
 
-### Lyrics
+</details>
+
+<details>
+<summary><b>Lyrics</b></summary>
 
 - **Word-by-word** highlighting, karaoke style, when timing is available;
   line-by-line otherwise
@@ -107,11 +133,10 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - A 3D side-by-side layout on wide screens; animation, size and glow are
   adjustable
 
-<p align="center">
-  <img src="docs/screenshots/en/lyrics.jpg" width="820" alt="Synced lyrics next to the cover on a desktop">
-</p>
+</details>
 
-### Your devices
+<details>
+<summary><b>Your devices</b></summary>
 
 - **Pair** with an 8-character code or a QR, on any network (Wi-Fi or
   mobile data)
@@ -126,7 +151,10 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - **Backup**: save your whole library (likes, playlists, history,
   settings and what My wave learnt) to a file and restore it on any device
 
-### Desktop and home screen
+</details>
+
+<details>
+<summary><b>Desktop and home screen</b></summary>
 
 - MacBook **living notch**: now playing around the camera; hover for
   controls, scroll for volume, swipe to skip
@@ -143,7 +171,10 @@ iOS has no prebuilt app (it needs Apple signing); you can
   | `L` | Like |
   | `⌘/Ctrl` + `F` | Search |
 
-### In the car (Android Auto)
+</details>
+
+<details>
+<summary><b>In the car (Android Auto)</b></summary>
 
 - My wave, liked songs, playlists and recent plays on the car screen
 - A song you pick plays with the rest of its list
@@ -154,11 +185,16 @@ Android Auto shows apps from Google Play only, so allow Segue once: in
 Android Auto's settings on the phone, tap **Version** 10 times, then
 **⋮ → Developer settings → Unknown sources**.
 
-### Integrations
+</details>
+
+<details>
+<summary><b>Integrations</b></summary>
 
 - Last.fm scrobbling (with your own API key)
 - Discord "Listening to" status (Windows, Linux)
 - In-app updates from GitHub releases
+
+</details>
 
 ## Privacy
 
@@ -171,6 +207,10 @@ Android Auto's settings on the phone, tap **Version** 10 times, then
   devices talk to each other directly.
 
 ## How it works
+
+<p align="center">
+  <img src="assets/readme/en/arch.webp" width="100%" alt="Diagram: music sources, the Segue app (player, matching, library) and sync with your other devices">
+</p>
 
 | Part | How |
 | --- | --- |
@@ -257,3 +297,10 @@ terms of those services and the rights of artists in your country.
 ## License
 
 [GPL-3.0](LICENSE)
+
+<br>
+
+<p align="center">
+  <img src="assets/brand/segue_mark.svg" width="40" alt=""><br>
+  <sub>Made with Flutter · <a href="https://segue-app.github.io/segue/">segue-app.github.io/segue</a></sub>
+</p>

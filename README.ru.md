@@ -1,13 +1,5 @@
 <p align="center">
-  <img src="assets/brand/icon_256.png" width="112" alt="Segue">
-</p>
-
-<h1 align="center">Segue</h1>
-
-<p align="center">
-  <b>Один плеер для всей твоей музыки.</b><br>
-  YouTube и SoundCloud в одном поиске, библиотека из Spotify и Яндекс Музыки,<br>
-  синхронизация между компьютером и телефоном. Бесплатно, с открытым кодом, без аккаунта и сервера.
+  <a href="https://segue-app.github.io/segue/"><img src="assets/readme/ru/hero.webp" width="100%" alt="Segue: один плеер для всей твоей музыки — на компьютере и телефоне"></a>
 </p>
 
 <p align="center">
@@ -20,22 +12,37 @@
 
 <p align="center">
   <a href="#скачать">Скачать</a> ·
-  <a href="#возможности">Возможности</a> ·
+  <a href="#все-возможности">Возможности</a> ·
   <a href="#как-это-устроено">Как это устроено</a> ·
   <a href="#сборка-из-исходников">Сборка</a> ·
+  <a href="https://segue-app.github.io/segue/">Сайт</a> ·
   <a href="README.md">English</a>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/ru/home.jpg" width="820" alt="Segue на компьютере: Моя волна, плейлисты и недавно прослушанное">
+  <a href="https://github.com/segue-app/segue/releases/latest/download/segue-android-arm64.apk"><img src="assets/readme/ru/btn-android.webp" width="196" alt="Скачать для Android"></a>
+  <a href="https://github.com/segue-app/segue/releases/latest/download/segue-windows-x64.zip"><img src="assets/readme/ru/btn-windows.webp" width="196" alt="Скачать для Windows"></a>
+  <a href="https://github.com/segue-app/segue/releases/latest/download/segue-macos.zip"><img src="assets/readme/ru/btn-macos.webp" width="196" alt="Скачать для macOS"></a>
+  <a href="https://github.com/segue-app/segue/releases/latest/download/segue-linux-x64.tar.gz"><img src="assets/readme/ru/btn-linux.webp" width="196" alt="Скачать для Linux"></a>
+</p>
+
+<p align="center"><sub>Бесплатно · открытый код · без аккаунта и рекламы · обновляется сам</sub></p>
+
+## Главное
+
+<p align="center">
+  <img src="assets/readme/ru/wave.webp" width="49%" alt="Моя волна: микс, который учится на тебе">
+  <img src="assets/readme/ru/import.webp" width="49%" alt="Импорт из Spotify, Яндекс Музыки, YouTube и SoundCloud">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/ru/phone-home.jpg" width="230" alt="Главная на телефоне">
-  &nbsp;
-  <img src="docs/screenshots/ru/phone-player.jpg" width="230" alt="Плеер на телефоне">
-  &nbsp;
-  <img src="docs/screenshots/ru/phone-lyrics.jpg" width="230" alt="Текст песни на телефоне">
+  <img src="assets/readme/ru/lyrics.webp" width="49%" alt="Текст песен по словам, как караоке, с переводом">
+  <img src="assets/readme/ru/devices.webp" width="49%" alt="Ноутбук и телефон как один плеер, со сквозным шифрованием">
+</p>
+
+<p align="center">
+  <img src="assets/readme/ru/sound.webp" width="49%" alt="Переходы с подгонкой темпа и эквалайзер">
+  <img src="assets/readme/ru/auto.webp" width="49%" alt="Android Auto: волна, лайки и плейлисты в машине">
 </p>
 
 ## Зачем Segue
@@ -59,7 +66,7 @@
 
 | Платформа | Файл | Примечание |
 | --- | --- | --- |
-| **Android** | `segue-android-arm64.apk` | Почти все телефоны. Старые: `-armv7`, эмуляторы: `-x86_64`. Работает с [Android Auto](#в-машине-android-auto) |
+| **Android** | `segue-android-arm64.apk` | Почти все телефоны. Старые: `-armv7`, эмуляторы: `-x86_64`. Работает с [Android Auto](#все-возможности) |
 | **Windows** | `segue-windows-x64.zip` | Распакуй куда угодно и запусти `segue.exe` |
 | **macOS** | `segue-macos.zip` | Распакуй и перенеси в «Программы». Приложение не нотаризовано: в первый раз открой через правый клик → **Открыть** |
 | **Linux** | `segue-linux-x64.tar.gz` | Нужен libmpv: `sudo apt install libmpv2` |
@@ -67,9 +74,22 @@
 Готовой сборки для iOS нет (нужна подпись Apple), но её можно
 [собрать из исходников](#сборка-из-исходников).
 
-## Возможности
+## Как это выглядит
 
-### Музыка
+<p align="center">
+  <img src="docs/screenshots/ru/lyrics.jpg" width="100%" alt="Текст песни рядом с обложкой на компьютере">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/ru/phone-home.jpg" width="32%" alt="Главная на телефоне">
+  <img src="docs/screenshots/ru/phone-player.jpg" width="32%" alt="Плеер на телефоне">
+  <img src="docs/screenshots/ru/phone-lyrics.jpg" width="32%" alt="Текст песни на телефоне">
+</p>
+
+## Все возможности
+
+<details open>
+<summary><b>Музыка</b></summary>
 
 - **Один поиск** по YouTube и SoundCloud, с фильтром по источнику
 - Страницы артистов и альбомов, чарты по жанрам, похожие артисты
@@ -88,7 +108,10 @@
 - **Поделиться треком** короткой ссылкой: она откроется в Segue, а у кого
   приложения нет — на странице с обложкой и плеером YouTube
 
-### Звук
+</details>
+
+<details>
+<summary><b>Звук</b></summary>
 
 - **Без пауз между треками**: концертные альбомы и миксы идут сплошным
   потоком
@@ -99,7 +122,10 @@
 - Обрезка трека до нужного фрагмента
 - Таймер сна с плавным затуханием
 
-### Текст песен
+</details>
+
+<details>
+<summary><b>Текст песен</b></summary>
 
 - **Подсветка по словам**, как в караоке, когда есть точные тайминги;
   иначе по строкам
@@ -107,11 +133,10 @@
 - 3D-раскладка рядом с обложкой на широких экранах; анимация, размер и
   свечение настраиваются
 
-<p align="center">
-  <img src="docs/screenshots/ru/lyrics.jpg" width="820" alt="Текст песни рядом с обложкой на компьютере">
-</p>
+</details>
 
-### Твои устройства
+<details>
+<summary><b>Твои устройства</b></summary>
 
 - **Связка** по 8-значному коду или QR, в любой сети (Wi-Fi или мобильный
   интернет)
@@ -126,7 +151,10 @@
   настройки и то, чему научилась волна) в одном файле, восстанавливается на
   любом устройстве
 
-### Рабочий стол и домашний экран
+</details>
+
+<details>
+<summary><b>Рабочий стол и домашний экран</b></summary>
 
 - **Живая чёлка** на MacBook: текущий трек вокруг камеры; наведи курсор для
   управления, прокрути для громкости, смахни для переключения
@@ -143,7 +171,10 @@
   | `L` | Лайк |
   | `⌘/Ctrl` + `F` | Поиск |
 
-### В машине (Android Auto)
+</details>
+
+<details>
+<summary><b>В машине (Android Auto)</b></summary>
 
 - «Моя волна», любимые, плейлисты и недавние на экране машины
 - Выбранный трек играет вместе с остальным списком
@@ -155,11 +186,16 @@ Android Auto показывает только приложения из Google 
 10 раз на **Версия**, затем **⋮ → Настройки для разработчиков →
 Неизвестные источники**.
 
-### Интеграции
+</details>
+
+<details>
+<summary><b>Интеграции</b></summary>
 
 - Скробблинг в Last.fm (со своим API-ключом)
 - Статус «Слушает» в Discord (Windows, Linux)
 - Обновление из релизов GitHub прямо в приложении
+
+</details>
 
 ## Приватность
 
@@ -172,6 +208,10 @@ Android Auto показывает только приложения из Google 
   устройствах. В одной Wi-Fi сети устройства общаются напрямую.
 
 ## Как это устроено
+
+<p align="center">
+  <img src="assets/readme/ru/arch.webp" width="100%" alt="Схема: источники музыки, приложение Segue (плеер, подбор версий, библиотека) и синхронизация с другими устройствами">
+</p>
 
 | Часть | Как сделано |
 | --- | --- |
@@ -258,3 +298,10 @@ Segue — клиент для контента, который публично 
 ## Лицензия
 
 [GPL-3.0](LICENSE)
+
+<br>
+
+<p align="center">
+  <img src="assets/brand/segue_mark.svg" width="40" alt=""><br>
+  <sub>Сделано на Flutter · <a href="https://segue-app.github.io/segue/">segue-app.github.io/segue</a></sub>
+</p>
