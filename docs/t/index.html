@@ -97,12 +97,24 @@
   document.getElementById('foot').textContent = T.foot;
 
   var data = location.hash.slice(1);
+  function b64text(b) {
+    b = b.replace(/-/g, '+').replace(/_/g, '/');
+    while (b.length % 4) b += '=';
+    var bytes = Uint8Array.from(atob(b), function (c) { return c.charCodeAt(0); });
+    return new TextDecoder().decode(bytes);
+  }
   var song = null;
   try {
-    var b64 = data.replace(/-/g, '+').replace(/_/g, '/');
-    while (b64.length % 4) b64 += '=';
-    var bytes = Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); });
-    song = JSON.parse(new TextDecoder().decode(bytes));
+    if (data.indexOf('eyJ') === 0) {
+      song = JSON.parse(b64text(data)); // older, longer links
+    } else {
+      // Compact: m|y, the YouTube id, '.', base64("title\nartist").
+      var m = /^([my])([A-Za-z0-9_-]*)\.([A-Za-z0-9_-]+)$/.exec(data);
+      if (m) {
+        var names = b64text(m[3]).split('\n');
+        song = { t: names[0], a: names[1] || '', y: m[2] || null };
+      }
+    }
   } catch (e) { song = null; }
 
   if (!song || !song.t) {
@@ -117,8 +129,28 @@
   document.getElementById('title').textContent = song.t;
   document.getElementById('artist').textContent = song.a || '';
   var cover = document.getElementById('cover');
-  var art = song.c || (song.y ? 'https://i.ytimg.com/vi/' + encodeURIComponent(song.y) + '/hqdefault.jpg' : '');
+  // A frame of the video meanwhile (16:9, no black bars), then the
+  // album's own cover from Deezer if it has the song.
+  var art = song.c || (song.y ? 'https://i.ytimg.com/vi/' + encodeURIComponent(song.y) + '/hq720.jpg' : '');
+  // Older videos have no 720p frame: the 320×180 one always exists.
+  cover.onerror = function () {
+    if (cover.src.indexOf('/hq720.jpg') > 0) cover.src = cover.src.replace('/hq720.jpg', '/mqdefault.jpg');
+  };
   if (/^https:\/\//.test(art)) cover.src = art; else cover.style.display = 'none';
+  if (!song.c) {
+    window.__segueCover = function (r) {
+      var hit = r && r.data && r.data[0];
+      var url = hit && hit.album && (hit.album.cover_xl || hit.album.cover_big);
+      if (url && /^https:\/\//.test(url)) {
+        cover.src = url;
+        cover.style.display = 'block';
+      }
+    };
+    var q = encodeURIComponent((song.a || '') + ' ' + song.t);
+    var js = document.createElement('script');
+    js.src = 'https://api.deezer.com/search?q=' + q + '&limit=1&output=jsonp&callback=__segueCover';
+    document.body.appendChild(js);
+  }
 
   var open = document.getElementById('open');
   open.textContent = T.open;

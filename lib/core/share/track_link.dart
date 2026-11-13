@@ -12,17 +12,18 @@ class TrackLink {
   static const web = 'https://segue-app.github.io/segue/t/';
 
   /// [youtubeId] is the exact video this device plays the song from.
+  ///
+  /// Compact: a letter for the kind (m = a catalog or imported song,
+  /// y = a YouTube video), the video id, a dot, then the title and artist
+  /// (base64 of "title\nartist"). About 40 characters; the cover comes
+  /// from the video, so it needn't travel.
   static String encode(Track t, {String? youtubeId}) {
-    final j = <String, Object?>{
-      's': t.source == SourceKind.youtube ? 'yt' : 'm',
-      'id': t.id,
-      't': t.displayTitle,
-      'a': t.artist,
-      'y': ?(t.source == SourceKind.youtube ? t.id : youtubeId),
-      'c': ?t.artworkUrl,
-      'd': ?t.duration?.inSeconds,
-    };
-    return base64Url.encode(utf8.encode(jsonEncode(j))).replaceAll('=', '');
+    final yt = t.source == SourceKind.youtube;
+    final y = yt ? t.id : (youtubeId ?? '');
+    final names = base64Url
+        .encode(utf8.encode('${t.displayTitle}\n${t.artist}'))
+        .replaceAll('=', '');
+    return '${yt ? 'y' : 'm'}$y.$names';
   }
 
   static String webLink(Track t, {String? youtubeId}) =>
@@ -35,6 +36,7 @@ class TrackLink {
         uri.queryParameters['d'] ??
         (uri.fragment.isNotEmpty ? uri.fragment : null);
     if (data == null) return null;
+    if (!data.startsWith('eyJ')) return _decodeCompact(data);
     try {
       final padded = data.padRight((data.length + 3) ~/ 4 * 4, '=');
       final j = jsonDecode(utf8.decode(base64Url.decode(padded))) as Map;
@@ -60,6 +62,39 @@ class TrackLink {
               artist: artist,
               artworkUrl: j['c'] as String?,
               duration: duration,
+            );
+      return (track: track, youtubeId: y);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static ({Track track, String? youtubeId})? _decodeCompact(String data) {
+    final m = RegExp(r'^([my])([A-Za-z0-9_-]*)\.([A-Za-z0-9_-]+)$')
+        .firstMatch(data);
+    if (m == null) return null;
+    try {
+      final b = m.group(3)!;
+      final names = utf8
+          .decode(base64Url.decode(b.padRight((b.length + 3) ~/ 4 * 4, '=')))
+          .split('\n');
+      final title = names.first.trim();
+      final artist = names.length > 1 ? names[1].trim() : '';
+      if (title.isEmpty) return null;
+      final y = m.group(2)!.isEmpty ? null : m.group(2);
+      final track = m.group(1) == 'y' && y != null
+          ? Track(
+              id: y,
+              source: SourceKind.youtube,
+              title: title,
+              artist: artist,
+              artworkUrl: 'https://i.ytimg.com/vi/$y/hq720.jpg',
+            )
+          : Track(
+              id: '$artist — $title',
+              source: SourceKind.match,
+              title: title,
+              artist: artist,
             );
       return (track: track, youtubeId: y);
     } catch (_) {

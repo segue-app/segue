@@ -14,6 +14,7 @@ void main() {
     );
     final link = TrackLink.webLink(imported, youtubeId: 'U9vbmWx4zt0');
     expect(link, startsWith(TrackLink.web));
+    expect(link.length, lessThan(90)); // was 313 with everything inside
     final back = TrackLink.decode(Uri.parse(link))!;
     expect(back.track.key, imported.key);
     expect(back.track.title, 'Капкан');
@@ -39,5 +40,13 @@ void main() {
   test('broken links are ignored', () {
     expect(TrackLink.decode(Uri.parse('segue://track?d=@@@')), isNull);
     expect(TrackLink.decode(Uri.parse('https://x.y/t/')), isNull);
+  });
+
+  test('old long links still open', () {
+    const old =
+        'https://segue-app.github.io/segue/t/#eyJzIjoibSIsImlkIjoi0JzQntCiIOKAlCDQmtCw0L_QutCw0L0iLCJ0Ijoi0JrQsNC_0LrQsNC9IiwiYSI6ItCc0J7QoiIsInkiOiJVOXZibVd4NHp0MCIsImQiOjIyOH0';
+    final back = TrackLink.decode(Uri.parse(old))!;
+    expect(back.track.title, 'Капкан');
+    expect(back.youtubeId, 'U9vbmWx4zt0');
   });
 }
