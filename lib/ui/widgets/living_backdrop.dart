@@ -162,7 +162,15 @@ class _CloudsPainter extends CustomPainter {
     // Soft clouds have no detail: painted on a small off-screen picture
     // and stretched, they look the same for a fraction of the fill work
     // (six full-screen gradients a frame otherwise).
-    const k = 0.3;
+    // Small areas (the preview in Settings) are painted as they are: a
+    // tiny picture stretched far showed a grid of blotches. They cost
+    // little anyway.
+    if (math.min(size.width, size.height) <= 420) {
+      _paintClouds(canvas, size);
+      return;
+    }
+    // Big ones shrink, but keep ~520 px across: smaller showed blotches.
+    final k = (520 / math.min(size.width, size.height)).clamp(0.3, 1.0);
     final w = math.max(1, (size.width * k).ceil());
     final h = math.max(1, (size.height * k).ceil());
     final recorder = ui.PictureRecorder();
