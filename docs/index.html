@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Segue — one music player for everything</title>
+<meta name="description" content="Free music player: YouTube and SoundCloud in one search, your Spotify and Yandex Music library, in sync across your computer and phone. No ads, no account.">
+<meta property="og:title" content="Segue — one music player for everything">
+<meta property="og:description" content="YouTube, SoundCloud, Spotify and Yandex Music in one free player. No ads, no account.">
+<meta property="og:image" content="https://segue-app.github.io/segue/og.png">
+<meta property="og:url" content="https://segue-app.github.io/segue/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #0d0c0f;
+    --bg2: #141217;
+    --card: #1a181d;
+    --line: rgba(255,255,255,.08);
+    --text: #f5f2f7;
+    --dim: #a8a2ad;
+    --accent: #ff9a76;
+    --violet: #7b5cff;
+    --pink: #e0457b;
+    --ink: #1b1214;
+    --radius: 22px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+  /* Top bar */
+  header.top {
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: blur(16px);
+    background: rgba(13,12,15,.72);
+    border-bottom: 1px solid var(--line);
+  }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; text-decoration: none; }
+  .logo img { width: 30px; height: 30px; border-radius: 8px; }
+  nav.links { display: flex; align-items: center; gap: 22px; font-size: 15px; }
+  nav.links a { text-decoration: none; color: var(--dim); }
+  nav.links a:hover { color: var(--text); }
+  .lang { border: 1px solid var(--line); background: none; color: var(--text); border-radius: 10px; padding: 6px 10px; font-size: 14px; cursor: pointer; }
+  @media (max-width: 720px) { nav.links .hide-sm { display: none; } }
+
+  /* Hero */
+  .hero { position: relative; padding: 76px 0 40px; text-align: center; }
+  .hero::before {
+    content: ""; position: absolute; inset: -120px -20% auto; height: 620px; z-index: -1;
+    background:
+      radial-gradient(38% 50% at 30% 40%, rgba(255,154,118,.30), transparent 70%),
+      radial-gradient(36% 46% at 70% 35%, rgba(123,92,255,.28), transparent 70%),
+      radial-gradient(30% 40% at 50% 70%, rgba(224,69,123,.20), transparent 70%);
+    filter: blur(30px);
+  }
+  .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--dim); font-size: 14px; background: rgba(255,255,255,.03); }
+  .badge b { color: var(--accent); font-weight: 700; }
+  @media (max-width: 520px) {
+    .badge { font-size: 13px; padding: 6px 12px; flex-wrap: wrap; justify-content: center; border-radius: 16px; max-width: 320px; }
+    .hero { padding-top: 48px; }
+  }
+  h1 { font-size: clamp(36px, 6.2vw, 68px); line-height: 1.05; letter-spacing: -.03em; margin: 22px auto 16px; max-width: 900px; }
+  h1 .grad { background: linear-gradient(90deg, var(--accent), var(--pink) 50%, var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { font-size: clamp(17px, 2.1vw, 20px); color: var(--dim); max-width: 680px; margin: 0 auto 30px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 15px 26px; border-radius: 16px; font-weight: 700; font-size: 17px; text-decoration: none; transition: transform .15s ease, filter .15s ease; }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  .btn.primary { background: var(--accent); color: var(--ink); box-shadow: 0 10px 30px rgba(255,154,118,.25); }
+  .btn.ghost { background: rgba(255,255,255,.07); border: 1px solid var(--line); }
+  .btn svg { width: 20px; height: 20px; }
+  .sub { margin-top: 14px; color: var(--dim); font-size: 14px; }
+  .sub a { color: var(--dim); }
+
+  /* Screens */
+  .shots { position: relative; margin: 56px auto 0; max-width: 1040px; }
+  .shots .desk { width: 100%; border-radius: 18px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.55); display: block; }
+  .shots .phone { position: absolute; right: -2%; bottom: -8%; width: 23%; border-radius: 22px; border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0,0,0,.6); }
+  @media (max-width: 720px) { .shots .phone { width: 34%; right: -1%; bottom: -12%; } }
+
+  section { padding: 96px 0 0; }
+  .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+  h2 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -.02em; line-height: 1.15; margin: 10px 0 14px; }
+  .intro { color: var(--dim); max-width: 640px; font-size: 18px; margin: 0 0 34px; }
+
+  /* Features */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+  .feature { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+  .feature .ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 14px; font-size: 21px; }
+  .feature h3 { margin: 0 0 6px; font-size: 18px; }
+  .feature p { margin: 0; color: var(--dim); font-size: 15px; }
+  .c1 { background: rgba(255,154,118,.15); } .c2 { background: rgba(123,92,255,.17); } .c3 { background: rgba(224,69,123,.16); }
+  .c4 { background: rgba(60,203,154,.16); } .c5 { background: rgba(91,140,255,.17); } .c6 { background: rgba(255,214,102,.15); }
+
+  /* Split */
+  .split { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
+  .split.rev { grid-template-columns: .95fr 1.05fr; }
+  .split.rev .media { order: -1; }
+  @media (max-width: 860px) { .split, .split.rev { grid-template-columns: 1fr; } .split.rev .media { order: 0; } }
+  .media img { width: 100%; border-radius: 18px; border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0,0,0,.5); display: block; }
+  .phones { display: flex; gap: 14px; justify-content: center; }
+  .phones img { width: 46%; border-radius: 22px; }
+  ul.ticks { list-style: none; padding: 0; margin: 0; }
+  ul.ticks li { padding: 9px 0 9px 32px; position: relative; color: var(--dim); }
+  ul.ticks li b { color: var(--text); }
+  ul.ticks li::before { content: ""; position: absolute; left: 0; top: 14px; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--violet)); -webkit-mask: radial-gradient(circle, transparent 0 4px, #000 5px); mask: radial-gradient(circle, transparent 0 4px, #000 5px); }
+
+  /* Platforms */
+  .platforms { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 860px) { .platforms { grid-template-columns: repeat(2, 1fr); } }
+  .plat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; transition: border-color .15s; }
+  .plat:hover { border-color: rgba(255,154,118,.5); }
+  .plat .name { font-weight: 800; font-size: 18px; }
+  .plat .file { color: var(--dim); font-size: 13px; word-break: break-all; }
+  .plat .go { margin-top: auto; color: var(--accent); font-weight: 700; font-size: 15px; }
+  .plat.me { border-color: rgba(255,154,118,.6); box-shadow: 0 0 0 1px rgba(255,154,118,.25) inset; }
+
+  /* FAQ */
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px; margin-bottom: 12px; }
+  summary { cursor: pointer; font-weight: 700; font-size: 17px; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--dim); font-size: 22px; line-height: 1; }
+  details[open] summary::after { content: "–"; }
+  details p { color: var(--dim); margin: 12px 0 0; }
+
+  /* Closing */
+  .closing { margin: 110px 0 0; padding: 56px 24px; text-align: center; border-radius: 28px; border: 1px solid var(--line);
+    background: radial-gradient(60% 120% at 20% 0%, rgba(255,154,118,.18), transparent 60%), radial-gradient(60% 120% at 80% 100%, rgba(123,92,255,.2), transparent 60%), var(--bg2); }
+  .closing h2 { margin-top: 0; }
+  footer { padding: 48px 0 40px; color: var(--dim); font-size: 14px; text-align: center; }
+  footer a { color: var(--dim); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#"><img src="icon.png" alt="">Segue</a>
+    <nav class="links">
+      <a class="hide-sm" href="#features" data-i="nav_features">Features</a>
+      <a class="hide-sm" href="#download" data-i="nav_download">Download</a>
+      <a class="hide-sm" href="#faq" data-i="nav_faq">FAQ</a>
+      <a href="https://github.com/segue-app/segue" target="_blank" rel="noopener">GitHub</a>
+      <button class="lang" id="lang" type="button">RU</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <span class="badge"><b data-i="badge_free">Free</b> · <span data-i="badge_rest">no ads · no account · open source</span></span>
+    <h1><span data-i="h1_a">One music player</span><br><span class="grad" data-i="h1_b">for everything you listen to</span></h1>
+    <p class="lead" data-i="lead">YouTube and SoundCloud in one search, your playlists and likes from Spotify and Yandex Music, in sync between your computer and your phone.</p>
+    <div class="cta">
+      <a class="btn primary" id="dl-main" href="https://github.com/segue-app/segue/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        <span id="dl-main-text">Download</span>
+      </a>
+      <a class="btn ghost" href="#download" data-i="other_platforms">Other platforms</a>
+    </div>
+    <p class="sub"><span data-i="sub">Android · Windows · macOS · Linux</span> · <span id="version"></span></p>
+
+    <div class="shots">
+      <img class="desk" data-shot="home" alt="Segue on a computer">
+      <img class="phone" data-shot="phone-player" alt="Segue on a phone">
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="eyebrow" data-i="f_eyebrow">Why Segue</div>
+      <h2 data-i="f_title">Everything in one place, nothing extra</h2>
+      <p class="intro" data-i="f_intro">No subscription and no Segue server: your library lives on your devices, and the app talks to the music services directly.</p>
+      <div class="grid">
+        <div class="feature"><div class="ic c1">🔎</div><h3 data-i="f1_t">One search</h3><p data-i="f1_p">YouTube and SoundCloud at once, with artist and album pages and charts.</p></div>
+        <div class="feature"><div class="ic c2">📥</div><h3 data-i="f2_t">Bring your library</h3><p data-i="f2_p">Playlists and likes from Spotify and Yandex Music; each song is matched to the right version.</p></div>
+        <div class="feature"><div class="ic c3">🌊</div><h3 data-i="f3_t">My wave and radios</h3><p data-i="f3_p">An endless mix that learns from what you play and skip, plus one-tap radios by mood and genre.</p></div>
+        <div class="feature"><div class="ic c4">🎤</div><h3 data-i="f4_t">Karaoke lyrics</h3><p data-i="f4_p">Highlighted word by word as they're sung, with line-by-line translation.</p></div>
+        <div class="feature"><div class="ic c5">🎛️</div><h3 data-i="f5_t">Sound like a DJ</h3><p data-i="f5_p">Gapless playback, crossfades with tempo matching, even loudness and a 10-band equalizer.</p></div>
+        <div class="feature"><div class="ic c6">📴</div><h3 data-i="f6_t">Works offline</h3><p data-i="f6_p">Recently played songs stay on the device by themselves and start instantly, even without internet.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div>
+        <div class="eyebrow" data-i="d_eyebrow">All your devices</div>
+        <h2 data-i="d_title">Start on the laptop, continue on the phone</h2>
+        <ul class="ticks">
+          <li data-i="d1"><b>Same second.</b> Move the music between devices with one tap; it carries on exactly where it was.</li>
+          <li data-i="d2"><b>Your phone is the remote.</b> Control the computer's music from the phone and the other way round.</li>
+          <li data-i="d3"><b>Everything in sync.</b> Likes, playlists, history and settings, on any network.</li>
+          <li data-i="d4"><b>Private.</b> Sync is end-to-end encrypted; the key exists only on your devices.</li>
+        </ul>
+      </div>
+      <div class="media phones">
+        <img data-shot="phone-home" alt="">
+        <img data-shot="phone-lyrics" alt="">
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split rev">
+      <div class="media"><img data-shot="lyrics" alt=""></div>
+      <div>
+        <div class="eyebrow" data-i="t_eyebrow">With friends</div>
+        <h2 data-i="t_title">Music is better together</h2>
+        <ul class="ticks">
+          <li data-i="t1"><b>Listen together.</b> Share a code and friends hear the same song at the same second, wherever they are.</li>
+          <li data-i="t2"><b>Shared playlists.</b> Everyone with the code adds, removes and reorders songs.</li>
+          <li data-i="t3"><b>Share a song.</b> A link opens it in Segue, or on YouTube for friends who don't have it yet.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <div class="eyebrow" data-i="dl_eyebrow">Download</div>
+      <h2 data-i="dl_title">Free on every platform</h2>
+      <p class="intro" data-i="dl_intro">After the first install Segue updates itself from Settings.</p>
+      <div class="platforms">
+        <a class="plat" data-os="android" href="https://github.com/segue-app/segue/releases/latest/download/segue-android-arm64.apk">
+          <span class="name">Android</span><span class="file">segue-android-arm64.apk</span><span class="go" data-i="get">Download →</span></a>
+        <a class="plat" data-os="windows" href="https://github.com/segue-app/segue/releases/latest/download/segue-windows-x64.zip">
+          <span class="name">Windows</span><span class="file">segue-windows-x64.zip</span><span class="go" data-i="get">Download →</span></a>
+        <a class="plat" data-os="mac" href="https://github.com/segue-app/segue/releases/latest/download/segue-macos.zip">
+          <span class="name">macOS</span><span class="file">segue-macos.zip</span><span class="go" data-i="get">Download →</span></a>
+        <a class="plat" data-os="linux" href="https://github.com/segue-app/segue/releases/latest/download/segue-linux-x64.tar.gz">
+          <span class="name">Linux</span><span class="file">segue-linux-x64.tar.gz</span><span class="go" data-i="get">Download →</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <div class="eyebrow">FAQ</div>
+      <h2 data-i="q_title">Questions</h2>
+      <details><summary data-i="q1">Is it really free?</summary><p data-i="a1">Yes. No ads, no subscription, no account. The code is open on GitHub.</p></details>
+      <details><summary data-i="q2">Do I need a Spotify or Yandex Music subscription?</summary><p data-i="a2">No. Segue only reads your playlists and likes from them; the music itself plays from YouTube and SoundCloud.</p></details>
+      <details><summary data-i="q3">macOS says it can't open the app</summary><p data-i="a3">The app isn't notarized by Apple yet. Move Segue to Applications, right-click it and choose Open — only the first time.</p></details>
+      <details><summary data-i="q4">Android won't install the APK</summary><p data-i="a4">Allow installing apps from your browser or file manager when Android asks. If an older Segue won't update, remove it once and install the new one.</p></details>
+      <details><summary data-i="q5">Is there an iPhone version?</summary><p data-i="a5">Not yet: Apple requires signing for every app. It's in the works.</p></details>
+      <details><summary data-i="q6">What about my data?</summary><p data-i="a6">There's no Segue server: your library is stored on your devices, and sync between them is end-to-end encrypted. No analytics, no tracking.</p></details>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="closing">
+      <h2 data-i="c_title">Your music, one player</h2>
+      <p class="intro" style="margin: 0 auto 26px;" data-i="c_intro">Free, without ads or an account. Try it in a minute.</p>
+      <a class="btn primary" id="dl-bottom" href="https://github.com/segue-app/segue/releases/latest"><span id="dl-bottom-text">Download</span></a>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a href="https://github.com/segue-app/segue" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://github.com/segue-app/segue/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0</a> ·
+    <span data-i="foot">Segue doesn't host or distribute any media.</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var RU = {
+    nav_features: 'Возможности', nav_download: 'Скачать', nav_faq: 'Вопросы',
+    badge_free: 'Бесплатно', badge_rest: 'без рекламы · без аккаунта · открытый код',
+    h1_a: 'Один плеер', h1_b: 'для всей твоей музыки',
+    lead: 'YouTube и SoundCloud в одном поиске, твои плейлисты и лайки из Spotify и Яндекс Музыки, синхронизация между компьютером и телефоном.',
+    other_platforms: 'Другие платформы', sub: 'Android · Windows · macOS · Linux',
+    f_eyebrow: 'Зачем Segue', f_title: 'Всё в одном месте, ничего лишнего',
+    f_intro: 'Без подписки и без сервера Segue: библиотека хранится на твоих устройствах, а приложение обращается к музыкальным сервисам напрямую.',
+    f1_t: 'Один поиск', f1_p: 'YouTube и SoundCloud сразу, страницы артистов и альбомов, чарты.',
+    f2_t: 'Перенос библиотеки', f2_p: 'Плейлисты и лайки из Spotify и Яндекс Музыки; каждая песня подбирается в правильной версии.',
+    f3_t: 'Моя волна и радио', f3_p: 'Бесконечный микс, который учится на том, что ты слушаешь и пропускаешь, и радио по настроению и жанру в одно нажатие.',
+    f4_t: 'Текст как в караоке', f4_p: 'Слова подсвечиваются в момент, когда их поют, с построчным переводом.',
+    f5_t: 'Звук как у диджея', f5_p: 'Переходы без пауз, сведение с подстройкой темпа, ровная громкость и 10-полосный эквалайзер.',
+    f6_t: 'Работает без сети', f6_p: 'Недавние треки сами сохраняются на устройстве и запускаются мгновенно, даже без интернета.',
+    d_eyebrow: 'Все твои устройства', d_title: 'Начни на ноутбуке, продолжи на телефоне',
+    d1: '<b>С той же секунды.</b> Музыка переносится между устройствами одним нажатием и продолжается ровно с того места.',
+    d2: '<b>Телефон — пульт.</b> Управляй музыкой на компьютере с телефона и наоборот.',
+    d3: '<b>Всё синхронно.</b> Лайки, плейлисты, история и настройки, в любой сети.',
+    d4: '<b>Приватно.</b> Синхронизация зашифрована, ключ есть только на твоих устройствах.',
+    t_eyebrow: 'С друзьями', t_title: 'Музыку лучше слушать вместе',
+    t1: '<b>Слушать вместе.</b> Поделись кодом, и друзья слышат ту же песню в ту же секунду, где бы они ни были.',
+    t2: '<b>Совместные плейлисты.</b> Все, у кого есть код, добавляют, убирают и переставляют песни.',
+    t3: '<b>Поделиться песней.</b> Ссылка открывает её в Segue, а у друзей без Segue — на YouTube.',
+    dl_eyebrow: 'Скачать', dl_title: 'Бесплатно на всех платформах',
+    dl_intro: 'После первой установки Segue обновляется сам из настроек.', get: 'Скачать →',
+    q_title: 'Вопросы',
+    q1: 'Это правда бесплатно?', a1: 'Да. Без рекламы, подписки и аккаунта. Код открыт на GitHub.',
+    q2: 'Нужна ли подписка Spotify или Яндекс Музыки?', a2: 'Нет. Segue только забирает оттуда твои плейлисты и лайки, а сама музыка играет с YouTube и SoundCloud.',
+    q3: 'macOS пишет, что не может открыть приложение', a3: 'Приложение пока не нотаризовано Apple. Перенеси Segue в «Программы», нажми на него правой кнопкой и выбери «Открыть» — только в первый раз.',
+    q4: 'Android не ставит APK', a4: 'Разреши установку приложений из браузера или файлового менеджера, когда Android спросит. Если старая Segue не обновляется, удали её один раз и поставь новую.',
+    q5: 'Есть ли версия для iPhone?', a5: 'Пока нет: Apple требует подпись для каждого приложения. Мы над этим работаем.',
+    q6: 'Что с моими данными?', a6: 'Сервера Segue нет: библиотека хранится на твоих устройствах, а синхронизация между ними зашифрована. Никакой аналитики и слежки.',
+    c_title: 'Вся твоя музыка в одном плеере', c_intro: 'Бесплатно, без рекламы и аккаунта. Попробуй за минуту.',
+    foot: 'Segue не размещает и не распространяет медиа.'
+  };
+  var EN = {};
+  var nodes = document.querySelectorAll('[data-i]');
+  nodes.forEach(function (n) { EN[n.getAttribute('data-i')] = n.innerHTML; });
+
+  var ua = navigator.userAgent;
+  var os = /Android/i.test(ua) ? 'android'
+    : /iPhone|iPad|iPod/i.test(ua) ? 'ios'
+    : /Mac/i.test(ua) ? 'mac'
+    : /Win/i.test(ua) ? 'windows'
+    : /Linux/i.test(ua) ? 'linux' : null;
+  var names = { android: 'Android', windows: 'Windows', mac: 'macOS', linux: 'Linux' };
+
+  var stored = null;
+  try { stored = localStorage.getItem('segue-lang'); } catch (e) {}
+  var lang = stored || ((navigator.language || '').toLowerCase().indexOf('ru') === 0 ? 'ru' : 'en');
+
+  function apply() {
+    var dict = lang === 'ru' ? RU : EN;
+    nodes.forEach(function (n) {
+      var k = n.getAttribute('data-i');
+      if (dict[k] != null) n.innerHTML = dict[k];
+    });
+    document.documentElement.lang = lang;
+    document.getElementById('lang').textContent = lang === 'ru' ? 'EN' : 'RU';
+    document.title = lang === 'ru' ? 'Segue — один плеер для всей музыки' : 'Segue — one music player for everything';
+    var label = lang === 'ru' ? 'Скачать' : 'Download';
+    var main = document.getElementById('dl-main');
+    var text = label;
+    if (os && names[os]) {
+      var card = document.querySelector('.plat[data-os="' + os + '"]');
+      main.href = card.href;
+      document.getElementById('dl-bottom').href = card.href;
+      text = label + (lang === 'ru' ? ' для ' : ' for ') + names[os];
+      document.querySelectorAll('.plat').forEach(function (p) { p.classList.toggle('me', p === card); });
+    } else if (os === 'ios') {
+      text = lang === 'ru' ? 'Скоро для iPhone · другие платформы' : 'iPhone soon · other platforms';
+      main.href = '#download';
+    }
+    document.getElementById('dl-main-text').textContent = text;
+    document.getElementById('dl-bottom-text').textContent = text;
+    document.querySelectorAll('[data-shot]').forEach(function (img) {
+      img.src = 'screenshots/' + lang + '/' + img.getAttribute('data-shot') + '.jpg';
+    });
+  }
+
+  document.getElementById('lang').addEventListener('click', function () {
+    lang = lang === 'ru' ? 'en' : 'ru';
+    try { localStorage.setItem('segue-lang', lang); } catch (e) {}
+    apply();
+  });
+  apply();
+
+  // Latest version, from GitHub (best effort).
+  fetch('https://api.github.com/repos/segue-app/segue/releases/latest')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (j && j.tag_name) document.getElementById('version').textContent = j.tag_name;
+    })
+    .catch(function () {});
+})();
+</script>
+</body>
+</html>
