@@ -32,7 +32,7 @@ one() {
 
 if [ -n "$1" ]; then one "$1"; exit; fi
 for lang in en ru; do
-  for id in hero wave import lyrics devices sound auto arch btn-android btn-windows btn-macos btn-linux; do
+  for id in hero wave import lyrics devices sound auto dj lights arch btn-android btn-windows btn-macos btn-linux; do
     one "$id:$lang"
   done
 done

@@ -168,6 +168,33 @@
   .car .now .x { flex: 1; font-size: 13px; } .car .now .x b { display: block; } .car .now .x span { color: var(--dim); font-size: 12px; }
   .car .now .pp { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; }
 
+
+  /* DJ */
+  .deck { position: absolute; top: 26px; width: 250px; height: 240px; border-radius: 22px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
+  .deck.live { border-color: rgba(255,154,118,.55); box-shadow: 0 0 40px rgba(255,154,118,.12); }
+  .deck .lb { position: absolute; left: 16px; top: 13px; font-size: 11px; font-weight: 800; letter-spacing: .12em; color: var(--dim); }
+  .vinyl { position: absolute; left: 50%; top: 36px; width: 136px; height: 136px; margin-left: -68px; border-radius: 50%;
+    background: repeating-radial-gradient(circle, #0b0b0d 0 2px, #17171b 2px 3px); box-shadow: 0 0 0 2px rgba(255,255,255,.07), 0 14px 30px rgba(0,0,0,.5); }
+  .deck.live .vinyl { box-shadow: 0 0 0 2px rgba(255,255,255,.07), 0 0 36px rgba(255,154,118,.45); }
+  .vinyl .lbl { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px; border-radius: 50%; border: 2px solid #1a1a1e; }
+  .vinyl:after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px; border-radius: 50%; background: #d6d6da; }
+  .vinyl .sheen { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 200deg, transparent, rgba(255,255,255,.08) 6%, transparent 14%, transparent 50%, rgba(255,255,255,.06) 56%, transparent 64%); }
+  .deck .bpm { position: absolute; left: 16px; bottom: 14px; font-size: 26px; font-weight: 800; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+  .deck .bpm small { font-size: 12px; color: var(--dim); font-weight: 700; margin-left: 4px; letter-spacing: 0; }
+  .deck .bpm em { font-style: normal; font-size: 12px; color: var(--accent); margin-left: 6px; letter-spacing: 0; }
+  .beats { position: absolute; right: 16px; bottom: 22px; display: flex; gap: 6px; }
+  .beats i { width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,.13); }
+  .beats i.on { background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.7); }
+  .beats i.down { background: var(--accent); box-shadow: 0 0 10px rgba(255,154,118,.8); }
+  .xf { position: absolute; left: 54px; right: 54px; top: 274px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); }
+
+  /* Lights */
+  .strip { position: absolute; left: 40px; right: 40px; height: 16px; border-radius: 8px; background: #141217; border: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; padding: 0 10px; }
+  .strip i { width: 8px; height: 8px; border-radius: 2px; }
+  .kbd { position: absolute; left: 92px; right: 92px; top: 112px; padding: 12px; border-radius: 16px; background: #121015; border: 2px solid #26232b; display: grid; grid-template-columns: repeat(14, 1fr); gap: 5px; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+  .kbd i { height: 18px; border-radius: 4px; background: #1d1b21; }
+  .pulse { position: absolute; left: 40px; right: 40px; top: 238px; height: 30px; }
+
   /* ---------------- Download buttons ---------------- */
   .btn { width: 260px; height: 72px; }
   .btn .in {
@@ -359,6 +386,49 @@
   </div>
 </div>
 
+<!-- DJ -->
+<div class="art card" id="dj">
+  <div class="panel"><div class="glow g-warm"></div><div class="noise"></div>
+    <div class="stage">
+      <div class="deck live" style="left:44px">
+        <div class="lb" data-t="dj.a"></div>
+        <div class="vinyl"><div class="lbl" style="background:url(../../docs/screenshots/en/home.jpg) -332px -234px / 781px auto"></div><div class="sheen"></div></div>
+        <div class="bpm">121.9<small>BPM</small></div>
+        <div class="beats"><i class="down"></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="deck" style="right:44px">
+        <div class="lb" data-t="dj.b"></div>
+        <div class="vinyl"><div class="lbl" style="background:url(../../docs/screenshots/en/home.jpg) -596px -234px / 781px auto"></div><div class="sheen"></div></div>
+        <div class="bpm">121.9<small>BPM</small><em>−4.4%</em></div>
+        <div class="beats"><i class="down"></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="xf"><div class="float" style="left:52%; top:-10px; width:44px; height:26px; border-radius:8px; background:var(--accent); margin-left:-22px;"></div></div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="dj.e"></div>
+      <h2 data-t="dj.h"></h2>
+      <p data-t="dj.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTS -->
+<div class="art card" id="lights">
+  <div class="panel"><div class="glow g-cool"></div><div class="noise"></div>
+    <div class="stage">
+      <div class="strip" id="strip1" style="top:46px"></div>
+      <div class="kbd" id="kbd"></div>
+      <svg class="pulse" id="pulse" width="540" height="30"></svg>
+      <div class="float pill" style="left:50%; top:66px; transform:translateX(-50%);" data-t="li.x"></div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="li.e"></div>
+      <h2 data-t="li.h"></h2>
+      <p data-t="li.p"></p>
+    </div>
+  </div>
+</div>
+
 <!-- DOWNLOAD BUTTONS -->
 <div class="art btn" id="btn-android"><div class="in">
   <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ff9a76" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg>
@@ -434,6 +504,12 @@ const T = {
     'auto.e': 'Android Auto', 'auto.h': 'On the road too',
     'auto.p': 'My wave, likes and playlists on the car screen. Ask for a song by voice, too.',
     'auto.wave': 'My wave', 'auto.liked': 'Liked', 'auto.lists': 'Playlists', 'auto.recent': 'Recent',
+    'dj.e': 'DJ', 'dj.h': 'Mixed on the beat',
+    'dj.p': 'Segue finds the beats itself and brings the next song in on a bar, in step. Auto DJ orders the set by tempo and energy.',
+    'dj.a': 'A · OUT', 'dj.b': 'B · IN',
+    'li.e': 'Lights in time', 'li.h': 'Your room flashes on the beat',
+    'li.p': 'LED strips, Govee lamps and keyboard or PC RGB light up with every beat, not a moment after it.',
+    'li.x': 'WLED · Govee · OpenRGB',
     'btn.get': 'Download for',
     'arch.in': 'Sources', 'arch.out': 'Your other devices',
     'arch.s1': 'Audio streams, search', 'arch.s2': 'Catalogue, charts, covers',
@@ -466,6 +542,12 @@ const T = {
     'auto.e': 'Android Auto', 'auto.h': 'И в дороге',
     'auto.p': '«Моя волна», лайки и плейлисты на экране машины. Песню можно попросить голосом.',
     'auto.wave': 'Моя волна', 'auto.liked': 'Любимые', 'auto.lists': 'Плейлисты', 'auto.recent': 'Недавние',
+    'dj.e': 'DJ', 'dj.h': 'Сведение в долю',
+    'dj.p': 'Segue сам находит доли и запускает следующую песню с такта, в ногу с текущей. Авто-DJ выстраивает сет по темпу и энергии.',
+    'dj.a': 'A · УХОДИТ', 'dj.b': 'B · ВХОДИТ',
+    'li.e': 'Свет в такт', 'li.h': 'Комната вспыхивает на ударах',
+    'li.p': 'Ленты, лампы Govee и подсветка клавиатуры и ПК вспыхивают вместе с ударом, а не после него.',
+    'li.x': 'WLED · Govee · OpenRGB',
     'btn.get': 'Скачать для',
     'arch.in': 'Источники', 'arch.out': 'Твои другие устройства',
     'arch.s1': 'Аудиопотоки и поиск', 'arch.s2': 'Каталог, чарты, обложки',
@@ -510,6 +592,36 @@ document.documentElement.lang = lang;
   [62, 74, 58, 44, 50, 66, 80, 72, 56, 64].forEach(h => {
     const d = document.createElement('div'); d.innerHTML = `<i style="height:${h}%"></i><b style="bottom:${h}%"></b>`; eq.appendChild(d);
   });
+})();
+
+// Lights: the strip, the keyboard and a beat pulse, mid-flash.
+(() => {
+  const cols = ['#ffb86b', '#ff9a76', '#ff5e8a', '#d55cff', '#7b5cff'];
+  const strip = document.getElementById('strip1');
+  for (let i = 0; i < 36; i++) {
+    const c = cols[Math.floor(i / 36 * cols.length)];
+    const k = document.createElement('i');
+    k.style.background = c; k.style.boxShadow = `0 0 12px 3px ${c}`;
+    strip.appendChild(k);
+  }
+  const kbd = document.getElementById('kbd');
+  for (let i = 0; i < 56; i++) {
+    const x = (i % 14) / 13, c = cols[Math.min(cols.length - 1, Math.floor(x * cols.length))];
+    const k = document.createElement('i');
+    const lit = 0.55 + 0.45 * Math.cos((i % 14 - 6.5) / 4);
+    k.style.background = c; k.style.opacity = lit.toFixed(2);
+    k.style.boxShadow = `0 0 10px ${c}`;
+    kbd.appendChild(k);
+  }
+  const svg = document.getElementById('pulse');
+  let d = 'M0 26 ';
+  for (let x = 0; x <= 540; x += 3) {
+    const beat = x / 67.5, ph = beat - Math.floor(beat);
+    const big = Math.floor(beat) % 4 === 0;
+    const y = 26 - (big ? 22 : 14) * Math.exp(-ph * 5);
+    d += `L${x} ${y.toFixed(1)} `;
+  }
+  svg.innerHTML = `<defs><linearGradient id="pg" x1="0" x2="1"><stop offset="0" stop-color="#ffb86b"/><stop offset=".5" stop-color="#ff5e8a"/><stop offset="1" stop-color="#7b5cff"/></linearGradient></defs><path d="${d}" stroke="url(#pg)" stroke-width="2.5" fill="none"/>`;
 })();
 </script>
 </body>

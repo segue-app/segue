@@ -45,6 +45,11 @@
   <img src="assets/readme/en/auto.webp" width="49%" alt="Android Auto: wave, likes and playlists in the car">
 </p>
 
+<p align="center">
+  <img src="assets/readme/en/dj.webp" width="49%" alt="DJ screen: two decks mixed on the beat">
+  <img src="assets/readme/en/lights.webp" width="49%" alt="LED strips and keyboard RGB flashing on the beat">
+</p>
+
 ## Why Segue
 
 - **Everything in one place.** One search across YouTube and SoundCloud, and
@@ -53,6 +58,9 @@
   Your library is a file on your device.
 - **All your devices as one player.** Start on the laptop, continue on the
   phone at the same second, or use the phone as a remote.
+- **A DJ in the app.** Songs are mixed on the beat, like a real set, and
+  Auto DJ plays a whole playlist that way. LED strips and keyboard RGB can
+  flash along.
 - **In the car too.** Android Auto puts My wave, your likes and playlists
   on the car screen, with voice search.
 - **In your language.** English and Russian, switched in Settings.
@@ -228,11 +236,13 @@ Android Auto's settings on the phone, tap **Version** 10 times, then
 | **Lyrics** | Word timing from NetEase Cloud Music when it has the song, line timing from [LRCLIB](https://lrclib.net) otherwise; both are checked against title, artist and length |
 | **Library** | SQLite on the device. Sync merges per item; the newest change wins |
 | **Sync** | Bonjour/mDNS on the local network; across networks, two public MQTT brokers at once (HiveMQ and EMQX), so either can be down. Invite codes are stretched with PBKDF2 and expire after 10 minutes |
+| **Beats** | Segue analyses songs itself: a short stretch is decoded by a silent second libmpv, then spectral flux, autocorrelation for the tempo and a comb search for the bar give a beat grid (in a background isolate, kept between sessions). A mix starts the next song on a bar at the old song's tempo and nudges its speed by up to 2.5% to keep the beats within a few milliseconds |
+| **Lights** | The beat grid is known ahead, so the lights are sent a little early and land with the beat: WLED over its UDP realtime protocol, Govee over LAN, OpenRGB over its SDK. 30 small packets a second, only while music plays |
 | **Performance** | Decorative motion runs on one shared 30 fps beat and stops when paused or out of sight; covers are cached on disk and fetched at the size shown |
 
 ```
 lib/
-  core/      sources, player, library, sync, catalog, lyrics, integrations
+  core/      sources, player, library, sync, catalog, lyrics, dj, lights, integrations
   ui/        screens, widgets, theme
 test/                unit tests
 integration_test/    real playback (muted) and screenshot runs on a desktop
