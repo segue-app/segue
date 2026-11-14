@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'confirm.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/catalog/wave.dart';
@@ -196,9 +199,17 @@ Future<void> showTrackActions(
                   : _Action(
                       icon: Icons.delete_outline_rounded,
                       label: 'Удалить с устройства'.tr,
-                      onTap: () {
-                        ref.read(downloadsProvider).delete(track);
+                      onTap: () async {
                         Navigator.pop(sheet);
+                        final ok = await confirmDialog(
+                          context,
+                          title: 'Удалить «{0}» из скачанных?'.trArgs([
+                            track.displayTitle,
+                          ]),
+                          message: 'Файл удалится с устройства. Трек останется в библиотеке и будет играть из интернета.'
+                              .tr,
+                        );
+                        if (ok) await ref.read(downloadsProvider).delete(track);
                       },
                     ),
             if (track.source == SourceKind.match)

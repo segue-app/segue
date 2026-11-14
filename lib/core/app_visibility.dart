@@ -46,8 +46,13 @@ class AppVisibility {
         life == AppLifecycleState.inactive;
   }
 
+  /// Set by the performance tool: animate as if in front.
+  @visibleForTesting
+  static bool debugAlwaysActive = false;
+
   /// On screen and the app in front.
   static bool get active {
+    if (debugAlwaysActive) return true;
     final n = _nativeActive;
     if (n != null) return n && visible;
     final life = _life;

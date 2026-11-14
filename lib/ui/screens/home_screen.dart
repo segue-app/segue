@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/content_width.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../widgets/track_tile.dart';
@@ -62,60 +65,58 @@ class HomeScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-                  child: Text(
-                    _greeting(),
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.2,
-                    ),
+        child: WideScroll(
+          max: 820,
+          builder: (context, side) => ListView(
+            padding: EdgeInsets.fromLTRB(side, 0, side, 24),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+                child: Text(
+                  _greeting(),
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.2,
                   ),
                 ),
-                const _WaveCard(),
-                const SizedBox(height: 12),
-                const _Radios(),
-                const SizedBox(height: 18),
-                if (empty)
-                  _Welcome(
-                    onSearch: onOpenSearch,
-                    onImported: (id) => pushUnique(
-                      Navigator.of(context),
-                      PlaylistScreen.route(id),
-                    ),
-                  )
-                else ...[
-                  _QuickGrid(
-                    likedCount: liked.length,
-                    likedCovers: [for (final t in liked.take(4)) t.artworkUrl],
-                    playlists: playlists.take(5).toList(),
-                    onLiked: () {
-                      ref.read(librarySectionProvider.notifier).state =
-                          LibrarySection.liked;
-                      onOpenLibrary();
-                    },
+              ),
+              const _WaveCard(),
+              const SizedBox(height: 12),
+              const _Radios(),
+              const SizedBox(height: 18),
+              if (empty)
+                _Welcome(
+                  onSearch: onOpenSearch,
+                  onImported: (id) => pushUnique(
+                    Navigator.of(context),
+                    PlaylistScreen.route(id),
                   ),
-                  const _ForYou(),
-                  if (recent.isNotEmpty) ...[
-                    _SectionTitle('Недавно слушали'.tr),
-                    _Shelf(tracks: recent.take(20).toList()),
-                  ],
-                  if (liked.isNotEmpty) ...[
-                    _SectionTitle('Из любимого'.tr),
-                    _Shelf(tracks: liked.take(20).toList()),
-                  ],
+                )
+              else ...[
+                _QuickGrid(
+                  likedCount: liked.length,
+                  likedCovers: [for (final t in liked.take(4)) t.artworkUrl],
+                  playlists: playlists.take(5).toList(),
+                  onLiked: () {
+                    ref.read(librarySectionProvider.notifier).state =
+                        LibrarySection.liked;
+                    onOpenLibrary();
+                  },
+                ),
+                const _ForYou(),
+                if (recent.isNotEmpty) ...[
+                  _SectionTitle('Недавно слушали'.tr),
+                  _Shelf(tracks: recent.take(20).toList()),
                 ],
-                _SectionTitle('Чарты'.tr),
-                const _Charts(),
+                if (liked.isNotEmpty) ...[
+                  _SectionTitle('Из любимого'.tr),
+                  _Shelf(tracks: liked.take(20).toList()),
+                ],
               ],
-            ),
+              _SectionTitle('Чарты'.tr),
+              const _Charts(),
+            ],
           ),
         ),
       ),

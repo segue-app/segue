@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import '../widgets/content_width.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -59,54 +62,52 @@ class DevicesScreen extends ConsumerWidget {
           builder: (context, _) {
             final devices = connect.devices();
             final online = connect.relay.connected.value;
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(6, 8, 6, 6),
-                      child: Text(
-                        'Устройства'.tr,
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1.2,
+            return WideScroll(
+              max: 720,
+              builder: (context, side) => ListView(
+                padding: EdgeInsets.fromLTRB(16 + side, 12, 16 + side, 32),
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(6, 8, 6, 6),
+                    child: Text(
+                      'Устройства'.tr,
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.2,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(6, 0, 6, 12),
+                    child: Text(
+                      'Любимые, плейлисты и история — на всех твоих устройствах, в любой сети. Музыку можно переносить и управлять ею с телефона, как пультом.'
+                          .tr,
+                      style: TextStyle(color: SegueColors.textDim),
+                    ),
+                  ),
+                  _Status(online: online),
+                  const SizedBox(height: 14),
+                  const _ThisDevice(),
+                  if (devices.isNotEmpty) ...[
+                    _Header('Мои устройства'.tr),
+                    for (final d in devices)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _DeviceCard(device: d),
+                      ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => _confirmLeave(context, connect),
+                        child: Text(
+                          'Отключить это устройство от остальных'.tr,
+                          style: TextStyle(color: SegueColors.textDim),
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(6, 0, 6, 12),
-                      child: Text(
-                        'Любимые, плейлисты и история — на всех твоих устройствах, в любой сети. Музыку можно переносить и управлять ею с телефона, как пультом.'
-                            .tr,
-                        style: TextStyle(color: SegueColors.textDim),
-                      ),
-                    ),
-                    _Status(online: online),
-                    const SizedBox(height: 14),
-                    const _ThisDevice(),
-                    if (devices.isNotEmpty) ...[
-                      _Header('Мои устройства'.tr),
-                      for (final d in devices)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _DeviceCard(device: d),
-                        ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton(
-                          onPressed: () => _confirmLeave(context, connect),
-                          child: Text(
-                            'Отключить это устройство от остальных'.tr,
-                            style: TextStyle(color: SegueColors.textDim),
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
             );
           },

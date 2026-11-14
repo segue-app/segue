@@ -49,6 +49,9 @@ class DownloadManager {
     }
   }
 
+  /// Where downloaded songs are kept.
+  Future<Directory> folder() => _folder();
+
   Future<Directory> _folder() async => _dir ??= Directory(
     '${(await getApplicationSupportDirectory()).path}${Platform.pathSeparator}downloads',
   )..createSync(recursive: true);

@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -202,7 +201,6 @@ class _LinesState extends ConsumerState<_Lines>
     _offsetMs = settings.lyricsOffsetMs;
 
     final lyrics = widget.lyrics;
-    final player = ref.read(playerProvider);
 
     return NotificationListener<UserScrollNotification>(
       onNotification: (_) {
@@ -238,7 +236,7 @@ class _LinesState extends ConsumerState<_Lines>
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: lyrics.synced
-                          ? () => player.seek(line.time)
+                          ? () => ref.read(playerProvider).seek(line.time)
                           : null,
                       child: _Line(
                         lyrics: lyrics,
@@ -326,16 +324,8 @@ class _Line extends StatelessWidget {
     }
 
     final isCurrent = index == current;
-    final distance = (index - current).abs();
-    // Further lines: dimmer and softer, like depth of field.
-    // Blurring each line is too heavy for many Android phones.
-    // Only the few lines around the current one are on screen: the rest
-    // of the song isn't blurred at all (each blurred line is a blur pass
-    // every frame).
-    final blur =
-        isCurrent || !settings.lyricsBlur || lightEffects || distance > 5
-        ? 0.0
-        : math.min(distance * 0.8, 2.6);
+    // Further lines are dimmer; every line stays sharp, so the song reads
+    // as one piece (blurring only the nearest lines tore it in two).
     final opacity = isCurrent ? 1.0 : (index < current ? 0.3 : 0.48);
 
     final Widget content = text.isEmpty
@@ -343,13 +333,17 @@ class _Line extends StatelessWidget {
         : _withTranslation(
             context,
             isCurrent
-                ? ValueListenableBuilder<Duration>(
-                    valueListenable: position,
-                    builder: (_, pos, _) => _SungLine(
-                      words: lyrics.wordsOf(index),
-                      lineStart: lyrics.lines[index].time,
-                      position: pos,
-                      settings: settings,
+                // Its own layer: it repaints every frame, the rest of the
+                // song doesn't have to.
+                ? RepaintBoundary(
+                    child: ValueListenableBuilder<Duration>(
+                      valueListenable: position,
+                      builder: (_, pos, _) => _SungLine(
+                        words: lyrics.wordsOf(index),
+                        lineStart: lyrics.lines[index].time,
+                        position: pos,
+                        settings: settings,
+                      ),
                     ),
                   )
                 : Text(text, textAlign: align, style: _lineStyle),
@@ -358,35 +352,24 @@ class _Line extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 11),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(end: blur),
-        duration: const Duration(milliseconds: 500),
-        curve: SegueMotion.ease,
-        builder: (context, b, child) => b < 0.05
-            ? child!
-            : ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: b, sigmaY: b),
-                child: child,
-              ),
-        child: AnimatedOpacity(
-          opacity: opacity,
-          duration: const Duration(milliseconds: 450),
-          child: _Wheel(
-            // 3D: lines above and below the current one curve away, like
-            // the surface of a turning drum.
-            angle: settings.depth3d && current >= 0
-                ? (index - current).clamp(-6, 6) * -0.045
-                : 0,
-            // Pivot on the line's centre: pivoting on the left edge shears
-            // the text into a fake italic.
-            alignment: Alignment.center,
-            child: AnimatedScale(
-              scale: isCurrent ? 1.0 : 0.93,
-              alignment: center ? Alignment.center : Alignment.centerLeft,
-              duration: const Duration(milliseconds: 650),
-              curve: SegueMotion.spring,
-              child: SizedBox(width: double.infinity, child: content),
-            ),
+      child: AnimatedOpacity(
+        opacity: opacity,
+        duration: const Duration(milliseconds: 450),
+        child: _Wheel(
+          // 3D: lines above and below the current one curve away, like
+          // the surface of a turning drum.
+          angle: settings.depth3d && current >= 0
+              ? (index - current).clamp(-6, 6) * -0.045
+              : 0,
+          // Pivot on the line's centre: pivoting on the left edge shears
+          // the text into a fake italic.
+          alignment: Alignment.center,
+          child: AnimatedScale(
+            scale: isCurrent ? 1.0 : 0.93,
+            alignment: center ? Alignment.center : Alignment.centerLeft,
+            duration: const Duration(milliseconds: 650),
+            curve: SegueMotion.spring,
+            child: SizedBox(width: double.infinity, child: content),
           ),
         ),
       ),
@@ -476,6 +459,25 @@ class _Word extends StatelessWidget {
   final AppSettings settings;
 
   static const _edge = 0.2; // soft edge of the light sweep
+
+  /// Word widths, measured once: the sung line rebuilds every frame.
+  static final _widths = <(String, TextStyle, TextScaler), double>{};
+
+  static double _wordWidth(String text, TextStyle style, TextScaler scaler) {
+    final key = (text, style, scaler);
+    final known = _widths[key];
+    if (known != null) return known;
+    if (_widths.length > 400) _widths.clear();
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+    )..layout();
+    final w = painter.width;
+    painter.dispose();
+    return _widths[key] = w;
+  }
+
   static const _dimAlpha = 0.34;
 
   @override
@@ -496,11 +498,7 @@ class _Word extends StatelessWidget {
         // tails of у, д, р reach below the box and a mask over the box
         // left them bright white.
         final base = DefaultTextStyle.of(context).style.merge(_lineStyle);
-        final width = (TextPainter(
-          text: TextSpan(text: text, style: base),
-          textDirection: TextDirection.ltr,
-          textScaler: MediaQuery.textScalerOf(context),
-        )..layout()).width;
+        final width = _wordWidth(text, base, MediaQuery.textScalerOf(context));
         final paint = Paint()
           ..shader = LinearGradient(
             colors: [lit, lit, dim, dim],

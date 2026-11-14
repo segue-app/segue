@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../core/settings/settings.dart';
-import '../theme/theme.dart';
 import 'frame_clock.dart';
 
 /// Animated background built from the cover's colours (not the image):
@@ -56,8 +55,9 @@ class _LivingBackdropState extends State<LivingBackdrop> {
     _clock.start(_fps);
   }
 
-  /// Clouds drift slowly: 30 frames a second look the same as 120.
-  static int get _fps => lightEffects ? 24 : 30;
+  /// Clouds drift slowly: 15 frames a second look the same as 120, and
+  /// each frame redraws the whole window behind everything.
+  static int get _fps => 15;
 
   @override
   void didChangeDependencies() {
@@ -156,6 +156,9 @@ class _CloudsPainter extends CustomPainter {
     (0.50, 0.50, 0.35, 0.070, 0.150, 0.38, 2.4),
   ];
 
+  static const _falloffStops = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0];
+  static const _falloff = [0.95, 0.86, 0.62, 0.34, 0.12, 0.0];
+
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
@@ -198,6 +201,30 @@ class _CloudsPainter extends CustomPainter {
 
     final longest = math.max(size.width, size.height);
     final a = t * 2 * math.pi;
+    // Clouds, not discs: blurred together so no edge of a circle shows.
+    // (On the big backdrop this runs on the small picture, so the blur is
+    // cheap.)
+    final soft = math.min(size.width, size.height) * 0.08;
+    // The layer reaches well past the frame: at the edges the blur then
+    // mixes in real cloud, not stretched edge pixels (streaks along the
+    // right and bottom).
+    canvas.save();
+    canvas.clipRect(rect);
+    canvas.saveLayer(
+      rect.inflate(soft * 3),
+      Paint()
+        ..imageFilter = ui.ImageFilter.blur(
+          sigmaX: soft,
+          sigmaY: soft,
+          tileMode: TileMode.decal,
+        ),
+    );
+    // Under the clouds, inside the layer: the base colour too, so what's
+    // past the frame isn't transparent and doesn't darken the edges.
+    canvas.drawRect(
+      rect.inflate(soft * 3),
+      Paint()..color = Color.lerp(base, const Color(0xFF070708), 0.45)!,
+    );
     for (var i = 0; i < _clouds.length; i++) {
       final (x, y, orbit, sx, sy, r, phase) = _clouds[i];
       final cx = (x + math.sin(a * sx + phase) * orbit) * size.width;
@@ -211,15 +238,17 @@ class _CloudsPainter extends CustomPainter {
         radius,
         Paint()
           ..shader = RadialGradient(
+            // A bell-shaped fall-off: no ring where the light ends.
             colors: [
-              color.withValues(alpha: (0.95 * intensity).clamp(0.0, 1.0)),
-              color.withValues(alpha: (0.5 * intensity).clamp(0.0, 1.0)),
-              color.withValues(alpha: 0),
+              for (final k in _falloff)
+                color.withValues(alpha: (k * intensity).clamp(0.0, 1.0)),
             ],
-            stops: const [0, 0.5, 1],
+            stops: _falloffStops,
           ).createShader(Rect.fromCircle(center: center, radius: radius)),
       );
     }
+    canvas.restore();
+    canvas.restore();
 
     // Bottom shade keeps the title and controls readable.
     canvas.drawRect(

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'content_width.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/downloads/downloads.dart';
@@ -182,81 +185,83 @@ class TrackCollectionView extends ConsumerWidget {
           : Column(children: [cover, const SizedBox(height: 18), info]),
     );
 
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(child: header),
-        if (tracks.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Text(
-                emptyText ?? 'Здесь пока пусто'.tr,
-                style: const TextStyle(color: SegueColors.textDim),
+    return WideScroll(
+      builder: (context, side) => CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: ContentBox(child: header)),
+          if (tracks.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  emptyText ?? 'Здесь пока пусто'.tr,
+                  style: const TextStyle(color: SegueColors.textDim),
+                ),
               ),
-            ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-            sliver: onReorder != null
-                ? SliverReorderableList(
-                    itemCount: tracks.length,
-                    onReorderItem: (from, to) => onReorder!(from, to),
-                    proxyDecorator: (child, _, _) => Material(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
-                      child: child,
-                    ),
-                    itemBuilder: (context, i) => Row(
-                      key: ValueKey(tracks[i].key),
-                      children: [
-                        Expanded(
-                          child: TrackTile(
-                            tracks: tracks,
-                            index: i,
-                            playContext: playContext,
-                            onRemove: onRemove == null
-                                ? null
-                                : () => onRemove!(tracks[i]),
+            )
+          else
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(8 + side, 0, 8 + side, 16),
+              sliver: onReorder != null
+                  ? SliverReorderableList(
+                      itemCount: tracks.length,
+                      onReorderItem: (from, to) => onReorder!(from, to),
+                      proxyDecorator: (child, _, _) => Material(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        child: child,
+                      ),
+                      itemBuilder: (context, i) => Row(
+                        key: ValueKey(tracks[i].key),
+                        children: [
+                          Expanded(
+                            child: TrackTile(
+                              tracks: tracks,
+                              index: i,
+                              playContext: playContext,
+                              onRemove: onRemove == null
+                                  ? null
+                                  : () => onRemove!(tracks[i]),
+                            ),
                           ),
-                        ),
-                        // Grab here to move the song (a long press on
-                        // the song itself opens its menu).
-                        ReorderableDragStartListener(
-                          index: i,
-                          child: const MouseRegion(
-                            cursor: SystemMouseCursors.grab,
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 14,
-                              ),
-                              child: Icon(
-                                Icons.drag_handle_rounded,
-                                color: SegueColors.textDim,
+                          // Grab here to move the song (a long press on
+                          // the song itself opens its menu).
+                          ReorderableDragStartListener(
+                            index: i,
+                            child: const MouseRegion(
+                              cursor: SystemMouseCursors.grab,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 14,
+                                ),
+                                child: Icon(
+                                  Icons.drag_handle_rounded,
+                                  color: SegueColors.textDim,
+                                ),
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                    )
+                  : SliverList.builder(
+                      itemCount: tracks.length,
+                      itemBuilder: (context, i) => StaggeredEntrance(
+                        index: i % 12,
+                        child: TrackTile(
+                          tracks: tracks,
+                          index: i,
+                          playContext: playContext,
+                          onRemove: onRemove == null
+                              ? null
+                              : () => onRemove!(tracks[i]),
                         ),
-                      ],
-                    ),
-                  )
-                : SliverList.builder(
-                    itemCount: tracks.length,
-                    itemBuilder: (context, i) => StaggeredEntrance(
-                      index: i % 12,
-                      child: TrackTile(
-                        tracks: tracks,
-                        index: i,
-                        playContext: playContext,
-                        onRemove: onRemove == null
-                            ? null
-                            : () => onRemove!(tracks[i]),
                       ),
                     ),
-                  ),
-          ),
-      ],
+            ),
+        ],
+      ),
     );
   }
 }
@@ -309,14 +314,20 @@ class _PillButton extends StatelessWidget {
 
 /// Small round icon button used in collection headers.
 class HeaderIconButton extends StatelessWidget {
-  const HeaderIconButton({super.key, required this.icon, required this.onTap});
+  const HeaderIconButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final button = Padding(
       padding: EdgeInsets.zero,
       child: PressScale(
         onTap: onTap,
@@ -331,6 +342,7 @@ class HeaderIconButton extends StatelessWidget {
         ),
       ),
     );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
 }
 

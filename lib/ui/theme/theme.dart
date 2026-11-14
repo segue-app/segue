@@ -67,6 +67,18 @@ ThemeData buildTheme({String font = 'Manrope'}) {
   );
   return base.copyWith(
     textTheme: text,
+    // Material 3 paints the thumb of an "on" switch in primaryContainer
+    // when hovered or pressed, which here is the accent itself: the dark
+    // knob vanished into the track under the cursor. It stays dark.
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? (states.contains(WidgetState.disabled)
+                  ? SegueColors.ink.withValues(alpha: 0.6)
+                  : SegueColors.ink)
+            : null,
+      ),
+    ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: SegueColors.surfaceHigh,

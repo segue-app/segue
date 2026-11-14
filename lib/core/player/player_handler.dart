@@ -87,7 +87,13 @@ class SegueAudioHandler extends BaseAudioHandler
       _maybeQueueNext(pos);
       // A trimmed track ends where its trim says.
       final end = _trimEnd;
-      if (end != null && pos >= end && !_loading && !_endedByTrim) {
+      if (end != null &&
+          pos >= end &&
+          !_loading &&
+          !_endedByTrim &&
+          // A mix being prepared takes over in a moment; the song plays
+          // on into its outro meanwhile instead of stopping.
+          !_mixStarting) {
         _endedByTrim = true;
         _trackEnded();
       }
@@ -524,7 +530,18 @@ class SegueAudioHandler extends BaseAudioHandler
   void _prefetchNext() {
     final i = _index + 1;
     if (i < _tracks.length) warm(_tracks[i]);
+    if (fadeSeconds >= 1 && i < _tracks.length) {
+      // A mix comes at the end of this song: know its tempo, and have the
+      // second player made (starting libmpv takes a moment) well before.
+      final cur = current;
+      if (matchTempo && cur != null) bpmFor?.call(cur).ignore();
+      _tailPlayer();
+    }
   }
+
+  Player _tailPlayer() => _tail ??= Player(
+    configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error),
+  );
 
   /// Gets [track] ready to start instantly. Cheap to call often: the UI
   /// calls it when the pointer rests on a track or a finger touches it.
@@ -672,7 +689,7 @@ class SegueAudioHandler extends BaseAudioHandler
   /// the end of one, the next is handed to mpv, which plays it the moment
   /// this one ends (live albums and DJ sets flow on).
   void _maybeQueueNext(Duration pos) {
-    if (fadeSeconds >= 1 ||
+    if ((fadeSeconds >= 1 && _mixFailedToken != _loadToken) ||
         _gapless != null ||
         _gaplessPreparing ||
         _loading ||
@@ -705,7 +722,7 @@ class SegueAudioHandler extends BaseAudioHandler
         _tracks[i].key == next.key &&
         _mix == null &&
         _out == null &&
-        fadeSeconds < 1;
+        (fadeSeconds < 1 || _mixFailedToken == token);
     try {
       final local = localPathFor?.call(next);
       final isLocal = local != null && File(local).existsSync();
@@ -835,6 +852,7 @@ class SegueAudioHandler extends BaseAudioHandler
         _mix != null ||
         _gapless != null ||
         _mixStarting ||
+        _mixFailedToken == _loadToken ||
         _loading ||
         sleepAfterTrack.value ||
         _index >= _tracks.length - 1 ||
@@ -844,9 +862,9 @@ class SegueAudioHandler extends BaseAudioHandler
     final end = _trimEnd ?? mediaItem.value?.duration;
     if (end == null || end < const Duration(seconds: 30)) return;
     final left = end - pos;
-    // The hand-over takes ~2.5 s to prepare (see _startMix): begin that
-    // much earlier, so the crossfade keeps its full length.
-    if (left > Duration(milliseconds: (fadeSeconds * 1000).round() + 2800) ||
+    // The hand-over takes ~2.5 s to prepare (see _startMix), more on a
+    // slow network: begin early, so the crossfade keeps its full length.
+    if (left > Duration(milliseconds: (fadeSeconds * 1000).round() + 4000) ||
         left < const Duration(seconds: 4)) {
       return;
     }
@@ -873,7 +891,9 @@ class SegueAudioHandler extends BaseAudioHandler
               bpm(_tracks[_index]).catchError((Object _) => null),
               bpm(next).catchError((Object _) => null),
             ).wait.timeout(
-              const Duration(seconds: 2),
+              // Fetched when the song started; if it isn't known by now,
+              // the mix goes on at the song's own tempo.
+              const Duration(milliseconds: 400),
               onTimeout: () => (null, null),
             );
         final (a, b) = both;
@@ -883,9 +903,7 @@ class SegueAudioHandler extends BaseAudioHandler
       }
       if (token != _loadToken) return;
 
-      final tail = _tail ??= Player(
-        configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error),
-      );
+      final tail = _tailPlayer();
       final native = tail.platform;
       if (native is NativePlayer) {
         await native.setProperty('cache-on-disk', 'no');
@@ -922,32 +940,74 @@ class SegueAudioHandler extends BaseAudioHandler
           .firstWhere((p) => p >= at - const Duration(milliseconds: 25))
           .timeout(const Duration(seconds: 4));
       if (token != _loadToken) return;
+      final started = Stopwatch()..start();
       unawaited(tail.play());
+      lastMixSlip = _player.state.position - at;
+      // Silent until it really plays (its sound device may take a moment
+      // to start): only then does it take over, so there's no gap.
+      await tail.stream.position
+          .firstWhere((p) => p >= at + const Duration(milliseconds: 20))
+          .timeout(const Duration(seconds: 2));
+      lastMixTailLag = started.elapsed - const Duration(milliseconds: 20);
+      if (token != _loadToken) return;
       unawaited(
         tail.setVolume(volume.value * _sleepGain * _tailNormGain * 100),
       );
-      lastMixSlip = _player.state.position - at;
       // From here the tail carries the old song; the main one goes on.
+      _mixOldEnd = _trimEnd ?? mediaItem.value?.duration;
       _edgeGain = 0;
       await _applyVolume();
       await _playIndex(_index + 1, mixing: true);
     } catch (e) {
       debugPrint('mix: $e');
       _stopMix();
+      // No mix this time: at least no pause, the next song follows
+      // straight on (gapless) instead of after the old one has ended.
+      if (token == _loadToken) _mixFailedToken = token;
     } finally {
       _mixStarting = false;
     }
   }
 
+  /// The mix of this song failed: it hands over gapless instead.
+  int _mixFailedToken = -1;
+
+  /// Where the outgoing song's music ends (the fade must finish by then).
+  Duration? _mixOldEnd;
+
   /// How far apart the two players were at the last hand-over (tests).
   @visibleForTesting
   Duration? lastMixSlip;
+
+  /// Where the outgoing song is during a mix (the second player once it
+  /// carries it), and the incoming one (tests look for stalls).
+  @visibleForTesting
+  ({Duration old, Duration incoming, bool handedOver}) get debugMixPositions {
+    final t = _tail;
+    final over = t != null && t.state.playing;
+    return (
+      old: over ? t.state.position : _player.state.position,
+      incoming: _player.state.position,
+      handedOver: over,
+    );
+  }
+
+  /// How long the second player took to really start at the hand-over.
+  @visibleForTesting
+  Duration? lastMixTailLag;
 
   /// Equal-power crossfade: the new song rises while the old one falls.
   void _runMix() {
     final tail = _tail;
     if (tail == null) return;
-    final total = fadeSeconds * 1000;
+    // Started late (slow network)? The fade is shortened so the old song
+    // doesn't run out while the new one is still quiet.
+    var total = fadeSeconds * 1000.0;
+    final end = _mixOldEnd;
+    if (end != null) {
+      final left = (end - tail.state.position).inMilliseconds.toDouble();
+      if (left < total) total = math.max(1500, left);
+    }
     final clock = Stopwatch()..start();
     _mix?.cancel();
     _mix = Timer.periodic(const Duration(milliseconds: 50), (t) {

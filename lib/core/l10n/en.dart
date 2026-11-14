@@ -504,4 +504,13 @@ const en = <String, String>{
   'Восстановить': 'Restore',
   'Это не резервная копия Segue': 'This isn\'t a Segue backup',
   'Недавние': 'Recent',
+  'Удалить «{0}» из скачанных?': 'Remove “{0}” from downloads?',
+  'Файл удалится с устройства. Трек останется в библиотеке и будет играть из интернета.':
+      'The file is deleted from this device. The song stays in your library and plays from the internet.',
+  'Показать папку': 'Show folder',
+  'Удалить все скачанные': 'Remove all downloads',
+  'Удалить все скачанные?': 'Remove all downloads?',
+  '{0} · {1} МБ освободится на устройстве. Треки останутся в библиотеке.':
+      '{0} · {1} MB will be freed on this device. The songs stay in your library.',
+  'Удалить все': 'Remove all',
 };

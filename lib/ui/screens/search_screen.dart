@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../widgets/content_width.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -60,77 +62,82 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         children: [
           SafeArea(
             bottom: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(22, 22, 22, 14),
-                      child: Text(
-                        'Поиск'.tr,
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1.2,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: TextField(
-                        controller: _controller,
-                        onChanged: _onChanged,
-                        onSubmitted: (v) => setState(() => _query = v),
-                        textInputAction: TextInputAction.search,
-                        decoration: InputDecoration(
-                          hintText: 'Трек, артист или альбом'.tr,
-                          prefixIcon: Padding(
-                            padding: EdgeInsets.only(left: 6),
-                            child: Icon(
-                              Icons.search_rounded,
-                              color: SegueColors.textDim,
+            child: ContentWidth(
+              max: 820,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ContentBox(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(22, 22, 22, 14),
+                          child: Text(
+                            'Поиск'.tr,
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1.2,
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    // Filter appears once there is something to filter.
-                    AnimatedSize(
-                      duration: SegueMotion.medium,
-                      curve: SegueMotion.ease,
-                      child: _query.trim().isEmpty
-                          ? const SizedBox(width: double.infinity)
-                          : _FilterBar(
-                              query: _query.trim(),
-                              filter: _filter,
-                              accent: colors.accent,
-                              labels: {
-                                for (final s in sources.values)
-                                  if (s.kind.searchable) s.kind: s.label,
-                              },
-                              onSelect: (f) => setState(() => _filter = f),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: TextField(
+                            controller: _controller,
+                            onChanged: _onChanged,
+                            onSubmitted: (v) => setState(() => _query = v),
+                            textInputAction: TextInputAction.search,
+                            decoration: InputDecoration(
+                              hintText: 'Трек, артист или альбом'.tr,
+                              prefixIcon: Padding(
+                                padding: EdgeInsets.only(left: 6),
+                                child: Icon(
+                                  Icons.search_rounded,
+                                  color: SegueColors.textDim,
+                                ),
+                              ),
                             ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: SegueMotion.medium,
-                        child: _Results(
-                          key: ValueKey('$_filter|$_query'),
-                          filter: _filter,
-                          query: _query.trim(),
-                          labels: {
-                            for (final s in sources.values)
-                              if (s.kind.searchable) s.kind: s.label,
-                          },
+                          ),
                         ),
+                        const SizedBox(height: 14),
+                        // Filter appears once there is something to filter.
+                        AnimatedSize(
+                          duration: SegueMotion.medium,
+                          curve: SegueMotion.ease,
+                          child: _query.trim().isEmpty
+                              ? const SizedBox(width: double.infinity)
+                              : _FilterBar(
+                                  query: _query.trim(),
+                                  filter: _filter,
+                                  accent: colors.accent,
+                                  labels: {
+                                    for (final s in sources.values)
+                                      if (s.kind.searchable) s.kind: s.label,
+                                  },
+                                  onSelect: (f) => setState(() => _filter = f),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: SegueMotion.medium,
+                      child: _Results(
+                        key: ValueKey('$_filter|$_query'),
+                        filter: _filter,
+                        query: _query.trim(),
+                        labels: {
+                          for (final s in sources.values)
+                            if (s.kind.searchable) s.kind: s.label,
+                        },
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -327,22 +334,24 @@ class _Results extends ConsumerWidget {
     }
     // Artists matching the query on top of the merged list.
     final withArtists = filter == null;
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-      itemCount: tracks.length + (withArtists ? 1 : 0),
-      itemBuilder: (context, i) {
-        if (withArtists && i == 0) return _ArtistRow(query: query);
-        final k = withArtists ? i - 1 : i;
-        return StaggeredEntrance(
-          // Items arriving later (a slower source) shouldn't wait long.
-          index: k % 12,
-          child: TrackTile(
-            tracks: tracks,
-            index: k,
-            sourceLabel: filter == null ? labels[tracks[k].source] : null,
-          ),
-        );
-      },
+    return WideScroll(
+      builder: (context, side) => ListView.builder(
+        padding: EdgeInsets.fromLTRB(8 + side, 4, 8 + side, 8),
+        itemCount: tracks.length + (withArtists ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (withArtists && i == 0) return _ArtistRow(query: query);
+          final k = withArtists ? i - 1 : i;
+          return StaggeredEntrance(
+            // Items arriving later (a slower source) shouldn't wait long.
+            index: k % 12,
+            child: TrackTile(
+              tracks: tracks,
+              index: k,
+              sourceLabel: filter == null ? labels[tracks[k].source] : null,
+            ),
+          );
+        },
+      ),
     );
   }
 }
