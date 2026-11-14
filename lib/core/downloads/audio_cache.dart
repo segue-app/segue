@@ -119,8 +119,10 @@ class AudioCache {
   }
 
   /// Fetches [t] into the cache (if worth it and allowed now).
-  Future<void> keep(Track t) async {
-    if (!enabled ||
+  /// With [always], even when keeping recent songs is off (Auto DJ
+  /// fetching its set ahead).
+  Future<void> keep(Track t, {bool always = false}) async {
+    if ((!enabled && !always) ||
         t.source == SourceKind.local ||
         contains(t) ||
         library.downloadedPath(t) != null ||

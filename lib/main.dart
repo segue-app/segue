@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_visibility.dart';
+import 'core/diag/app_log.dart';
 import 'core/l10n/l10n.dart';
 import 'core/import/library_import.dart';
 import 'core/catalog/taste.dart';
@@ -40,11 +41,15 @@ import 'ui/screens/shell.dart';
 import 'ui/theme/theme.dart';
 import 'core/sync/shared_playlists.dart';
 import 'core/player/car_browser.dart';
+import 'core/dj/auto_dj.dart';
+import 'core/lights/light_sync.dart';
+import 'core/dj/beat_service.dart';
 import 'core/catalog/wave_settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppVisibility.attach();
+  unawaited(AppLog.start());
 
   final soundcloud = SoundCloudSource();
   final youtube = YouTubeSource();
@@ -252,6 +257,30 @@ Future<void> main() async {
     ),
   );
 
+  // Beats of the songs' ends and starts, for mixes that line them up.
+  handler.beats = BeatService(
+    uriFor: handler.analysisUri,
+    load: () {
+      try {
+        return jsonDecode(library.getMeta('beats') ?? '{}')
+            as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    },
+    save: (all) => library.setMeta('beats', jsonEncode(all)),
+  );
+  final autoDj = AutoDj(
+    player: handler,
+    beats: handler.beats!,
+    cache: audioCache,
+  );
+  // Lights in time with the music (device-local, not synced).
+  final lights = LightSync(
+    player: handler,
+    load: () => library.getMeta('lights'),
+    save: (j) => library.setMeta('lights', j),
+  );
   final wave = Wave(catalog, library, handler, taste: taste);
   handler.car = CarBrowser(
     library: library,
@@ -275,6 +304,8 @@ Future<void> main() async {
         catalogProvider.overrideWithValue(catalog),
         waveProvider.overrideWithValue(wave),
         tasteProvider.overrideWithValue(taste),
+        autoDjProvider.overrideWithValue(autoDj),
+        lightSyncProvider.overrideWithValue(lights),
         sharedPlaylistsProvider.overrideWithValue(sharedPlaylists),
         localLibraryProvider.overrideWithValue(localLibrary),
         lastFmProvider.overrideWithValue(lastFm),

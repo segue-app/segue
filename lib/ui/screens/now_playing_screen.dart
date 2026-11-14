@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'dj_screen.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -659,7 +661,7 @@ class _TopBar extends StatelessWidget {
       builder: (context, c) => Stack(
         alignment: Alignment.center,
         children: [
-          if (c.maxWidth >= 2 * (5 * 52) + 150)
+          if (c.maxWidth >= 2 * (6 * 52) + 150)
             IgnorePointer(
               child: Text(
                 'Сейчас играет'.tr,
@@ -686,6 +688,12 @@ class _TopBar extends StatelessWidget {
           size: 44,
         ),
         const Spacer(),
+        _RoundIcon(
+          icon: Icons.album_rounded,
+          onTap: () => Navigator.of(context).push(DjScreen.route()),
+          size: 44,
+        ),
+        const SizedBox(width: 8),
         _RoundIcon(
           icon: Icons.queue_music_rounded,
           onTap: () => showQueueSheet(context),

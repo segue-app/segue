@@ -9,6 +9,8 @@ import 'package:media_kit/media_kit.dart' hide Track;
 
 import '../models/track.dart';
 import '../sources/music_source.dart';
+import '../dj/beat_grid.dart';
+import '../dj/beat_service.dart';
 import 'audio_fx.dart';
 import 'car_browser.dart';
 import 'chunked_source.dart';
@@ -57,8 +59,9 @@ class SegueAudioHandler extends BaseAudioHandler
       if (sleepAfterTrack.value) _dropGapless();
     });
     s.playing.listen((p) {
-      // Stopping the old song for the next one isn't a pause.
-      if (_switching) return;
+      // Stopping the old song for the next one isn't a pause, nor is the
+      // next one waiting, paused, for the bar to start on.
+      if (_switching || _beatHold) return;
       if (_out == null) _playingCtl.add(p);
       _broadcastState();
       _changed();
@@ -72,6 +75,10 @@ class SegueAudioHandler extends BaseAudioHandler
       // While the next track loads, this is still the old one's position:
       // it must not move the new track's progress, fades, mix or trim.
       if (_switching) return;
+      _lastPos = pos;
+      _lastPosAt
+        ..reset()
+        ..start();
       // mpv reports dozens of times a second; the UI needs a few (a jump,
       // like a seek or a new track, goes through at once).
       final now = DateTime.now();
@@ -388,6 +395,7 @@ class SegueAudioHandler extends BaseAudioHandler
     int i, {
     Duration? startAt,
     bool mixing = false,
+    bool hold = false,
   }) async {
     if (i < 0 || i >= _tracks.length) return;
     // A skip in the middle of a mix ends it at once.
@@ -474,10 +482,11 @@ class SegueAudioHandler extends BaseAudioHandler
       // googlevideo refuses FFmpeg's keep-alive segment requests; fresh
       // connections avoid a failed attempt (and a log line) per segment.
       await _mpv('demuxer-lavf-o', info.hls ? 'http_persistent=0' : '');
-      await _player.open(Media(uri, start: startAt), play: true);
+      if (hold) _beatHold = true;
+      await _player.open(Media(uri, start: startAt), play: !hold);
       if (token == _loadToken) {
         _openedToken = token;
-        if (_out == null) _playingCtl.add(_player.state.playing);
+        if (_out == null) _playingCtl.add(hold || _player.state.playing);
       }
       debugPrint('load ${track.title}: opened in ${sw.elapsedMilliseconds} ms');
       onTrackStarted?.call(track);
@@ -528,6 +537,7 @@ class SegueAudioHandler extends BaseAudioHandler
   /// (for imported/wave tracks that includes the YouTube search) and loads
   /// the first seconds of audio, so skipping starts almost at once.
   void _prefetchNext() {
+    _prepareSongBeats();
     final i = _index + 1;
     if (i < _tracks.length) warm(_tracks[i]);
     if (fadeSeconds >= 1 && i < _tracks.length) {
@@ -536,7 +546,139 @@ class SegueAudioHandler extends BaseAudioHandler
       final cur = current;
       if (matchTempo && cur != null) bpmFor?.call(cur).ignore();
       _tailPlayer();
+      _prepareBeats();
     }
+  }
+
+  /// Beat grids for beat-matched mixes (set in main()).
+  BeatService? beats;
+
+  /// While the next song waits, paused, for the bar to come in on.
+  bool _beatHold = false;
+
+  /// Analyses, in the background, the end of this song and the start of
+  /// the next: the mix lines their beats up.
+  void _prepareBeats() {
+    final svc = beats;
+    final cur = current;
+    final i = _index + 1;
+    if (svc == null || cur == null || !matchTempo || i >= _tracks.length) {
+      return;
+    }
+    final end = _trimEnd ?? mediaItem.value?.duration;
+    if (end != null) svc.outro(cur, end).ignore();
+    final next = _tracks[i];
+    unawaited(() async {
+      final start = await _startOf(next);
+      _nextStart = (next.key, start);
+      svc.intro(next, start).ignore();
+    }());
+  }
+
+  // --- the beat, all through a song (lights) ------------------------------
+
+  /// Something (the lights) follows this song's beat all along, not only
+  /// at a mix: its beat is analysed as it starts.
+  bool wantBeats = false;
+
+  BeatGrid? _songGrid, _songOutro;
+  String? _songGridKey;
+  Duration _lastPos = Duration.zero;
+  final _lastPosAt = Stopwatch();
+
+  void _prepareSongBeats() {
+    final svc = beats;
+    final cur = current;
+    if (svc == null || cur == null || !wantBeats) return;
+    final key = cur.key;
+    if (_songGridKey == key) return;
+    _songGridKey = key;
+    _songGrid = null;
+    _songOutro = null;
+    unawaited(() async {
+      final start = await _startOf(cur);
+      var g = await svc.intro(cur, start);
+      // A quiet intro without a beat: a minute in, it has one.
+      if (g == null || !g.reliable) {
+        g = await svc.middle(cur, start + const Duration(seconds: 60));
+      }
+      if (current?.key != key) return;
+      _songGrid = g;
+      final end = _trimEnd ?? mediaItem.value?.duration;
+      if (end == null) return;
+      final o = await svc.outro(cur, end);
+      if (current?.key == key) _songOutro = o;
+    }());
+  }
+
+  /// Where the music is in its beat [ahead] seconds from now: the phase
+  /// (0 on a beat), which beat of the bar (0 = the first), the tempo as
+  /// heard. Null when the beat isn't known.
+  ({double phase, int beatInBar, double bpm})? beatNow({double ahead = 0}) {
+    final plan = _beatPlan;
+    final tail = _tail;
+    BeatGrid? g;
+    double pos;
+    double speed;
+    if (_mix != null && plan != null && tail != null) {
+      // Mixing: the two are lined up; follow the old one's grid.
+      g = plan.old;
+      speed = plan.oldSpeed;
+      pos = tail.state.position.inMicroseconds / 1e6 + ahead * speed;
+    } else {
+      speed = _tempo;
+      pos = _lastPos.inMicroseconds / 1e6;
+      if (_player.state.playing) {
+        pos += _lastPosAt.elapsedMicroseconds / 1e6 * speed;
+      }
+      pos += ahead * speed;
+      final o = _songOutro;
+      g = o != null && o.reliable && pos >= o.from - 5 ? o : _songGrid;
+    }
+    if (g == null || !g.reliable) return null;
+    final x = (pos - g.firstBeat) / g.period;
+    final k = x.floor();
+    return (phase: x - k, beatInBar: (k - g.downbeat) % 4, bpm: g.bpm * speed);
+  }
+
+  bool get isPlayingNow => _player.state.playing;
+
+  /// Where [t] starts playing: its trim, or where its music begins.
+  Future<Duration> startOf(Track t) => _startOf(t);
+
+  /// The songs after the current one, replaced by [upcoming] (a new
+  /// order of them, say).
+  void setUpcoming(List<Track> upcoming) {
+    if (_out != null) return;
+    _tracks
+      ..removeRange(_index + 1, _tracks.length)
+      ..addAll(upcoming);
+    _queueChanged();
+    _prefetchNext();
+  }
+
+  Future<Duration> _startOf(Track t) async {
+    final trim = trimFor?.call(t)?.start;
+    if (trim != null) return trim;
+    if (skipIntros && autoBounds != null) {
+      final b = await autoBounds!(t)
+          .timeout(const Duration(seconds: 3))
+          .catchError((Object _) => null);
+      if (b?.start != null) return b!.start!;
+    }
+    return Duration.zero;
+  }
+
+  /// A URL to analyse [t] from: its file if it's on the device, the one
+  /// playing if it's the current song, otherwise a fresh one.
+  Future<Uri> analysisUri(Track t) async {
+    final local = localPathFor?.call(t);
+    if (local != null && File(local).existsSync()) return Uri.file(local);
+    if (t.key == current?.key && _currentUri != null) {
+      final u = _currentUri!;
+      return u.startsWith('/') ? Uri.file(u) : Uri.parse(u);
+    }
+    return Uri.parse(await _playableUri(await _resolve(t)));
   }
 
   Player _tailPlayer() => _tail ??= Player(
@@ -592,6 +734,9 @@ class SegueAudioHandler extends BaseAudioHandler
       debugPrint('mpv config: $e');
     }
   }
+
+  /// A URL libmpv can open for [info] (through the local proxies).
+  static Future<String> playableUri(StreamInfo info) => _playableUri(info);
 
   static Future<String> _playableUri(
     StreamInfo info, {
@@ -660,6 +805,11 @@ class SegueAudioHandler extends BaseAudioHandler
 
   Player? _tail;
   Timer? _mix;
+
+  /// The old song plays on the second player and the main one already
+  /// carries the next: from the hand-over until the crossfade ends (the
+  /// DJ screen shows the decks by it, also while waiting for a bar).
+  bool _handedOver = false;
   bool _mixStarting = false;
 
   Future<void> _setTempo(double t) async {
@@ -874,17 +1024,28 @@ class SegueAudioHandler extends BaseAudioHandler
   /// The outgoing song moves to a second player (same moment, same
   /// sound), the main player starts the next one silently, and [_runMix]
   /// crosses them over.
-  Future<void> _startMix(Duration pos) async {
+  Future<void> _startMix(Duration pos, {int attempt = 0}) async {
     final uri = _currentUri;
     if (uri == null) return;
     _mixStarting = true;
     final token = _loadToken;
+    final sw = Stopwatch()..start();
+    final songEnd = _trimEnd ?? mediaItem.value?.duration;
+    debugPrint(
+      'mix start at ${_fmt(pos)} of ${_fmt(songEnd)}'
+      '${attempt > 0 ? ' (again)' : ''}, fade ${fadeSeconds}s',
+    );
+    var retry = false;
     try {
       // Tempo first (usually known already): the hand-over below must not
       // wait for anything.
       _mixTempo = 1;
+      _beatPlan = await _makeBeatPlan();
+      if (token != _loadToken) return;
       final bpm = bpmFor;
-      if (matchTempo && _fx.plainPitch && bpm != null) {
+      if (_beatPlan != null) {
+        _mixTempo = _beatPlan!.speed;
+      } else if (matchTempo && _fx.plainPitch && bpm != null) {
         final next = _tracks[_index + 1];
         final both =
             await (
@@ -925,7 +1086,9 @@ class SegueAudioHandler extends BaseAudioHandler
       // The second player waits, silent and paused, a little ahead of this
       // one; when this one reaches that moment, they swap in one go. (Both
       // playing the song at once, slightly apart, sounded doubled.)
-      final at = _player.state.position + const Duration(milliseconds: 2500);
+      final at =
+          _player.state.position +
+          Duration(milliseconds: attempt == 0 ? 2500 : 4500);
       await tail.setVolume(0);
       await tail.open(Media(uri, start: at), play: false);
       await tail.stream.duration
@@ -938,7 +1101,7 @@ class SegueAudioHandler extends BaseAudioHandler
       }
       await _player.stream.position
           .firstWhere((p) => p >= at - const Duration(milliseconds: 25))
-          .timeout(const Duration(seconds: 4));
+          .timeout(Duration(seconds: attempt == 0 ? 4 : 7));
       if (token != _loadToken) return;
       final started = Stopwatch()..start();
       unawaited(tail.play());
@@ -957,23 +1120,62 @@ class SegueAudioHandler extends BaseAudioHandler
       _mixOldEnd = _trimEnd ?? mediaItem.value?.duration;
       _edgeGain = 0;
       await _applyVolume();
-      await _playIndex(_index + 1, mixing: true);
+      final plan = _beatPlan;
+      debugPrint(
+        'mix hand-over in ${sw.elapsedMilliseconds} ms (slip '
+        '${lastMixSlip?.inMilliseconds} ms, tail lag '
+        '${lastMixTailLag?.inMilliseconds} ms), beat plan '
+        '${plan == null ? 'none' : '${plan.speed.toStringAsFixed(3)}x from ${plan.newStart.toStringAsFixed(2)}s'}',
+      );
+      _handedOver = true;
+      await _playIndex(
+        _index + 1,
+        mixing: true,
+        startAt: plan == null
+            ? null
+            : Duration(microseconds: (plan.newStart * 1e6).round()),
+        hold: plan != null,
+      );
     } catch (e) {
-      debugPrint('mix: $e');
+      debugPrint('mix failed after ${sw.elapsedMilliseconds} ms: $e');
       _stopMix();
-      // No mix this time: at least no pause, the next song follows
-      // straight on (gapless) instead of after the old one has ended.
-      if (token == _loadToken) _mixFailedToken = token;
+      final left = songEnd == null
+          ? Duration.zero
+          : songEnd - _player.state.position;
+      if (token == _loadToken &&
+          attempt == 0 &&
+          _player.state.playing &&
+          left > const Duration(seconds: 7)) {
+        // The second player was slow to start (a busy network): once more,
+        // with more time to get ready, before giving up on the crossfade.
+        retry = true;
+      } else if (token == _loadToken) {
+        // No mix this time: at least no pause, the next song follows
+        // straight on (gapless) instead of after the old one has ended.
+        _mixFailedToken = token;
+        debugPrint('mix: gapless instead');
+      }
     } finally {
       _mixStarting = false;
     }
+    if (retry) {
+      unawaited(_startMix(_player.state.position, attempt: 1));
+    }
   }
+
+  static String _fmt(Duration? d) => d == null
+      ? '?'
+      : '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}.'
+            '${(d.inMilliseconds % 1000 ~/ 100)}';
 
   /// The mix of this song failed: it hands over gapless instead.
   int _mixFailedToken = -1;
 
   /// Where the outgoing song's music ends (the fade must finish by then).
   Duration? _mixOldEnd;
+
+  @visibleForTesting
+  Duration? get debugMixOldEnd => _mixOldEnd;
 
   /// How far apart the two players were at the last hand-over (tests).
   @visibleForTesting
@@ -1000,6 +1202,11 @@ class SegueAudioHandler extends BaseAudioHandler
   void _runMix() {
     final tail = _tail;
     if (tail == null) return;
+    final plan = _beatPlan;
+    if (plan != null) {
+      unawaited(_runBeatMix(tail, plan, _loadToken));
+      return;
+    }
     // Started late (slow network)? The fade is shortened so the old song
     // doesn't run out while the new one is still quiet.
     var total = fadeSeconds * 1000.0;
@@ -1012,6 +1219,7 @@ class SegueAudioHandler extends BaseAudioHandler
     _mix?.cancel();
     _mix = Timer.periodic(const Duration(milliseconds: 50), (t) {
       final x = (clock.elapsedMilliseconds / total).clamp(0.0, 1.0);
+      _mixProgress = x;
       _edgeGain = math.sin(x * math.pi / 2);
       _applyVolume();
       tail.setVolume(
@@ -1022,12 +1230,257 @@ class SegueAudioHandler extends BaseAudioHandler
             math.cos(x * math.pi / 2),
       );
       if (x >= 1) {
+        _mixProgress = 0;
         t.cancel();
         _mix = null;
+        _handedOver = false;
         tail.stop();
         _easeTempo();
       }
     });
+  }
+
+  /// The plan of a beat-matched mix, when both songs' beats are known.
+  _BeatPlan? _beatPlan;
+
+  /// Phase error between the two songs' beats during the last mix (ms,
+  /// largest in its second half), for tests.
+  @visibleForTesting
+  double? lastMixBeatError;
+
+  @visibleForTesting
+  bool lastMixWasBeatMatched = false;
+
+  /// How early (s) to start the next song so it lands on the bar.
+  double _beatLead = 0.06;
+
+  /// Beat gap (ms) every 50 ms through the last beat-matched mix (tests).
+  @visibleForTesting
+  final debugMixBeatTrace = <double>[];
+
+  Future<_BeatPlan?> _makeBeatPlan() async {
+    final svc = beats;
+    if (svc == null || !matchTempo || !_fx.plainPitch) return null;
+    if (_index + 1 >= _tracks.length) return null;
+    final cur = _tracks[_index];
+    final next = _tracks[_index + 1];
+    final end = _trimEnd ?? mediaItem.value?.duration;
+    if (end == null) return null;
+    try {
+      final start = await _startOf(next).timeout(
+        const Duration(milliseconds: 400),
+        onTimeout: () => Duration.zero,
+      );
+      // Analysed when the song started; not known by now, no beat match.
+      final (o, n) = await (svc.outro(cur, end), svc.intro(next, start)).wait
+          .timeout(
+            const Duration(milliseconds: 800),
+            onTimeout: () => (null, null),
+          );
+      debugPrint('beat plan: out $o, in $n (from $start)');
+      if (o == null || n == null || !o.reliable || !n.reliable) return null;
+      final plan = _BeatPlan.make(
+        old: o,
+        incoming: n,
+        oldSpeed: _tempo,
+        from: start.inMicroseconds / 1e6,
+      );
+      if (plan == null) debugPrint('beat plan: tempos too far apart');
+      return plan;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The next song waits on the first beat of a bar; when the old one
+  /// reaches a bar, it starts, and through the crossfade its speed is
+  /// nudged (a few per cent at most) to keep the two songs' beats together.
+  Future<void> _runBeatMix(Player tail, _BeatPlan plan, int token) async {
+    double secs(Duration d) => d.inMicroseconds / 1e6;
+    lastMixWasBeatMatched = false;
+    try {
+      // The old song's next bar, far enough ahead to be on time for it.
+      final oldSpeed = plan.oldSpeed;
+      final bar = plan.old.barAtOrAfter(secs(tail.state.position) + 0.3);
+      // Starting takes a moment: ask that much early (learnt from the
+      // previous mixes).
+      final lead = _beatLead;
+      await tail.stream.position
+          .firstWhere((p) => secs(p) >= bar - lead * oldSpeed)
+          .timeout(const Duration(seconds: 12));
+      if (token != _loadToken) return;
+      await _player.play();
+      _beatHold = false;
+      lastMixWasBeatMatched = true;
+      final end = _mixOldEnd;
+      debugPrint(
+        'beat mix: in on the bar at ${bar.toStringAsFixed(2)}s, old music '
+        'left ${end == null ? '?' : (secs(end) - secs(tail.state.position)).toStringAsFixed(1)}s',
+      );
+    } catch (e) {
+      debugPrint('beat mix: $e');
+      _beatHold = false;
+      if (token != _loadToken) return;
+      await _player.play();
+    }
+    // The crossfade lasts whole bars (at least two).
+    final barWall = 4 * plan.old.period / plan.oldSpeed;
+    final bars = math.max(2, (fadeSeconds / barWall).round());
+    var total = bars * barWall * 1000;
+    final end = _mixOldEnd;
+    if (end != null) {
+      final left = (end - tail.state.position).inMilliseconds / plan.oldSpeed;
+      if (left < total) total = math.max(1500, left);
+    }
+    final clock = Stopwatch()..start();
+    var speed = plan.speed;
+    var worst = 0.0;
+    double? smooth;
+    var first = true;
+    // mpv reports positions in steps; between them each song moves on at
+    // its speed, so the reading is carried forward by the clock.
+    final oldPos = _Tracked(tail, () => plan.oldSpeed);
+    final newPos = _Tracked(_player, () => speed);
+    debugMixBeatTrace.clear();
+    _mix?.cancel();
+    _mix = Timer.periodic(const Duration(milliseconds: 50), (t) {
+      if (token != _loadToken) {
+        t.cancel();
+        return;
+      }
+      final x = (clock.elapsedMilliseconds / total).clamp(0.0, 1.0);
+      _mixProgress = x;
+      _edgeGain = math.sin(x * math.pi / 2);
+      _applyVolume();
+      tail.setVolume(
+        volume.value *
+            _sleepGain *
+            _tailNormGain *
+            100 *
+            math.cos(x * math.pi / 2),
+      );
+      // Beat lock: where each song is within its beat.
+      final po = plan.old.phaseAt(oldPos.now);
+      final xn = (newPos.now - plan.incoming.firstBeat) / plan.newPeriod;
+      var raw = (xn - xn.floorToDouble()) - po;
+      if (raw > 0.5) raw -= 1;
+      if (raw < -0.5) raw += 1;
+      final d = smooth = smooth == null ? raw : smooth! * 0.6 + raw * 0.4;
+      final ms = d * plan.old.period / plan.oldSpeed * 1000;
+      debugMixBeatTrace.add(ms);
+      if (first && clock.elapsedMilliseconds > 400) {
+        // How late the start really was teaches the next mix's lead.
+        first = false;
+        _beatLead = (_beatLead + d * plan.old.period / plan.oldSpeed).clamp(
+          0.0,
+          0.25,
+        );
+      }
+      // Judged while both are heard (not as the old one fades out).
+      if (x > 0.4 && x < 0.9 && ms.abs() > worst) worst = ms.abs();
+      // Ahead: a little slower; behind: a little faster.
+      final want = plan.speed * (1 - (d * 0.15).clamp(-0.025, 0.025));
+      if ((want - speed).abs() > 0.0008) {
+        speed = want;
+        _mpv('speed', _fx.mpvSpeedAt(speed).toStringAsFixed(6));
+      }
+      if (x >= 1) {
+        _mixProgress = 0;
+        t.cancel();
+        _mix = null;
+        _handedOver = false;
+        oldPos.cancel();
+        newPos.cancel();
+        tail.stop();
+        lastMixBeatError = worst;
+        debugPrint('mix done: beats within ${worst.round()} ms');
+        _setTempo(plan.speed).then((_) => _easeTempo());
+        _beatPlan = null;
+      }
+    });
+  }
+
+  // --- DJ screen ----------------------------------------------------------
+
+  double _mixProgress = 0;
+  (String, Duration)? _nextStart;
+
+  /// What the DJ screen shows, read every frame.
+  DjState get dj {
+    final cur = current;
+    final i = _index + 1;
+    final next = i < _tracks.length ? _tracks[i] : null;
+    final svc = beats;
+    final end = _trimEnd ?? mediaItem.value?.duration;
+    final ns = _nextStart;
+    final tail = _tail;
+    final mixing = _mix != null || _mixStarting || _handedOver;
+    final on = _handedOver;
+    final plan = _beatPlan;
+    // While mixing, the old song plays on the second player and this one
+    // already carries the new song.
+    final oldGrid =
+        plan?.old ??
+        (cur == null || end == null ? null : svc?.knownOutro(cur, end));
+    final newGrid =
+        plan?.incoming ??
+        (next == null || ns == null || ns.$1 != next.key
+            ? null
+            : svc?.knownIntro(next, ns.$2));
+    Duration? until;
+    if (!mixing && fadeSeconds >= 1 && next != null && end != null) {
+      final left = end - _player.state.position;
+      final lead = Duration(milliseconds: (fadeSeconds * 1000).round() + 4000);
+      until = left - lead;
+      if (until.isNegative) until = Duration.zero;
+    }
+    return DjState(
+      outgoing: on && tail != null ? _previous : cur,
+      incoming: on ? cur : next,
+      outgoingGrid: on
+          ? oldGrid
+          : (cur == null || end == null ? null : svc?.knownOutro(cur, end)),
+      incomingGrid: newGrid,
+      outgoingPosition: on && tail != null
+          ? tail.state.position
+          : _player.state.position,
+      incomingPosition: on ? _player.state.position : null,
+      outgoingSpeed: on ? (plan?.oldSpeed ?? 1) : _tempo,
+      incomingSpeed: on ? _tempo : (plan?.speed ?? _mixTempo),
+      progress: _mixProgress,
+      mixing: mixing,
+      waitingForBar: _beatHold,
+      beatMatched: plan != null,
+      untilMix: until,
+      playing: _player.state.playing,
+    );
+  }
+
+  /// Just the moving parts of [dj], cheap enough to read every frame.
+  ({Duration outgoing, Duration? incoming, double progress, bool playing})
+  get djClock {
+    final tail = _tail;
+    final on = _handedOver;
+    return (
+      outgoing: on && tail != null
+          ? tail.state.position
+          : _player.state.position,
+      incoming: on ? _player.state.position : null,
+      progress: _mix != null || _mixStarting ? _mixProgress : 0,
+      playing: _player.state.playing,
+    );
+  }
+
+  /// The song that was mixed out (the second player plays it).
+  Track? get _previous => _index > 0 ? _tracks[_index - 1] : null;
+
+  /// Starts the mix into the next song now, wherever this one is.
+  Future<void> mixNow() async {
+    if (_mix != null || _mixStarting || _out != null) return;
+    if (_index >= _tracks.length - 1 || !_player.state.playing) return;
+    if (fadeSeconds < 1) fadeSeconds = 6;
+    _mixFailedToken = -1;
+    await _startMix(_player.state.position);
   }
 
   /// After a tempo-matched mix, drift back to the song's own tempo.
@@ -1045,8 +1498,12 @@ class SegueAudioHandler extends BaseAudioHandler
   }
 
   void _stopMix() {
+    _mixProgress = 0;
     _mix?.cancel();
     _mix = null;
+    _handedOver = false;
+    _beatPlan = null;
+    _beatHold = false;
     _tempoEase?.cancel();
     _tail?.stop();
     if (_edgeGain != 1) {
@@ -1538,4 +1995,113 @@ class _Output {
   _Output(this.id, this.send);
   final String id;
   final Future<void> Function(String op, [Map<String, dynamic>? args]) send;
+}
+
+/// How a beat-matched mix goes: the two songs' grids, the speed that
+/// brings the next song to the old one's tempo, and the bar it starts on.
+class _BeatPlan {
+  _BeatPlan({
+    required this.old,
+    required this.incoming,
+    required this.oldSpeed,
+    required this.speed,
+    required this.newPeriod,
+    required this.newStart,
+  });
+
+  final BeatGrid old, incoming;
+  final double oldSpeed;
+
+  /// Speed of the new song (about 1).
+  final double speed;
+
+  /// The new song's beat as matched to the old one's (its own, or half
+  /// or double it: 87 meets 174 on every other beat).
+  final double newPeriod;
+
+  /// Song time (s) the new song starts from: the first beat of a bar.
+  final double newStart;
+
+  static _BeatPlan? make({
+    required BeatGrid old,
+    required BeatGrid incoming,
+    required double oldSpeed,
+    required double from,
+  }) {
+    final po = old.period;
+    var pn = incoming.period;
+    if (pn / po > 1.4) pn /= 2;
+    if (pn / po < 0.71) pn *= 2;
+    final speed = oldSpeed * pn / po;
+    // More than 6 % off sounds stretched: those just crossfade.
+    if ((speed - 1).abs() > 0.06) return null;
+    final start = incoming.barAtOrAfter(from);
+    if (start > incoming.to - 4) return null;
+    return _BeatPlan(
+      old: old,
+      incoming: incoming,
+      oldSpeed: oldSpeed,
+      speed: speed,
+      newPeriod: pn,
+      newStart: start,
+    );
+  }
+}
+
+/// A player's position between its reports: the last one carried forward
+/// by the clock at the player's speed.
+class _Tracked {
+  _Tracked(Player p, this.speed) {
+    _pos = p.state.position.inMicroseconds / 1e6;
+    _at.start();
+    _sub = p.stream.position.listen((d) {
+      _pos = d.inMicroseconds / 1e6;
+      _at
+        ..reset()
+        ..start();
+    });
+  }
+
+  final double Function() speed;
+  late final StreamSubscription<Duration> _sub;
+  double _pos = 0;
+  final _at = Stopwatch();
+
+  double get now => _pos + _at.elapsedMicroseconds / 1e6 * speed();
+
+  void cancel() => _sub.cancel();
+}
+
+/// A moment of the DJ screen: the two decks and the crossfade between.
+class DjState {
+  const DjState({
+    required this.outgoing,
+    required this.incoming,
+    required this.outgoingGrid,
+    required this.incomingGrid,
+    required this.outgoingPosition,
+    required this.incomingPosition,
+    required this.outgoingSpeed,
+    required this.incomingSpeed,
+    required this.progress,
+    required this.mixing,
+    required this.waitingForBar,
+    required this.beatMatched,
+    required this.untilMix,
+    required this.playing,
+  });
+
+  /// Deck A (playing, or being mixed out) and deck B (next, or coming in).
+  final Track? outgoing, incoming;
+  final BeatGrid? outgoingGrid, incomingGrid;
+  final Duration outgoingPosition;
+  final Duration? incomingPosition;
+  final double outgoingSpeed, incomingSpeed;
+
+  /// 0..1 through the crossfade.
+  final double progress;
+  final bool mixing, waitingForBar, beatMatched, playing;
+
+  /// Time until the mix begins by itself (null: it won't).
+  final Duration? untilMix;
 }

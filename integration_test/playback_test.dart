@@ -12,6 +12,7 @@ import 'package:segue/core/downloads/download_manager.dart';
 import 'package:segue/core/library/library_store.dart';
 import 'package:segue/core/models/track.dart';
 import 'package:segue/core/player/audio_fx.dart';
+import 'package:segue/core/dj/beat_service.dart';
 import 'package:segue/core/player/player_handler.dart';
 import 'package:segue/core/sources/match_source.dart';
 import 'package:segue/core/sources/music_source.dart';
@@ -440,6 +441,8 @@ void main() {
     var oldStill = 0, newStill = 0, worstOld = 0, worstNew = 0;
     var switchedAt = -1;
     final watch = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      // Not the buffering right after the seek itself.
+      if (sw.elapsedMilliseconds < 1500) return;
       final p = player.debugMixPositions;
       if (p.old == lastOld) {
         oldStill += 50;
@@ -522,6 +525,8 @@ void main() {
     var lastOld = Duration.zero;
     var still = 0, worst = 0;
     final watch = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      // Not the buffering right after the seek itself.
+      if (sw.elapsedMilliseconds < 1500) return;
       final p = player.debugMixPositions;
       if (p.old == lastOld) {
         still += 50;
@@ -544,6 +549,64 @@ void main() {
     expect(player.lastMixTailLag, isNotNull); // it was a real mix
     expect(switchedAt, lessThan(11000));
     expect(worst, lessThan(400));
+    await player.stop();
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
+  testWidgets('DJ mix lines up the beats of the two songs', (tester) async {
+    MediaKit.ensureInitialized();
+    final yt = YouTubeSource();
+    final player = SegueAudioHandler({SourceKind.youtube: yt});
+    await player.setVolume(0); // silent
+    player
+      ..fadeSeconds = 8
+      ..beats = BeatService(uriFor: player.analysisUri);
+    final a = (await yt.search(const String.fromEnvironment('MIX_A', defaultValue: 'Daft Punk Get Lucky official audio'), limit: 1)).first;
+    final b = (await yt.search(const String.fromEnvironment('MIX_B', defaultValue: 'Billie Jean Michael Jackson official audio'), limit: 1)).first;
+    await player.playList([a, b], 0);
+    await player.positionStream
+        .firstWhere((p) => p > const Duration(seconds: 1))
+        .timeout(const Duration(seconds: 40));
+    // Time for both ends to be analysed.
+    await Future<void>.delayed(const Duration(seconds: 8));
+    final length = player.mediaItem.value!.duration!;
+    await player.seek(length - const Duration(seconds: 24));
+    final sw = Stopwatch()..start();
+    // Timeline: when the hand-over came, when the new song really started,
+    // and how much of the old song's music was left by then.
+    int? handAt, startAt;
+    double? leftAtStart;
+    Duration? lastNew;
+    final timeline = Timer.periodic(const Duration(milliseconds: 20), (_) {
+      final m = player.debugMixPositions;
+      if (handAt == null && m.handedOver) handAt = sw.elapsedMilliseconds;
+      if (handAt != null && startAt == null && player.index == 1) {
+        if (lastNew != null && m.incoming > lastNew!) {
+          startAt = sw.elapsedMilliseconds;
+          final end = player.debugMixOldEnd;
+          if (end != null) leftAtStart = (end - m.old).inMilliseconds / 1000;
+        }
+        lastNew = m.incoming;
+      }
+    });
+    while (player.index == 0 && sw.elapsed < const Duration(seconds: 30)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    // Through the crossfade.
+    await Future<void>.delayed(const Duration(seconds: 14));
+    timeline.cancel();
+    // ignore: avoid_print
+    print('BEAT TIMELINE hand-over ${handAt}ms, new song moving ${startAt}ms, '
+        'old music left then ${leftAtStart?.toStringAsFixed(2)} s');
+    // ignore: avoid_print
+    final tr = player.debugMixBeatTrace;
+    // ignore: avoid_print
+    print('BEAT TRACE ${[for (var i = 0; i < tr.length; i += 10) tr[i].round()]}');
+    // ignore: avoid_print
+    print('BEAT MIX matched ${player.lastMixWasBeatMatched}, '
+        'worst beat gap ${player.lastMixBeatError?.toStringAsFixed(1)} ms');
+    expect(player.index, 1);
+    expect(player.lastMixWasBeatMatched, isTrue);
+    expect(player.lastMixBeatError, lessThan(30));
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 3)));
 }

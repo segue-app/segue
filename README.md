@@ -117,6 +117,14 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - **Gapless playback**: live albums and mixes flow without a pause
 - **DJ-style mixing**: overlapping crossfades with the next song brought to
   the current tempo, spoken intros and end skits of music videos skipped
+- **Beat-matched mixes**: Segue finds each song's beats itself and brings
+  the next one in on the first beat of a bar, kept in step through the fade
+- **DJ screen**: two turning decks with tempo and beat lights, a crossfader
+  and "Mix now"
+- **Auto DJ**: orders the playlist by tempo and energy and downloads the
+  next songs ahead, so a set keeps going without internet
+- **Lights in time**: LED strips (WLED), Govee lamps and PC/keyboard RGB
+  (OpenRGB) flash on the beat
 - **Even loudness**: quiet and loud tracks play at the same level
 - 10-band equalizer with presets, speed and pitch
 - Trim any track to the part you want

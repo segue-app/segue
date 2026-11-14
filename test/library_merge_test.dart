@@ -43,9 +43,11 @@ void main() {
     _sync(phone, laptop, cursors);
 
     laptop.setLiked(_t('1'), false); // unliked on the laptop
-    await Future<void>.delayed(const Duration(milliseconds: 3));
+    // Edits a real moment apart: each store's clock may run a few ms ahead
+    // of the wall clock after a burst of writes (it never goes back).
+    await Future<void>.delayed(const Duration(milliseconds: 30));
     laptop.renamePlaylist(pid, 'Laptop name');
-    await Future<void>.delayed(const Duration(milliseconds: 3));
+    await Future<void>.delayed(const Duration(milliseconds: 30));
     phone.renamePlaylist(pid, 'Phone name'); // later edit wins
     _sync(phone, laptop, cursors);
 

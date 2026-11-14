@@ -23,6 +23,7 @@ import 'playlist_screen.dart';
 import '../theme/theme.dart';
 import '../widgets/import_dialog.dart';
 import '../widgets/library_import_sheet.dart';
+import '../widgets/lights_panel.dart';
 import '../widgets/living_backdrop.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/motion.dart';
@@ -148,7 +149,7 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Сведение треков'.tr,
               value: s.fadeSeconds,
               min: 0,
-              max: 8,
+              max: 16,
               label: s.fadeSeconds < 0.5
                   ? 'выкл'.tr
                   : '{0} с'.trArgs([s.fadeSeconds.round()]),
@@ -157,7 +158,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             _Tile(
               title: 'Подстраивать темп'.tr,
-              subtitle: 'Как у диджея: следующая песня подгоняется под темп текущей (до ±4%), потом плавно возвращается к своему'
+              subtitle: 'Как у диджея: следующая песня встаёт в темп и на сильную долю текущей, потом плавно возвращается к своему темпу'
                   .tr,
               trailing: Switch(
                 value: s.matchTempo,
@@ -184,6 +185,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             const _CacheTile(),
+            _Section('Свет'.tr),
+            const LightsPanel(),
             _Section('Цвет акцента'.tr),
             _Tile(
               title: 'Брать из обложки'.tr,

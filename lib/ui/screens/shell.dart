@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import '../../core/lights/light_devices.dart';
+import '../../core/lights/light_sync.dart';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 
@@ -95,6 +98,17 @@ class _ShellState extends ConsumerState<Shell> {
       (_, v) => ref.read(playerProvider).fadeSeconds = v,
       fireImmediately: true,
     );
+    // The lights take the colours of the cover playing.
+    ref.listenManual(currentColorsProvider, (_, c) {
+      final lights = ref.read(lightSyncProvider);
+      if (lights == null) return;
+      Rgb rgb(Color x) => (
+        r: (x.r * 255).round(),
+        g: (x.g * 255).round(),
+        b: (x.b * 255).round(),
+      );
+      lights.palette = [rgb(c.accent), for (final p in c.palette) rgb(p)];
+    }, fireImmediately: true);
     ref.listenManual(settingsProvider, (_, s) {
       ref.read(playerProvider)
         ..skipIntros = s.skipIntros
