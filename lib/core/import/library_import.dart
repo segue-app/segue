@@ -65,21 +65,19 @@ class LibraryImporter {
       throw ImportException('Введи логин Яндекса или ссылку на профиль'.tr);
     }
     progress?.call('Ищем профиль…'.tr);
-    final res = await _http
-        .get(
-          Uri.parse(
-            'https://api.music.yandex.net/users/${Uri.encodeComponent(login)}/playlists/list',
-          ),
-        )
-        .timeout(const Duration(seconds: 20));
-    if (res.statusCode == 404) {
-      throw ImportException('Профиль «{0}» не найден'.trArgs([login]));
-    }
-    if (res.statusCode != 200) {
-      throw ImportException(
-        'Профиль закрыт. В Яндекс Музыке: Настройки → Приватность → сделать профиль публичным'
-            .tr,
+    final http.Response res;
+    try {
+      res = await PlaylistImporter.yandexGet(
+        _http,
+        Uri.parse(
+          'https://api.music.yandex.net/users/${Uri.encodeComponent(login)}/playlists/list',
+        ),
       );
+    } on ImportException catch (e) {
+      if (e.message == 'Плейлист не найден. Проверь ссылку'.tr) {
+        throw ImportException('Профиль «{0}» не найден'.trArgs([login]));
+      }
+      rethrow;
     }
     final kinds = [
       for (final p
@@ -124,7 +122,11 @@ class LibraryImporter {
     ];
     if ((liked?.tracks.isEmpty ?? true) && playlists.isEmpty) {
       throw ImportException(
-        'В профиле нет открытых треков. Проверь, что профиль публичный'.tr,
+        '{0}\n\n{1}'.trArgs([
+          'В профиле нет открытых треков. В Яндекс Музыке открой «Мне нравится» и плейлисты для всех'
+              .tr,
+          PlaylistImporter.yandexAbroad.tr,
+        ]),
       );
     }
     return ImportedLibrary(

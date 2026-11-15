@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/library/library.dart';
+import '../../core/models/track.dart';
 import '../widgets/collection.dart';
 import '../widgets/track_actions.dart';
 
@@ -54,6 +55,7 @@ class PlaylistScreen extends ConsumerWidget {
                   ? 'Совместный плейлист'.tr
                   : null,
               actions: [
+                _LikeAllButton(tracks: tracks),
                 DownloadAllButton(tracks: tracks),
                 HeaderIconButton(
                   icon: Icons.group_add_rounded,
@@ -107,4 +109,45 @@ class PlaylistScreen extends ConsumerWidget {
         ),
       ) ??
       false;
+}
+
+/// Header button: like every song of the playlist (and undo it right away).
+class _LikeAllButton extends ConsumerWidget {
+  const _LikeAllButton({required this.tracks});
+
+  final List<Track> tracks;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liked = ref.watch(likedKeysProvider);
+    final all = tracks.isNotEmpty && tracks.every((t) => liked.contains(t.key));
+    return HeaderIconButton(
+      icon: all ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+      tooltip: all ? 'Все треки в любимых'.tr : 'Лайкнуть все треки'.tr,
+      onTap: () {
+        if (tracks.isEmpty || all) return;
+        final library = ref.read(libraryProvider);
+        final fresh = [
+          for (final t in tracks)
+            if (!liked.contains(t.key)) t,
+        ];
+        library.likeMany(fresh, onTop: true);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              'В любимых: +{0}'.trArgs([tracksLabel(fresh.length)]),
+            ),
+            action: SnackBarAction(
+              label: 'Отменить'.tr,
+              onPressed: () {
+                for (final t in fresh) {
+                  library.setLiked(t, false);
+                }
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

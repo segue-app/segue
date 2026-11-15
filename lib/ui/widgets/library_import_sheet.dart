@@ -59,7 +59,18 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
       final lib = await load();
       final store = ref.read(libraryProvider);
       final likes = store.likeMany(lib.liked);
-      for (final p in lib.playlists) {
+      // The liked songs also get a playlist of their own, so they stay
+      // together and apart from what was liked here before.
+      final lists = [
+        if (lib.liked.isNotEmpty)
+          ImportedPlaylist(
+            name: 'Любимые из {0}'.trArgs([lib.service.tr]),
+            service: lib.service,
+            tracks: lib.liked,
+          ),
+        ...lib.playlists,
+      ];
+      for (final p in lists) {
         final id = store.createPlaylist(p.name);
         store.addToPlaylist(id, p.tracks);
       }
@@ -68,11 +79,8 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
             .trArgs([
               likes,
               L10n.plural(likes, 'лайк|лайка|лайков'),
-              lib.playlists.length,
-              L10n.plural(
-                lib.playlists.length,
-                'плейлист|плейлиста|плейлистов',
-              ),
+              lists.length,
+              L10n.plural(lists.length, 'плейлист|плейлиста|плейлистов'),
               lib.service.tr,
             ]),
       );
@@ -144,7 +152,7 @@ class _LibraryImportState extends ConsumerState<_LibraryImport> {
             const SizedBox(height: 18),
             card(
               'Яндекс Музыка'.tr,
-              'Логин или ссылка на профиль. Профиль должен быть открытым: Настройки → Приватность.'
+              'Логин или ссылка на профиль. «Мне нравится» и плейлисты должны быть открыты для всех. Не в России или Беларуси? Включи VPN этих стран.'
                   .tr,
               [
                 Row(

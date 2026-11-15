@@ -72,7 +72,7 @@ class CoverCollage extends StatelessWidget {
 }
 
 /// Header + play/shuffle + track list. Used for playlists and liked songs.
-class TrackCollectionView extends ConsumerWidget {
+class TrackCollectionView extends ConsumerStatefulWidget {
   const TrackCollectionView({
     super.key,
     required this.title,
@@ -103,7 +103,49 @@ class TrackCollectionView extends ConsumerWidget {
   final String? emptyText;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TrackCollectionView> createState() =>
+      _TrackCollectionViewState();
+}
+
+class _TrackCollectionViewState extends ConsumerState<TrackCollectionView> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// Positions in the full list of the songs that match the search.
+  List<int> _matches(List<Track> tracks) {
+    final words = _query.toLowerCase().split(RegExp(r'\s+'))
+      ..removeWhere((w) => w.isEmpty);
+    return [
+      for (var i = 0; i < tracks.length; i++)
+        if (words.every(
+          '${tracks[i].title} ${tracks[i].artist}'.toLowerCase().contains,
+        ))
+          i,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.title;
+    final subtitle = widget.subtitle;
+    final tracks = widget.tracks;
+    final cover = widget.cover;
+    final actions = widget.actions;
+    final onRemove = widget.onRemove;
+    final emptyText = widget.emptyText;
+    final playContext = widget.playContext;
+    // Dragging songs makes no sense in a filtered list.
+    final searching = _query.trim().isNotEmpty;
+    final onReorder = searching ? null : widget.onReorder;
+    final shown = searching
+        ? _matches(tracks)
+        : List<int>.generate(tracks.length, (i) => i);
     final accent = ref.watch(currentColorsProvider).accent;
     final player = ref.read(playerProvider);
     final wide = MediaQuery.sizeOf(context).width > 600;
@@ -189,7 +231,52 @@ class TrackCollectionView extends ConsumerWidget {
       builder: (context, side) => CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: ContentBox(child: header)),
-          if (tracks.isEmpty)
+          if (tracks.length > 1)
+            SliverToBoxAdapter(
+              child: ContentBox(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: TextField(
+                    controller: _search,
+                    onChanged: (v) => setState(() => _query = v),
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Поиск в списке'.tr,
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      suffixIcon: searching
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () {
+                                _search.clear();
+                                setState(() => _query = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.06),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (searching && shown.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Text(
+                    'Ничего не нашлось'.tr,
+                    style: const TextStyle(color: SegueColors.textDim),
+                  ),
+                ),
+              ),
+            )
+          else if (tracks.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
               child: Center(
@@ -205,7 +292,7 @@ class TrackCollectionView extends ConsumerWidget {
               sliver: onReorder != null
                   ? SliverReorderableList(
                       itemCount: tracks.length,
-                      onReorderItem: (from, to) => onReorder!(from, to),
+                      onReorderItem: (from, to) => onReorder(from, to),
                       proxyDecorator: (child, _, _) => Material(
                         color: Colors.white.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(14),
@@ -221,7 +308,7 @@ class TrackCollectionView extends ConsumerWidget {
                               playContext: playContext,
                               onRemove: onRemove == null
                                   ? null
-                                  : () => onRemove!(tracks[i]),
+                                  : () => onRemove(tracks[i]),
                             ),
                           ),
                           // Grab here to move the song (a long press on
@@ -246,16 +333,18 @@ class TrackCollectionView extends ConsumerWidget {
                       ),
                     )
                   : SliverList.builder(
-                      itemCount: tracks.length,
+                      itemCount: shown.length,
+                      // A found song plays the whole list from it.
                       itemBuilder: (context, i) => StaggeredEntrance(
+                        key: ValueKey(tracks[shown[i]].key),
                         index: i % 12,
                         child: TrackTile(
                           tracks: tracks,
-                          index: i,
+                          index: shown[i],
                           playContext: playContext,
                           onRemove: onRemove == null
                               ? null
-                              : () => onRemove!(tracks[i]),
+                              : () => onRemove(tracks[shown[i]]),
                         ),
                       ),
                     ),

@@ -133,11 +133,14 @@ class PlaylistImporter {
         'Не похоже на ссылку на плейлист или альбом Яндекс Музыки'.tr,
       );
     }
-    final res = await _get(api);
+    final res = await yandexGet(_http, api);
     final result = (jsonDecode(res.body) as Map)['result'] as Map?;
     if (result == null) {
       throw ImportException(
-        'Яндекс Музыка не отдала плейлист. Он публичный?'.tr,
+        '{0}\n\n{1}'.trArgs([
+          'Яндекс Музыка не отдала плейлист. Проверь, что он открыт'.tr,
+          yandexAbroad.tr,
+        ]),
       );
     }
 
@@ -287,6 +290,39 @@ class PlaylistImporter {
     artworkUrl: cover,
     duration: durationMs == null ? null : Duration(milliseconds: durationMs),
   );
+
+  /// Outside Russia and Belarus Yandex Music often won't answer without a
+  /// Plus subscription: the request goes from the user's own address.
+  static const yandexAbroad =
+      'Если ты не в России или Беларуси, Яндекс Музыка может не пускать. Включи VPN с сервером в России или Беларуси и попробуй снова';
+
+  /// A Yandex Music API call, its failures explained (closed playlist or
+  /// blocked from abroad).
+  static Future<http.Response> yandexGet(http.Client client, Uri uri) async {
+    final http.Response res;
+    try {
+      res = await client.get(uri).timeout(const Duration(seconds: 20));
+    } on ImportException {
+      rethrow;
+    } catch (_) {
+      throw ImportException(
+        '{0}\n\n{1}'.trArgs(['Яндекс Музыка не отвечает'.tr, yandexAbroad.tr]),
+      );
+    }
+    if (res.statusCode == 404) {
+      throw ImportException('Плейлист не найден. Проверь ссылку'.tr);
+    }
+    if (res.statusCode != 200) {
+      throw ImportException(
+        '{0}\n\n{1}'.trArgs([
+          'Яндекс Музыка не пустила (ошибка {0}). Плейлист должен быть открытым'
+              .trArgs([res.statusCode]),
+          yandexAbroad.tr,
+        ]),
+      );
+    }
+    return res;
+  }
 
   Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) async {
     final res = await _http

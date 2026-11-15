@@ -133,7 +133,11 @@ class Relay {
   final _clients = <MqttServerClient>[];
   final _subs = <StreamSubscription<Object?>>[];
   StreamSubscription<void>? _libSub, _playerSub;
-  Timer? _libDebounce, _stateDebounce, _inviteTimer, _stateBeat;
+  Timer? _libDebounce, _stateDebounce, _inviteTimer, _stateBeat, _retry;
+
+  /// Brokers this device has a client for (it reconnects by itself), and
+  /// those being tried right now.
+  final _hosts = <String>{}, _trying = <String>{};
 
   /// How far each device's clock is from ours (ours − theirs), learnt from
   /// messages that arrived live. Timestamps in stored (retained) messages
@@ -237,6 +241,11 @@ class Relay {
     _key = await _groupKey(token);
     _base = 'segue/v1/${(await hash('segue-topic:$token')).substring(0, 24)}';
     await Future.wait([for (final host in brokers) _connect(host)]);
+    // A broker that couldn't be reached at start (no network yet, a phone
+    // waking up) is tried again: before, the device stayed unseen until
+    // the app was restarted.
+    _retry?.cancel();
+    _retry = Timer.periodic(const Duration(seconds: 15), (_) => _reconnect());
 
     _libSub = library.changes.listen((_) => _scheduleLibrary());
     _playerSub = player.stateChanges.listen((_) => _scheduleState());
@@ -251,8 +260,33 @@ class Relay {
     _scheduleState();
   }
 
+  /// Brokers not reached yet: try again.
+  void _reconnect() {
+    if (!_running) return;
+    for (final host in brokers) {
+      if (!_hosts.contains(host)) unawaited(_connect(host));
+    }
+  }
+
+  /// The app is back in front (a phone unlocked): connections the system
+  /// cut while it slept are made again now, not after a keep-alive
+  /// timeout, and the others hear where this device is at.
+  void wake() {
+    if (!_running) return;
+    for (final c in _clients) {
+      if (c.connectionStatus?.state != MqttConnectionState.connected) {
+        try {
+          c.doAutoReconnect(force: true);
+        } catch (_) {}
+      }
+    }
+    _reconnect();
+    _scheduleState();
+  }
+
   Future<void> stop() async {
     _running = false;
+    _retry?.cancel();
     _libDebounce?.cancel();
     _stateDebounce?.cancel();
     _stateBeat?.cancel();
@@ -280,6 +314,7 @@ class Relay {
       } catch (_) {}
     }
     _clients.clear();
+    _hosts.clear();
     connected.value = false;
     devices.value = {};
     _presence.clear();
@@ -295,6 +330,15 @@ class Relay {
   }
 
   Future<void> _connect(String host) async {
+    if (!_trying.add(host)) return;
+    try {
+      await _connectOnce(host);
+    } finally {
+      _trying.remove(host);
+    }
+  }
+
+  Future<void> _connectOnce(String host) async {
     final id = 'sg-${_me.substring(0, 8)}-${Random().nextInt(1 << 30)}';
     final c = MqttServerClient.withPort(host, id, 8883)
       ..secure = true
@@ -317,6 +361,11 @@ class Relay {
     );
     try {
       await c.connect().timeout(const Duration(seconds: 12));
+      if (!_running) {
+        c.disconnect();
+        return;
+      }
+      _hosts.add(host);
       _clients.add(c);
       _subs.add(c.updates!.listen((batch) => _onMessages(batch, host)));
       c.subscribe('$_base/#', MqttQos.atLeastOnce);

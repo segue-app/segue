@@ -356,7 +356,9 @@ class LibraryStore {
   /// Likes many tracks at once (an imported library), keeping their order:
   /// [newestFirst] the way services list them. Already liked ones are left
   /// as they are. Returns how many were added.
-  int likeMany(List<Track> newestFirst) {
+  /// [onTop]: liked just now (a whole playlist liked at once) rather than
+  /// older than everything (an import).
+  int likeMany(List<Track> newestFirst, {bool onTop = false}) {
     final have = likedKeys();
     final fresh = [
       for (final t in newestFirst)
@@ -369,8 +371,9 @@ class LibraryStore {
       final oldest = _db
           .select('SELECT MIN(liked_at) AS m FROM likes')
           .first['m'];
-      final base =
-          (oldest as int? ?? DateTime.now().millisecondsSinceEpoch) - 1;
+      final base = onTop
+          ? DateTime.now().millisecondsSinceEpoch
+          : (oldest as int? ?? DateTime.now().millisecondsSinceEpoch) - 1;
       for (final (i, t) in fresh.indexed) {
         _saveTrack(t);
         _db.execute(

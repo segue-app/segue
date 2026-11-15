@@ -223,6 +223,8 @@ Future<void> main() async {
     player: handler,
     deviceName: () => sync.deviceName,
   );
+  // Back in front (a phone unlocked): reconnect at once.
+  AppLifecycleListener(onResume: relay.wake);
   final connect = Connect(
     sync: sync,
     relay: relay,

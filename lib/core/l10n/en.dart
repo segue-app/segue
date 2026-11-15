@@ -10,11 +10,8 @@ const en = <String, String>{
       'Enter a Yandex login or a link to the profile',
   'Ищем профиль…': 'Looking for the profile…',
   'Профиль «{0}» не найден': 'Profile “{0}” not found',
-  'Профиль закрыт. В Яндекс Музыке: Настройки → Приватность → сделать профиль публичным': 'The profile is private. In Yandex Music: Settings → Privacy → make the profile public',
   'Загружаем «Мне нравится»…': 'Loading liked songs…',
   'Плейлисты: {0} из {1}': 'Playlists: {0} of {1}',
-  'В профиле нет открытых треков. Проверь, что профиль публичный':
-      'The profile has no public tracks. Check that the profile is public',
   'В файлах не нашлось треков. Нужны CSV из Exportify или файлы YourLibrary.json / Playlist1.json из данных Spotify': 'No tracks found in the files. They should be CSVs from Exportify, or YourLibrary.json / Playlist1.json from your Spotify data',
   'Плейлист': 'Playlist',
   'Поддерживаются ссылки Spotify, Яндекс Музыки, YouTube и SoundCloud':
@@ -28,8 +25,6 @@ const en = <String, String>{
   'Плейлист Spotify': 'Spotify playlist',
   'Не похоже на ссылку на плейлист или альбом Яндекс Музыки':
       'That doesn\'t look like a link to a Yandex Music playlist or album',
-  'Яндекс Музыка не отдала плейлист. Он публичный?':
-      'Yandex Music didn\'t return the playlist. Is it public?',
   'Плейлист пустой или закрыт': 'The playlist is empty or private',
   'Плейлист Яндекс Музыки': 'Yandex Music playlist',
   'В ссылке нет плейлиста YouTube (параметр list=)':
@@ -365,7 +360,6 @@ const en = <String, String>{
   'Готово: {0} {1} и {2} {3} из {4}. Треки находятся на YouTube, когда играют': 'Done: {0} {1} and {2} {3} from {4}. Tracks are found on YouTube when they play',
   'Файлы экспорта Spotify': 'Spotify export files',
   'Все лайки и плейлисты разом. Уже лайкнутое не задвоится.': 'All likes and playlists at once. What you\'ve already liked won\'t be duplicated.',
-  'Логин или ссылка на профиль. Профиль должен быть открытым: Настройки → Приватность.': 'A login or a link to the profile. The profile must be public: Settings → Privacy.',
   'логин или music.yandex.ru/users/…': 'login or music.yandex.ru/users/…',
   'Перенести': 'Import',
   'Spotify не отдаёт лайки без входа, поэтому — файлами. Самое быстрое: exportify.app → войти → «Export All» и выбрать скачанный ZIP. Подойдут и данные из «Конфиденциальность → Скачать мои данные» (YourLibrary.json).': 'Spotify doesn\'t share likes without signing in, so it\'s done with files. The quickest way: exportify.app → sign in → “Export All”, then choose the downloaded ZIP. The data from “Privacy → Download your data” (YourLibrary.json) works too.',
@@ -553,4 +547,18 @@ const en = <String, String>{
   'Если свет спешит или опаздывает: с Bluetooth-колонками звук идёт позже': 'If the light is early or late: with Bluetooth speakers the sound comes later',
   '{0} мс': '{0} ms',
   'Добавить': 'Add',
+  'Все треки в любимых': 'All songs are in Liked',
+  'Лайкнуть все треки': 'Like all songs',
+  'В любимых: +{0}': 'Added to Liked: {0}',
+  'Отменить': 'Undo',
+  'Поиск в списке': 'Search in this list',
+  'Любимые из {0}': 'Liked from {0}',
+  'Логин или ссылка на профиль. «Мне нравится» и плейлисты должны быть открыты для всех. Не в России или Беларуси? Включи VPN этих стран.': 'A login or a link to the profile. Liked songs and playlists must be open to everyone. Not in Russia or Belarus? Turn on a VPN to one of them.',
+  'В профиле нет открытых треков. В Яндекс Музыке открой «Мне нравится» и плейлисты для всех': 'The profile has no open songs. In Yandex Music, open Liked and the playlists to everyone',
+  'Яндекс Музыка не отдала плейлист. Проверь, что он открыт':
+      'Yandex Music didn\'t return the playlist. Check that it is open',
+  'Яндекс Музыка не отвечает': 'Yandex Music doesn\'t answer',
+  'Яндекс Музыка не пустила (ошибка {0}). Плейлист должен быть открытым':
+      'Yandex Music refused (error {0}). The playlist must be open',
+  'Если ты не в России или Беларуси, Яндекс Музыка может не пускать. Включи VPN с сервером в России или Беларуси и попробуй снова': 'Outside Russia and Belarus, Yandex Music may refuse. Turn on a VPN with a server in Russia or Belarus and try again',
 };

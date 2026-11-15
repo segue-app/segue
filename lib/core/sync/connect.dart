@@ -58,12 +58,29 @@ class Connect {
   /// Keeps the remote in step with the device it controls, and becomes a
   /// remote by itself when another device plays and this one is idle
   /// (like Spotify showing "playing on…").
+  ///
+  /// Music started on another device also takes over from this one, as
+  /// in Spotify: only one device of the user plays, the others show it,
+  /// follow its position and control it until "play here" is chosen.
   void _follow() {
     final p = player;
     if (p == null) return;
+    final devices = relay.devices.value;
+    final nowPlaying = {
+      for (final d in devices.values)
+        if (d.playing && d.state != null) d.id,
+    };
+    final started = nowPlaying.difference(_wasPlaying);
+    _wasPlaying = nowPlaying;
     final target = p.outputId;
+    final other = started.where((id) => id != target).firstOrNull;
+    if (other != null) {
+      _stayHere = false;
+      _becomeRemote(other, devices[other]!.name);
+      return;
+    }
     if (target != null) {
-      final d = relay.devices.value[target];
+      final d = devices[target];
       if (d == null || !d.online) {
         p.leaveRemote(); // it went away
         return;
@@ -72,15 +89,8 @@ class Connect {
       if (st != null) p.remoteState(st, d.stateAt ?? DateTime.now());
       return;
     }
-    // Something new started elsewhere: following it is fine again.
-    final nowPlaying = {
-      for (final d in relay.devices.value.values)
-        if (d.playing) d.id,
-    };
-    if (nowPlaying.difference(_wasPlaying).isNotEmpty) _stayHere = false;
-    _wasPlaying = nowPlaying;
     if (_stayHere || p.isPlaying) return;
-    for (final d in relay.devices.value.values) {
+    for (final d in devices.values) {
       if (d.playing && d.state != null) {
         _becomeRemote(d.id, d.name);
         return;

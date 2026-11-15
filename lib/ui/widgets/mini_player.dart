@@ -17,6 +17,7 @@ import 'output_badge.dart';
 import 'queue_sheet.dart';
 import 'sound_panel.dart';
 import 'track_actions.dart';
+import 'volume_slider.dart';
 import 'wavy_progress.dart';
 
 /// Frosted-glass player pinned to the bottom, tinted by the cover colours.
@@ -64,7 +65,11 @@ class _Bar extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           child: PressScale(
             scale: wide ? 1 : 0.98,
-            onTap: () => Navigator.of(context).push(NowPlayingScreen.route()),
+            // On a computer only the cover and title open the player: a
+            // click on the wave or the volume must not.
+            onTap: wide
+                ? null
+                : () => Navigator.of(context).push(NowPlayingScreen.route()),
             child: DecoratedBox(
               // A soft glow in the cover's colour lifts the bar off the page.
               decoration: BoxDecoration(
@@ -197,6 +202,20 @@ class _Compact extends ConsumerWidget {
             children: [
               Expanded(child: _TrackInfo(item: item)),
               PressScale(
+                onTap: () =>
+                    Navigator.of(context)
+                        .push(NowPlayingScreen.route(lyrics: true)),
+                scale: 0.85,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.lyrics_rounded,
+                    size: 22,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+              PressScale(
                 onTap: player.skipToPrevious,
                 scale: 0.85,
                 child: const Padding(
@@ -274,7 +293,14 @@ class _Wide extends ConsumerWidget {
             flex: 3,
             child: Row(
               children: [
-                Flexible(child: _TrackInfo(item: item, size: 54)),
+                Flexible(
+                  child: PressScale(
+                    scale: 0.97,
+                    onTap: () =>
+                        Navigator.of(context).push(NowPlayingScreen.route()),
+                    child: _TrackInfo(item: item, size: 54),
+                  ),
+                ),
                 if (track != null)
                   LikeButton(track: track, liked: liked, size: 20),
               ],
@@ -324,20 +350,33 @@ class _Wide extends ConsumerWidget {
           ),
           Expanded(
             flex: 3,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                icon(Icons.queue_music_rounded, () => showQueueSheet(context)),
-                icon(Icons.equalizer_rounded, () => showSoundSheet(context)),
-                const SizedBox(width: 4),
-                const _Volume(),
-                const SizedBox(width: 4),
-                icon(
-                  Icons.open_in_full_rounded,
-                  () => Navigator.of(context).push(NowPlayingScreen.route()),
-                  size: 18,
-                ),
-              ],
+            // The slider gives way when the window is narrow.
+            child: LayoutBuilder(
+              builder: (context, c) => Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  icon(
+                    Icons.lyrics_rounded,
+                    () =>
+                        Navigator.of(context)
+                            .push(NowPlayingScreen.route(lyrics: true)),
+                    size: 20,
+                  ),
+                  icon(
+                    Icons.queue_music_rounded,
+                    () => showQueueSheet(context),
+                  ),
+                  icon(Icons.equalizer_rounded, () => showSoundSheet(context)),
+                  const SizedBox(width: 4),
+                  VolumeSlider(width: (c.maxWidth - 186).clamp(40.0, 104.0)),
+                  const SizedBox(width: 4),
+                  icon(
+                    Icons.open_in_full_rounded,
+                    () => Navigator.of(context).push(NowPlayingScreen.route()),
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -399,56 +438,6 @@ class _Seek extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _Volume extends ConsumerWidget {
-  const _Volume();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final player = ref.read(playerProvider);
-    final accent = ref.watch(currentColorsProvider).accent;
-    void set(double v) {
-      player.setVolume(v);
-      ref.read(libraryProvider).setMeta('volume', '${player.volume.value}');
-    }
-
-    return ValueListenableBuilder<double>(
-      valueListenable: player.volume,
-      builder: (context, v, _) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PressScale(
-            scale: 0.85,
-            onTap: () => set(v > 0 ? 0 : 1),
-            child: Icon(
-              v == 0
-                  ? Icons.volume_off_rounded
-                  : v < 0.5
-                  ? Icons.volume_down_rounded
-                  : Icons.volume_up_rounded,
-              size: 20,
-              color: Colors.white.withValues(alpha: 0.85),
-            ),
-          ),
-          SizedBox(
-            width: 104,
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                activeTrackColor: accent,
-                inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
-                thumbColor: Colors.white,
-              ),
-              child: Slider(value: v, onChanged: set),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

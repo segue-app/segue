@@ -230,6 +230,12 @@ void main() {
     await tester.tap(find.text('Вечер').first);
     await settle(tester, 2);
     await shot(tester, '05_playlist');
+    // Search in the list.
+    await tester.enterText(find.byType(TextField).last, 'zzzz-none');
+    await settle(tester, 0.5);
+    expect(find.text('Ничего не нашлось'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '');
+    await settle(tester, 0.5);
 
     // Track menu.
     await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
@@ -335,7 +341,7 @@ void main() {
     await settle(tester, 6);
     await tester.tap(find.byIcon(Icons.open_in_full_rounded));
     await settle(tester, 2);
-    await tester.tap(find.byIcon(Icons.lyrics_rounded));
+    await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
     await settle(tester, 0.3);
     await shot(tester, '06h0_lyrics_opening');
     await settle(tester, 4);
@@ -358,7 +364,7 @@ void main() {
     await shot(tester, '06i_sound_sheet');
     await tester.tapAt(const Offset(5, 300));
     await settle(tester, 1);
-    await tester.tap(find.byIcon(Icons.lyrics_rounded));
+    await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
     await settle(tester, 0.3);
     await shot(tester, '06h1_lyrics_closing');
     await settle(tester, 1.5);
@@ -416,7 +422,7 @@ void main() {
     await settle(tester, 3);
     await shot(tester, '09_phone_now_playing');
 
-    await tester.tap(find.byIcon(Icons.lyrics_rounded));
+    await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
     await settle(tester, 5);
     await shot(tester, '10_phone_lyrics');
     await settle(tester, 0.7);

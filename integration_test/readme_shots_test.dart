@@ -188,7 +188,7 @@ void main() {
       await shot(tester, '$lang/home', 1.1);
       await tester.tap(find.byIcon(Icons.open_in_full_rounded));
       await settle(tester, 3);
-      await tester.tap(find.byIcon(Icons.lyrics_rounded));
+      await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
       await settle(tester, 6);
       await shot(tester, '$lang/lyrics', 1.1);
       await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
@@ -205,7 +205,7 @@ void main() {
       await tester.tap(find.byType(Hero).first, warnIfMissed: false);
       await settle(tester, 4);
       await shot(tester, '$lang/phone-player', 1.5);
-      await tester.tap(find.byIcon(Icons.lyrics_rounded));
+      await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
       await settle(tester, 6);
       await shot(tester, '$lang/phone-lyrics', 1.5);
       await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));

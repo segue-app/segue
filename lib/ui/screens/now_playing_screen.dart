@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'dj_screen.dart';
@@ -26,21 +27,25 @@ import '../widgets/play_button.dart';
 import '../widgets/queue_sheet.dart';
 import '../widgets/sound_panel.dart';
 import '../widgets/track_actions.dart';
+import '../widgets/volume_slider.dart';
 import '../widgets/wavy_progress.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
 class NowPlayingScreen extends ConsumerStatefulWidget {
-  const NowPlayingScreen({super.key});
+  const NowPlayingScreen({super.key, this.lyrics = false});
+
+  /// Open with the lyrics already showing.
+  final bool lyrics;
 
   static const routeName = '/now-playing';
 
-  static Route<void> route() => PageRouteBuilder(
+  static Route<void> route({bool lyrics = false}) => PageRouteBuilder(
     settings: const RouteSettings(name: routeName),
     opaque: false,
     transitionDuration: SegueMotion.slow,
     reverseTransitionDuration: SegueMotion.medium,
-    pageBuilder: (_, _, _) => const NowPlayingScreen(),
+    pageBuilder: (_, _, _) => NowPlayingScreen(lyrics: lyrics),
     transitionsBuilder: (_, anim, _, child) {
       final curved = CurvedAnimation(
         parent: anim,
@@ -69,7 +74,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   double _dragY = 0;
 
   /// Lyrics replace the cover while on.
-  bool _lyrics = false;
+  late bool _lyrics = widget.lyrics;
 
   @override
   Widget build(BuildContext context) {
@@ -631,6 +636,11 @@ class _Controls extends ConsumerWidget {
             _RoundIcon(icon: Icons.skip_next_rounded, onTap: player.skipToNext),
           ],
         ),
+        // A computer has no volume buttons on its side.
+        if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) ...[
+          const SizedBox(height: 14),
+          const VolumeSlider(width: 200),
+        ],
       ],
     );
   }
@@ -673,41 +683,45 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
             ),
-          _buttons(context),
+          _buttons(context, c.maxWidth),
         ],
       ),
     );
   }
 
-  Widget _buttons(BuildContext context) {
+  Widget _buttons(BuildContext context, double width) {
+    // On a narrow phone the buttons shrink a little rather than run off
+    // the edge.
+    final n = onDevices == null ? 6 : 7;
+    final size = ((width - 8 * (n - 2) - 4) / n).clamp(34.0, 44.0);
     return Row(
       children: [
         _RoundIcon(
           icon: Icons.keyboard_arrow_down_rounded,
           onTap: onClose,
-          size: 44,
+          size: size,
         ),
         const Spacer(),
         _RoundIcon(
           icon: Icons.album_rounded,
           onTap: () => Navigator.of(context).push(DjScreen.route()),
-          size: 44,
+          size: size,
         ),
         const SizedBox(width: 8),
         _RoundIcon(
           icon: Icons.queue_music_rounded,
           onTap: () => showQueueSheet(context),
-          size: 44,
+          size: size,
         ),
         const SizedBox(width: 8),
         _RoundIcon(
           icon: Icons.equalizer_rounded,
           onTap: () => showSoundSheet(context),
-          size: 44,
+          size: size,
         ),
         const SizedBox(width: 8),
         if (onDevices != null) ...[
-          _RoundIcon(icon: Icons.devices_rounded, onTap: onDevices, size: 44),
+          _RoundIcon(icon: Icons.devices_rounded, onTap: onDevices, size: size),
           const SizedBox(width: 8),
         ],
         AnimatedContainer(
@@ -719,17 +733,17 @@ class _TopBar extends StatelessWidget {
           child: _RoundIcon(
             icon: Icons.lyrics_rounded,
             onTap: onLyrics,
-            size: 44,
+            size: size,
             color: lyricsOn ? SegueColors.ink : Colors.white,
           ),
         ),
         const SizedBox(width: 8),
         onMore == null
-            ? const SizedBox(width: 44)
+            ? SizedBox(width: size)
             : _RoundIcon(
                 icon: Icons.more_horiz_rounded,
                 onTap: onMore!,
-                size: 44,
+                size: size,
               ),
       ],
     );
