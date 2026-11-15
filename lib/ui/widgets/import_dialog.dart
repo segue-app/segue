@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'net_check_sheet.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -171,9 +174,25 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                   ? const SizedBox(width: double.infinity)
                   : Padding(
                       padding: const EdgeInsets.only(top: 10),
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Color(0xFFFF8A80)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _error!,
+                            style: const TextStyle(color: Color(0xFFFF8A80)),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                            ),
+                            icon: const Icon(
+                              Icons.network_check_rounded,
+                              size: 18,
+                            ),
+                            label: Text('Проверить связь'.tr),
+                            onPressed: () => showNetCheckSheet(context),
+                          ),
+                        ],
                       ),
                     ),
             ),

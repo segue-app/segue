@@ -208,8 +208,6 @@ const en = <String, String>{
   'Все': 'All',
   'Найди что-нибудь — YouTube и SoundCloud в одном месте':
       'Search for something: YouTube and SoundCloud in one place',
-  'Источник сейчас не отвечает. Попробуй ещё раз чуть позже.':
-      'The source isn\'t answering right now. Try again a bit later.',
   'Ничего не нашлось': 'Nothing found',
   'Артист': 'Artist',
   'Синхронизация, «Где играть», вход по коду':
@@ -561,4 +559,23 @@ const en = <String, String>{
   'Яндекс Музыка не пустила (ошибка {0}). Плейлист должен быть открытым':
       'Yandex Music refused (error {0}). The playlist must be open',
   'Если ты не в России или Беларуси, Яндекс Музыка может не пускать. Включи VPN с сервером в России или Беларуси и попробуй снова': 'Outside Russia and Belarus, Yandex Music may refuse. Turn on a VPN with a server in Russia or Belarus and try again',
+  'Проверка связи': 'Connection check',
+  'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети': 'If songs won\'t play or import fails: shows what your network can\'t reach',
+  'Проверить связь': 'Check connection',
+  'Источник не отвечает. Возможно, он заблокирован в твоей стране или сети: проверь связь': 'The source doesn\'t answer. It may be blocked in your country or network: check the connection',
+  'YouTube не открывается из этой сети: в некоторых странах (например, в России) он заблокирован или замедлен. Без него не играет большая часть треков. Помогает VPN.': 'YouTube can\'t be reached from this network: in some countries (Russia, for example) it is blocked or slowed down. Most songs play from it. A VPN helps.',
+  'SoundCloud недоступен из этой сети. Треки с него не будут играть.':
+      'SoundCloud can\'t be reached from this network. Its songs won\'t play.',
+  'Яндекс Музыка пускает только из России и Беларуси: для импорта включи VPN с сервером там.': 'Yandex Music only answers from Russia and Belarus: turn on a VPN with a server there to import.',
+  'Не отвечает ничего: похоже, нет интернета.':
+      'Nothing answers: there seems to be no internet.',
+  'Что открывается из твоей сети прямо сейчас':
+      'What your network can reach right now',
+  'Скопировать отчёт': 'Copy report',
+  'Скопировано': 'Copied',
+  'Проверить снова': 'Check again',
+  'YouTube: поиск': 'YouTube: search',
+  'YouTube: звук': 'YouTube: audio',
+  'Тексты песен': 'Lyrics',
+  'Обновления': 'Updates',
 };

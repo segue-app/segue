@@ -74,7 +74,7 @@ After the first install, Segue updates itself: **Settings → Update**.
 
 | Platform | File | Notes |
 | --- | --- | --- |
-| **Android** | `segue-android-arm64.apk` | Most phones. Older ones: `-armv7`; emulators: `-x86_64`. Works with [Android Auto](#all-features) |
+| **Android** | `segue-android-arm64.apk` | Most phones. Older ones: `-armv7`; emulators: `-x86_64`. Works with [Android Auto](#all-features). "App not installed"? Versions before 0.3.4 used another signing key: save a backup, remove the old Segue and install again |
 | **Windows** | `segue-windows-x64.zip` | Unzip anywhere and run `segue.exe` |
 | **macOS** | `segue-macos.zip` | Unzip and move to Applications. The app isn't notarized: the first time, right-click → **Open** |
 | **Linux** | `segue-linux-x64.tar.gz` | Needs libmpv: `sudo apt install libmpv2` |

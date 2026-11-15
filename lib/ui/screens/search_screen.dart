@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../widgets/net_check_sheet.dart';
 import '../widgets/content_width.dart';
 
 import 'package:flutter/material.dart';
@@ -328,8 +329,16 @@ class _Results extends ConsumerWidget {
       return _Hint(
         icon: failedHere ? Icons.cloud_off_rounded : Icons.search_off_rounded,
         text: failedHere
-            ? 'Источник сейчас не отвечает. Попробуй ещё раз чуть позже.'.tr
+            ? 'Источник не отвечает. Возможно, он заблокирован в твоей стране или сети: проверь связь'
+                  .tr
             : 'Ничего не нашлось'.tr,
+        action: failedHere
+            ? TextButton.icon(
+                icon: const Icon(Icons.network_check_rounded),
+                label: Text('Проверить связь'.tr),
+                onPressed: () => showNetCheckSheet(context),
+              )
+            : null,
       );
     }
     // Artists matching the query on top of the merged list.
@@ -435,10 +444,11 @@ class _ArtistRow extends ConsumerWidget {
 }
 
 class _Hint extends StatelessWidget {
-  const _Hint({required this.icon, required this.text});
+  const _Hint({required this.icon, required this.text, this.action});
 
   final IconData icon;
   final String text;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -459,6 +469,7 @@ class _Hint extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(color: SegueColors.textDim, height: 1.4),
             ),
+            if (action != null) ...[const SizedBox(height: 10), action!],
           ],
         ),
       ),

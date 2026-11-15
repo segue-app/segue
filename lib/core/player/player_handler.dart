@@ -508,7 +508,11 @@ class SegueAudioHandler extends BaseAudioHandler
       if (token == _loadToken) {
         // Let the "completed: false" from opening pass before listening again.
         Future<void>.delayed(const Duration(milliseconds: 500), () {
-          if (token == _loadToken) _loading = false;
+          if (token != _loadToken) return;
+          _loading = false;
+          // Tell the system too: its player (lock screen, notification)
+          // otherwise keeps showing "loading" at 0:00 while it plays.
+          _broadcastState();
         });
       }
     }
@@ -1311,6 +1315,8 @@ class SegueAudioHandler extends BaseAudioHandler
       if (token != _loadToken) return;
       await _player.play();
       _beatHold = false;
+      // Its "playing" passed while held: the system hears it now.
+      _broadcastState();
       lastMixWasBeatMatched = true;
       final end = _mixOldEnd;
       debugPrint(
@@ -1322,6 +1328,7 @@ class SegueAudioHandler extends BaseAudioHandler
       _beatHold = false;
       if (token != _loadToken) return;
       await _player.play();
+      _broadcastState();
     }
     // The crossfade lasts whole bars (at least two).
     final barWall = 4 * plan.old.period / plan.oldSpeed;

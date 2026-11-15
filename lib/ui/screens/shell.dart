@@ -24,6 +24,7 @@ import '../../core/player/player.dart';
 import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import '../app_nav.dart';
+import '../widgets/net_check_sheet.dart';
 import '../widgets/collection.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/jam_sheet.dart';
@@ -203,7 +204,17 @@ class _ShellState extends ConsumerState<Shell> {
     });
     _errors = ref.read(playerProvider).errors.stream.listen((msg) {
       if (!mounted) return;
-      _toast(msg);
+      // A song that won't play is most often a blocked source.
+      _toast(
+        msg,
+        action: SnackBarAction(
+          label: 'Проверить связь'.tr,
+          onPressed: () {
+            final c = _navigators[_tab].currentContext;
+            if (c != null) showNetCheckSheet(c);
+          },
+        ),
+      );
     });
     _downloadErrors = ref.read(downloadsProvider).errors.stream.listen((msg) {
       if (!mounted) return;
@@ -242,9 +253,9 @@ class _ShellState extends ConsumerState<Shell> {
     ),
   );
 
-  void _toast(String msg) => _messenger.currentState
+  void _toast(String msg, {SnackBarAction? action}) => _messenger.currentState
     ?..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(msg)));
+    ..showSnackBar(SnackBar(content: Text(msg), action: action));
 
   Timer? _updateCheck;
   StreamSubscription<void>? _prefsApplied;

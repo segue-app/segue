@@ -121,3 +121,8 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+          body: |
+            **Android: «Приложение не установлено»?** Segue до версии 0.3.4 был подписан другим ключом, и Android не даёт поставить новую версию поверх. Сохрани библиотеку (Настройки → Резервная копия), удали старую Segue и поставь эту. Дальше обновления ставятся сами.
+            **Android: "App not installed"?** Segue before 0.3.4 was signed with another key, so Android won't install over it. Save your library (Settings → Backup), remove the old Segue and install this one. Updates install by themselves after that.
+
+            **Треки не играют или импорт не работает?** Настройки → Проверка связи покажет, что недоступно из твоей сети (YouTube заблокирован в России, Яндекс Музыка работает только из России и Беларуси).

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../widgets/net_check_sheet.dart';
 import '../widgets/content_width.dart';
 
 import 'package:flutter/material.dart';
@@ -487,6 +488,17 @@ class SettingsScreen extends ConsumerWidget {
             _Section('Горячие клавиши'.tr),
             const _Hotkeys(),
             _Section('О приложении'.tr),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+              leading: const Icon(Icons.network_check_rounded),
+              title: Text('Проверка связи'.tr),
+              subtitle: Text(
+                'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети'
+                    .tr,
+                style: const TextStyle(color: SegueColors.textDim),
+              ),
+              onTap: () => showNetCheckSheet(context),
+            ),
             const _About(),
           ],
         ),

@@ -68,7 +68,11 @@ void main() {
     expect(b.devices.value[libA.deviceId]!.track?['id'], 'a2');
     await b.command(libA.deviceId, 'seek', {'ms': 90000});
     await b.command(libA.deviceId, 'next');
-    await _until(() => playerA.calls.contains('next'));
+    // Through two brokers the commands may arrive in either order.
+    await _until(
+      () =>
+          playerA.calls.contains('next') && playerA.calls.contains('seek 90'),
+    );
     expect(playerA.calls.where((c) => c == 'next'), hasLength(1)); // deduped
     expect(playerA.calls, contains('seek 90'));
 
