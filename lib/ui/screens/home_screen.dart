@@ -33,6 +33,7 @@ import '../widgets/slow_ticker.dart';
 import 'package:segue/core/l10n/l10n.dart';
 
 import 'smart_playlist_screen.dart';
+import 'mix_screen.dart';
 
 /// Start page: quick access to liked songs and playlists, and what you
 /// listened to recently.
@@ -114,6 +115,8 @@ class HomeScreen extends ConsumerWidget {
                   _Shelf(tracks: liked.take(20).toList()),
                 ],
               ],
+              _SectionTitle('Подборки'.tr),
+              const _Mixes(),
               _SectionTitle('Чарты'.tr),
               const _Charts(),
             ],
@@ -1154,6 +1157,119 @@ class _WaveSettingsSheetState extends ConsumerState<_WaveSettingsSheet> {
   void _play(WaveSettings s) {
     _played = true;
     _wave.myWave(s).catchError((Object _) {});
+  }
+}
+
+/// Ready-made playlists by theme: popular now, workout, evening…
+class _Mixes extends ConsumerStatefulWidget {
+  const _Mixes();
+
+  @override
+  ConsumerState<_Mixes> createState() => _MixesState();
+}
+
+class _MixesState extends ConsumerState<_Mixes> {
+  int _theme = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = ref.watch(currentColorsProvider).accent;
+    final themes = Catalog.mixThemes;
+    final mixes = ref.watch(mixesProvider(_theme == 0 ? null : themes[_theme]));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 36,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              for (var i = 0; i < themes.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: PressScale(
+                    onTap: () => setState(() => _theme = i),
+                    child: AnimatedContainer(
+                      duration: SegueMotion.medium,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: i == _theme
+                            ? accent.withValues(alpha: 0.2)
+                            : Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Text(
+                        themes[i].tr,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: i == _theme ? accent : SegueColors.textDim,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 206,
+          child: mixes.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, _) => Center(
+              child: Text(
+                'Подборки сейчас недоступны'.tr,
+                style: const TextStyle(color: SegueColors.textDim),
+              ),
+            ),
+            data: (list) => ListView.separated(
+              key: ValueKey(_theme),
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: list.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 14),
+              itemBuilder: (context, i) {
+                final m = list[i];
+                return StaggeredEntrance(
+                  index: i % 8,
+                  child: PressScale(
+                    key: ValueKey('mix-${m.id}'),
+                    onTap: () =>
+                        Navigator.of(context).push(MixScreen.route(m.id)),
+                    child: SizedBox(
+                      width: 148,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Artwork(url: m.cover, size: 148, radius: 20),
+                          const SizedBox(height: 10),
+                          Text(
+                            m.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            tracksLabel(m.count),
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: SegueColors.textDim,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

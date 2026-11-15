@@ -18,6 +18,7 @@ import '../app_nav.dart';
 import '../widgets/artwork.dart';
 import '../widgets/depth.dart';
 import 'devices_screen.dart';
+import 'cover_player.dart';
 import '../widgets/living_backdrop.dart';
 import '../widgets/lyrics_view.dart';
 import '../../core/lyrics/lyrics.dart';
@@ -125,240 +126,258 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                   style: settings.backdrop,
                 ),
               ),
-              SafeArea(
-                child: LayoutBuilder(
-                  builder: (context, box) {
-                    final lyricsOn = showLyrics && track != null;
-                    final wide = box.maxWidth >= 900;
-                    final topBar = _TopBar(
-                      onClose: () => Navigator.of(context).pop(),
-                      onMore: track == null
-                          ? null
-                          : () => showTrackActions(context, ref, track),
-                      // Only with somewhere to send the music to.
-                      onDevices: () => showHandoffSheet(context, ref),
-                      lyricsOn: showLyrics,
-                      // Grey and inert when the track has no lyrics.
-                      onLyrics: hasLyrics
-                          ? () => setState(() => _lyrics = !_lyrics)
-                          : null,
-                    );
-                    final info = _TitleRow(
-                      title: item?.title ?? '',
-                      artist: item?.artist ?? '',
-                      itemKey: item?.id,
-                      onArtist:
-                          track == null || track.source == SourceKind.local
-                          ? null
-                          : () =>
-                                AppNav.artistByName(context, ref, track.artist),
-                      like: track == null
-                          ? null
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _DislikeButton(track: track),
-                                LikeButton(
-                                  track: track,
-                                  liked: likedKeys.contains(track.key),
-                                  size: 28,
-                                ),
-                              ],
-                            ),
-                    );
-                    final controls = _Controls(
-                      duration: duration,
-                      playing: playing,
-                      wavy: settings.wavyProgress,
-                      accent: colors.accent,
-                    );
-                    final lyrics = lyricsOn
-                        ? LyricsView(
-                            key: ValueKey('lyrics-${track.key}'),
-                            track: track,
-                          )
-                        : null;
-
-                    // Wide screens: one layout for both states, animated.
-                    // Lyrics off: the cover panel sits in the middle.
-                    // Lyrics on: it slides left and turns in 3D while the
-                    // lyrics slide in from the right; closing reverses it.
-                    if (wide) {
-                      final d3 = settings.depth3d;
-                      final side = math.max(40.0, box.maxWidth * 0.04);
-                      final contentW = math.min(
-                        box.maxWidth - side * 2,
-                        1360.0,
+              // The other look: the cover over the whole top (lyrics
+              // still open in the usual layout).
+              if (settings.playerStyle == PlayerStyle.cover &&
+                  !(showLyrics && track != null))
+                CoverPlayer(
+                  onClose: () => Navigator.of(context).pop(),
+                  onLyrics: hasLyrics
+                      ? () => setState(() => _lyrics = true)
+                      : null,
+                )
+              else
+                SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      final lyricsOn = showLyrics && track != null;
+                      final wide = box.maxWidth >= 900;
+                      final topBar = _TopBar(
+                        onClose: () => Navigator.of(context).pop(),
+                        onMore: track == null
+                            ? null
+                            : () => showTrackActions(context, ref, track),
+                        // Only with somewhere to send the music to.
+                        onDevices: () => showHandoffSheet(context, ref),
+                        lyricsOn: showLyrics,
+                        // Grey and inert when the track has no lyrics.
+                        onLyrics: hasLyrics
+                            ? () => setState(() => _lyrics = !_lyrics)
+                            : null,
                       );
-                      final leftW = math.min(420.0, contentW * 0.34);
-                      const gap = 80.0;
-                      final rightW = contentW - leftW - gap;
-                      return Column(
-                        children: [
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: side),
-                            child: topBar,
-                          ),
-                          Expanded(
-                            child: Center(
-                              child: SizedBox(
-                                width: contentW,
-                                child: TweenAnimationBuilder<double>(
-                                  tween: Tween(end: lyricsOn ? 1 : 0),
-                                  duration: const Duration(milliseconds: 750),
-                                  curve: Curves.easeInOutCubic,
-                                  builder: (context, t, _) {
-                                    final coverX =
-                                        (contentW - leftW) / 2 * (1 - t);
-                                    // Keep lyrics mounted while they fade out.
-                                    final showLyricsPanel =
-                                        t > 0.01 && hasLyrics && track != null;
-                                    return Stack(
-                                      children: [
-                                        Positioned(
-                                          left: coverX,
-                                          top: 0,
-                                          bottom: 0,
-                                          width: leftW,
-                                          child: Transform(
-                                            alignment: Alignment.centerLeft,
-                                            transform: d3
-                                                ? perspective(y: -0.13 * t)
-                                                : Matrix4.identity(),
-                                            child: Column(
-                                              children: [
-                                                Expanded(
-                                                  child: _CoverArea(
-                                                    art: art,
-                                                    playing: playing,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 20),
-                                                info,
-                                                const SizedBox(height: 18),
-                                                controls,
-                                                const SizedBox(height: 28),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        if (showLyricsPanel)
+                      final info = _TitleRow(
+                        title: item?.title ?? '',
+                        artist: item?.artist ?? '',
+                        itemKey: item?.id,
+                        onArtist:
+                            track == null || track.source == SourceKind.local
+                            ? null
+                            : () => AppNav.artistByName(
+                                context,
+                                ref,
+                                track.artist,
+                              ),
+                        like: track == null
+                            ? null
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _DislikeButton(track: track),
+                                  LikeButton(
+                                    track: track,
+                                    liked: likedKeys.contains(track.key),
+                                    size: 28,
+                                  ),
+                                ],
+                              ),
+                      );
+                      final controls = _Controls(
+                        duration: duration,
+                        playing: playing,
+                        wavy: settings.wavyProgress,
+                        accent: colors.accent,
+                      );
+                      final lyrics = lyricsOn
+                          ? LyricsView(
+                              key: ValueKey('lyrics-${track.key}'),
+                              track: track,
+                            )
+                          : null;
+
+                      // Wide screens: one layout for both states, animated.
+                      // Lyrics off: the cover panel sits in the middle.
+                      // Lyrics on: it slides left and turns in 3D while the
+                      // lyrics slide in from the right; closing reverses it.
+                      if (wide) {
+                        final d3 = settings.depth3d;
+                        final side = math.max(40.0, box.maxWidth * 0.04);
+                        final contentW = math.min(
+                          box.maxWidth - side * 2,
+                          1360.0,
+                        );
+                        final leftW = math.min(420.0, contentW * 0.34);
+                        const gap = 80.0;
+                        final rightW = contentW - leftW - gap;
+                        return Column(
+                          children: [
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: side),
+                              child: topBar,
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: SizedBox(
+                                  width: contentW,
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween(end: lyricsOn ? 1 : 0),
+                                    duration: const Duration(milliseconds: 750),
+                                    curve: Curves.easeInOutCubic,
+                                    builder: (context, t, _) {
+                                      final coverX =
+                                          (contentW - leftW) / 2 * (1 - t);
+                                      // Keep lyrics mounted while they fade out.
+                                      final showLyricsPanel =
+                                          t > 0.01 &&
+                                          hasLyrics &&
+                                          track != null;
+                                      return Stack(
+                                        children: [
                                           Positioned(
-                                            left: leftW + gap + 120 * (1 - t),
+                                            left: coverX,
                                             top: 0,
                                             bottom: 0,
-                                            width: rightW,
-                                            child: Opacity(
-                                              opacity: t,
-                                              child: Transform(
-                                                alignment:
-                                                    Alignment.centerRight,
-                                                transform: d3
-                                                    ? perspective(
-                                                        y:
-                                                            0.13 * t +
-                                                            0.25 * (1 - t),
-                                                      )
-                                                    : Matrix4.identity(),
-                                                child: LyricsView(
-                                                  key: ValueKey(
-                                                    'lyrics-${track.key}',
+                                            width: leftW,
+                                            child: Transform(
+                                              alignment: Alignment.centerLeft,
+                                              transform: d3
+                                                  ? perspective(y: -0.13 * t)
+                                                  : Matrix4.identity(),
+                                              child: Column(
+                                                children: [
+                                                  Expanded(
+                                                    child: _CoverArea(
+                                                      art: art,
+                                                      playing: playing,
+                                                    ),
                                                   ),
-                                                  track: track,
-                                                ),
+                                                  const SizedBox(height: 20),
+                                                  info,
+                                                  const SizedBox(height: 18),
+                                                  controls,
+                                                  const SizedBox(height: 28),
+                                                ],
                                               ),
                                             ),
                                           ),
-                                      ],
-                                    );
-                                  },
+                                          if (showLyricsPanel)
+                                            Positioned(
+                                              left: leftW + gap + 120 * (1 - t),
+                                              top: 0,
+                                              bottom: 0,
+                                              width: rightW,
+                                              child: Opacity(
+                                                opacity: t,
+                                                child: Transform(
+                                                  alignment:
+                                                      Alignment.centerRight,
+                                                  transform: d3
+                                                      ? perspective(
+                                                          y:
+                                                              0.13 * t +
+                                                              0.25 * (1 - t),
+                                                        )
+                                                      : Matrix4.identity(),
+                                                  child: LyricsView(
+                                                    key: ValueKey(
+                                                      'lyrics-${track.key}',
+                                                    ),
+                                                    track: track,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    }
+                          ],
+                        );
+                      }
 
-                    return Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 460),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 28),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 8),
-                              topBar,
-                              Expanded(
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 550),
-                                  switchInCurve: Curves.easeOutCubic,
-                                  switchOutCurve: Curves.easeInCubic,
-                                  transitionBuilder: (child, anim) =>
-                                      FadeTransition(
-                                        opacity: anim,
-                                        child: ScaleTransition(
-                                          scale: Tween(
-                                            begin: 0.94,
-                                            end: 1.0,
-                                          ).animate(anim),
-                                          child: child,
+                      return Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 460),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 28),
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 8),
+                                topBar,
+                                Expanded(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 550),
+                                    switchInCurve: Curves.easeOutCubic,
+                                    switchOutCurve: Curves.easeInCubic,
+                                    transitionBuilder: (child, anim) =>
+                                        FadeTransition(
+                                          opacity: anim,
+                                          child: ScaleTransition(
+                                            scale: Tween(
+                                              begin: 0.94,
+                                              end: 1.0,
+                                            ).animate(anim),
+                                            child: child,
+                                          ),
                                         ),
-                                      ),
-                                  child: lyrics != null
-                                      // Phone + lyrics: lyrics on top, a small
-                                      // cover with the title under them, next
-                                      // to the controls.
-                                      ? Column(
-                                          key: const ValueKey('lyrics'),
-                                          children: [
-                                            Expanded(child: lyrics),
-                                            const SizedBox(height: 10),
-                                            _MiniHeader(
-                                              art: art,
-                                              title: item?.title ?? '',
-                                              artist: item?.artist ?? '',
-                                              like: info.like,
-                                            ),
-                                          ],
-                                        )
-                                      : _CoverArea(
-                                          key: const ValueKey('cover'),
-                                          art: art,
-                                          playing: playing,
-                                          onNext: ref
-                                              .read(playerProvider)
-                                              .skipToNext,
-                                          onPrevious: ref
-                                              .read(playerProvider)
-                                              .skipToPrevious,
-                                        ),
+                                    child: lyrics != null
+                                        // Phone + lyrics: lyrics on top, a small
+                                        // cover with the title under them, next
+                                        // to the controls.
+                                        ? Column(
+                                            key: const ValueKey('lyrics'),
+                                            children: [
+                                              Expanded(child: lyrics),
+                                              const SizedBox(height: 10),
+                                              _MiniHeader(
+                                                art: art,
+                                                title: item?.title ?? '',
+                                                artist: item?.artist ?? '',
+                                                like: info.like,
+                                              ),
+                                            ],
+                                          )
+                                        : _CoverArea(
+                                            key: const ValueKey('cover'),
+                                            art: art,
+                                            playing: playing,
+                                            onNext: ref
+                                                .read(playerProvider)
+                                                .skipToNext,
+                                            onPrevious: ref
+                                                .read(playerProvider)
+                                                .skipToPrevious,
+                                          ),
+                                  ),
                                 ),
-                              ),
-                              // The title folds away smoothly when lyrics
-                              // open (the mini header shows it instead).
-                              AnimatedSize(
-                                duration: const Duration(milliseconds: 450),
-                                curve: Curves.easeInOutCubic,
-                                child: lyrics == null
-                                    ? Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: info,
-                                      )
-                                    : const SizedBox(width: double.infinity),
-                              ),
-                              const SizedBox(height: 18),
-                              controls,
-                              const SizedBox(height: 28),
-                            ],
+                                // The title folds away smoothly when lyrics
+                                // open (the mini header shows it instead).
+                                AnimatedSize(
+                                  duration: const Duration(milliseconds: 450),
+                                  curve: Curves.easeInOutCubic,
+                                  child: lyrics == null
+                                      ? Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 8,
+                                          ),
+                                          child: info,
+                                        )
+                                      : const SizedBox(width: double.infinity),
+                                ),
+                                const SizedBox(height: 18),
+                                controls,
+                                const SizedBox(height: 28),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -597,6 +616,7 @@ class _Controls extends ConsumerWidget {
     final progress = duration.inMilliseconds == 0
         ? 0.0
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+    final desktop = Platform.isMacOS || Platform.isWindows || Platform.isLinux;
     return Column(
       children: [
         WavyProgress(
@@ -624,6 +644,9 @@ class _Controls extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
+            // A computer has no volume buttons on its side: a speaker on
+            // the right, its slider pops up over it (balanced on the left).
+            if (desktop) const SizedBox(width: 44),
             _RoundIcon(
               icon: Icons.skip_previous_rounded,
               onTap: player.skipToPrevious,
@@ -634,13 +657,9 @@ class _Controls extends ConsumerWidget {
               onPressed: playing ? player.pause : player.play,
             ),
             _RoundIcon(icon: Icons.skip_next_rounded, onTap: player.skipToNext),
+            if (desktop) const HoverVolume(),
           ],
         ),
-        // A computer has no volume buttons on its side.
-        if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) ...[
-          const SizedBox(height: 14),
-          const VolumeSlider(width: 200),
-        ],
       ],
     );
   }
@@ -690,62 +709,130 @@ class _TopBar extends StatelessWidget {
   }
 
   Widget _buttons(BuildContext context, double width) {
-    // On a narrow phone the buttons shrink a little rather than run off
-    // the edge.
-    final n = onDevices == null ? 6 : 7;
-    final size = ((width - 8 * (n - 2) - 4) / n).clamp(34.0, 44.0);
+    final lyrics = AnimatedContainer(
+      duration: SegueMotion.medium,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: lyricsOn ? Colors.white : Colors.transparent,
+      ),
+      child: _RoundIcon(
+        icon: Icons.lyrics_rounded,
+        onTap: onLyrics,
+        size: 44,
+        color: lyricsOn ? SegueColors.ink : Colors.white,
+      ),
+    );
+    final close = _RoundIcon(
+      icon: Icons.keyboard_arrow_down_rounded,
+      onTap: onClose,
+      size: 44,
+    );
+    final queue = _RoundIcon(
+      icon: Icons.queue_music_rounded,
+      onTap: () => showQueueSheet(context),
+      size: 44,
+    );
+    // A phone: the lyrics and the queue stay, the rest goes in "⋯".
+    if (width < 520) {
+      return Row(
+        children: [
+          close,
+          const Spacer(),
+          lyrics,
+          const SizedBox(width: 8),
+          queue,
+          const SizedBox(width: 8),
+          _RoundIcon(
+            icon: Icons.more_horiz_rounded,
+            onTap: () => _menu(context),
+            size: 44,
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
-        _RoundIcon(
-          icon: Icons.keyboard_arrow_down_rounded,
-          onTap: onClose,
-          size: size,
-        ),
+        close,
         const Spacer(),
         _RoundIcon(
           icon: Icons.album_rounded,
           onTap: () => Navigator.of(context).push(DjScreen.route()),
-          size: size,
+          size: 44,
         ),
         const SizedBox(width: 8),
-        _RoundIcon(
-          icon: Icons.queue_music_rounded,
-          onTap: () => showQueueSheet(context),
-          size: size,
-        ),
+        queue,
         const SizedBox(width: 8),
         _RoundIcon(
           icon: Icons.equalizer_rounded,
           onTap: () => showSoundSheet(context),
-          size: size,
+          size: 44,
         ),
         const SizedBox(width: 8),
         if (onDevices != null) ...[
-          _RoundIcon(icon: Icons.devices_rounded, onTap: onDevices, size: size),
+          _RoundIcon(icon: Icons.devices_rounded, onTap: onDevices, size: 44),
           const SizedBox(width: 8),
         ],
-        AnimatedContainer(
-          duration: SegueMotion.medium,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: lyricsOn ? Colors.white : Colors.transparent,
-          ),
-          child: _RoundIcon(
-            icon: Icons.lyrics_rounded,
-            onTap: onLyrics,
-            size: size,
-            color: lyricsOn ? SegueColors.ink : Colors.white,
-          ),
-        ),
+        lyrics,
         const SizedBox(width: 8),
         onMore == null
-            ? SizedBox(width: size)
+            ? const SizedBox(width: 44)
             : _RoundIcon(
                 icon: Icons.more_horiz_rounded,
                 onTap: onMore!,
-                size: size,
+                size: 44,
               ),
       ],
+    );
+  }
+
+  /// The phone's "⋯": DJ, sound, devices and the song's own actions.
+  void _menu(BuildContext context) {
+    final nav = Navigator.of(context);
+    late BuildContext sheet;
+    Widget item(IconData icon, String label, VoidCallback? onTap) => ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      enabled: onTap != null,
+      onTap: onTap == null
+          ? null
+          : () {
+              Navigator.pop(sheet);
+              onTap();
+            },
+    );
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: SegueColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (c) {
+        sheet = c;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                item(
+                  Icons.album_rounded,
+                  'Диджей'.tr,
+                  () => nav.push(DjScreen.route()),
+                ),
+                item(
+                  Icons.equalizer_rounded,
+                  'Звук'.tr,
+                  () => showSoundSheet(context),
+                ),
+                if (onDevices != null)
+                  item(Icons.devices_rounded, 'Устройства'.tr, onDevices),
+                item(Icons.more_horiz_rounded, 'Трек'.tr, onMore),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -232,6 +232,27 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            _Section('Вид плеера'.tr),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: SegmentedButton<PlayerStyle>(
+                segments: [
+                  ButtonSegment(
+                    value: PlayerStyle.classic,
+                    label: Text('Segue'.tr),
+                    icon: const Icon(Icons.crop_square_rounded),
+                  ),
+                  ButtonSegment(
+                    value: PlayerStyle.cover,
+                    label: Text('Обложка на весь экран'.tr),
+                    icon: const Icon(Icons.panorama_rounded),
+                  ),
+                ],
+                selected: {s.playerStyle},
+                onSelectionChanged: (v) =>
+                    set((x) => x.copyWith(playerStyle: v.first)),
+              ),
+            ),
             _Section('Фон плеера'.tr),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

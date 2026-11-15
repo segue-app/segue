@@ -36,6 +36,12 @@ import 'package:segue/core/sync/sync.dart';
 import 'package:segue/core/sync/sync_service.dart';
 import 'package:segue/main.dart';
 import 'package:segue/ui/widgets/motion.dart';
+import 'package:segue/ui/screens/mix_screen.dart';
+import 'package:segue/core/settings/settings.dart';
+import 'package:segue/ui/screens/now_playing_screen.dart';
+import 'package:segue/ui/screens/cover_player.dart';
+import 'package:segue/ui/widgets/volume_slider.dart';
+import 'package:flutter/gestures.dart';
 import 'package:segue/ui/widgets/track_actions.dart';
 import 'package:segue/ui/widgets/track_tile.dart';
 import 'package:segue/core/sync/shared_playlists.dart';
@@ -369,6 +375,22 @@ void main() {
     await shot(tester, '06h1_lyrics_closing');
     await settle(tester, 1.5);
     await shot(tester, '06h2_lyrics_closed');
+    // Volume pops up right above the speaker on hover.
+    final speaker = find.byType(HoverVolume);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(speaker));
+    await settle(tester, 0.5);
+    await shot(tester, '06h3_volume_hover');
+    final pop = tester.getRect(find.byType(RotatedBox).last);
+    final icon = tester.getRect(speaker);
+    expect((pop.center.dx - icon.center.dx).abs(), lessThan(4));
+    expect(pop.bottom, lessThan(icon.top));
+    expect(icon.top - pop.bottom, lessThan(40));
+    await mouse.moveTo(Offset.zero);
+    await settle(tester, 2);
+    expect(find.byType(RotatedBox), findsNothing);
+    await mouse.removePointer();
     await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
     await settle(tester, 1);
 
@@ -397,6 +419,33 @@ void main() {
     await tester.tap(find.text('Главная').first);
     await settle(tester, 3);
     await shot(tester, '07d_home_wave_charts');
+    // Ready-made collections: open the first one.
+    for (var i = 0; i < 8 && find.text('Подборки').evaluate().isEmpty; i++) {
+      await tester.dragFrom(const Offset(1000, 600), const Offset(0, -400));
+      await settle(tester, 0.5);
+    }
+    await tester.ensureVisible(find.text('Подборки'));
+    await settle(tester, 4);
+    final mixCard = find.byWidgetPredicate(
+      (w) => w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('mix-'),
+    );
+    expect(mixCard, findsWidgets);
+    await tester.ensureVisible(mixCard.first);
+    await settle(tester, 1);
+    await shot(tester, '07d1_home_mixes');
+    await tester.tap(mixCard.first);
+    await settle(tester, 5);
+    await shot(tester, '07d2_mix');
+    Navigator.of(tester.element(find.byType(MixScreen))).pop();
+    await settle(tester, 1);
+    // Back to the top of Home.
+    for (var i = 0; i < 10 && find.text('Настроить').evaluate().isEmpty; i++) {
+      await tester.dragFrom(const Offset(1000, 300), const Offset(0, 500));
+      await settle(tester, 0.5);
+    }
+    await tester.ensureVisible(find.text('Настроить'));
+    await settle(tester, 1);
     await tester.tap(find.text('Настроить'));
     await settle(tester, 1);
     // In the sheet (the radios on the home screen have the same words).
@@ -421,12 +470,41 @@ void main() {
     await tester.tap(find.byType(Hero).first, warnIfMissed: false);
     await settle(tester, 3);
     await shot(tester, '09_phone_now_playing');
+    // Phone: the rarer buttons are in "⋯".
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
+    await settle(tester, 1);
+    await shot(tester, '09b_phone_menu');
+    expect(find.text('Диджей'), findsOneWidget);
+    await tester.tapAt(const Offset(20, 20));
+    await settle(tester, 1);
 
     await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
     await settle(tester, 5);
     await shot(tester, '10_phone_lyrics');
     await settle(tester, 0.7);
     await shot(tester, '10b_phone_lyrics');
+
+    // The other look: the cover over the whole top.
+    await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
+    await settle(tester, 1);
+    ProviderScope.containerOf(
+      tester.element(find.byType(NowPlayingScreen)),
+    ).read(settingsProvider.notifier).update(
+      (s) => s.copyWith(playerStyle: PlayerStyle.cover),
+    );
+    await settle(tester, 3);
+    await shot(tester, '11_phone_cover_player');
+    expect(find.byType(CoverPlayer), findsOneWidget);
+    tester.view.physicalSize = const Size(2400, 1500);
+    tester.view.devicePixelRatio = 1.5;
+    await settle(tester, 2);
+    await shot(tester, '11b_desktop_cover_player');
+    ProviderScope.containerOf(
+      tester.element(find.byType(NowPlayingScreen)),
+    ).read(settingsProvider.notifier).update(
+      (s) => s.copyWith(playerStyle: PlayerStyle.classic),
+    );
+    await settle(tester, 1);
 
     expect(tester.takeException(), isNull);
     await handler.stop();

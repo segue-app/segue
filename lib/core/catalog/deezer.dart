@@ -28,6 +28,29 @@ class Artist {
   );
 }
 
+/// A ready-made playlist from the catalogue (a "подборка").
+class Mix {
+  const Mix({
+    required this.id,
+    required this.title,
+    this.cover,
+    this.count = 0,
+  });
+
+  final int id;
+  final String title;
+  final String? cover;
+  final int count;
+
+  factory Mix.fromJson(Map j) => Mix(
+    id: j['id'] as int,
+    title: (j['title'] as String? ?? '').trim(),
+    cover:
+        (j['picture_xl'] ?? j['picture_big'] ?? j['picture_medium']) as String?,
+    count: j['nb_tracks'] as int? ?? 0,
+  );
+}
+
 class Album {
   const Album({
     required this.id,
@@ -202,6 +225,52 @@ class Catalog {
     ];
   }
 
+  /// Themes of the ready-made playlists on Home; the first is the most
+  /// popular ones right now, the rest are searched by their name.
+  static const mixThemes = [
+    'Популярное',
+    'Тренировка',
+    'Вечер',
+    'В дорогу',
+    'Учёба',
+    'Вечеринка',
+    'Для сна',
+    'Русский рэп',
+    'Хиты 2000-х',
+    'Lo-fi',
+  ];
+
+  /// Ready-made playlists: the most popular ones ([theme] null) or those
+  /// matching a theme. Only real ones: 20 songs or more.
+  Future<List<Mix>> mixes([String? theme]) async {
+    final body = theme == null
+        ? await _get('chart/0/playlists?limit=30')
+        : await _get(
+            'search/playlist?q=${Uri.encodeQueryComponent(theme)}&limit=40',
+          );
+    final seen = <String>{};
+    return [
+      for (final p in _data(body))
+        if ((p['nb_tracks'] as int? ?? 0) >= 20 &&
+            seen.add((p['title'] as String? ?? '').toLowerCase().trim()))
+          Mix.fromJson(p),
+    ].take(16).toList();
+  }
+
+  /// A ready-made playlist and its songs (up to 200).
+  Future<(Mix, List<Track>)> mix(int id) async {
+    final j = await _get('playlist/$id') as Map;
+    final tracks = (j['tracks']?['data'] as List? ?? const []).cast<Map>();
+    return (
+      Mix.fromJson(j),
+      [
+        for (final t in tracks.take(200))
+          if ((t['readable'] as bool? ?? true) && t['artist'] != null)
+            trackFrom(t),
+      ],
+    );
+  }
+
   /// Top tracks: all genres (0) or a genre id from [genres].
   Future<List<Track>> chart({int genre = 0, int limit = 50}) async => [
     for (final t in _data(await _get('chart/$genre/tracks?limit=$limit')))
@@ -348,6 +417,14 @@ final artistAllTracksProvider = FutureProvider.family<List<Track>, int>((
 
 final albumPageProvider = FutureProvider.family<(Album, List<Track>), int>(
   (ref, id) => ref.read(catalogProvider).album(id),
+);
+
+final mixesProvider = FutureProvider.family<List<Mix>, String?>(
+  (ref, theme) => ref.read(catalogProvider).mixes(theme),
+);
+
+final mixPageProvider = FutureProvider.family<(Mix, List<Track>), int>(
+  (ref, id) => ref.read(catalogProvider).mix(id),
 );
 
 final chartProvider = FutureProvider.family<List<Track>, int>(

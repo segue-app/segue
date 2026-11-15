@@ -7,6 +7,10 @@ import '../library/library.dart';
 
 enum BackdropStyle { living, calm, plain }
 
+/// How the full player looks: Segue's own (cover in a card over the
+/// living backdrop) or the cover filling the top of the screen.
+enum PlayerStyle { classic, cover }
+
 /// How the sung line lights up.
 enum LyricsStyle {
   /// Light sweeps through each word as it's sung (karaoke).
@@ -28,6 +32,7 @@ class AppSettings {
     this.accentFromCover = true,
     this.accent = const Color(0xFFFF9A76),
     this.backdrop = BackdropStyle.living,
+    this.playerStyle = PlayerStyle.classic,
     this.backdropSpeed = 1,
     this.backdropIntensity = 1,
     this.font = 'Manrope',
@@ -58,6 +63,7 @@ class AppSettings {
   final bool accentFromCover;
   final Color accent;
   final BackdropStyle backdrop;
+  final PlayerStyle playerStyle;
 
   /// 0.2 … 2.5, multiplies the backdrop's motion.
   final double backdropSpeed;
@@ -140,6 +146,7 @@ class AppSettings {
     bool? accentFromCover,
     Color? accent,
     BackdropStyle? backdrop,
+    PlayerStyle? playerStyle,
     double? backdropSpeed,
     double? backdropIntensity,
     String? font,
@@ -168,6 +175,7 @@ class AppSettings {
     accentFromCover: accentFromCover ?? this.accentFromCover,
     accent: accent ?? this.accent,
     backdrop: backdrop ?? this.backdrop,
+    playerStyle: playerStyle ?? this.playerStyle,
     backdropSpeed: backdropSpeed ?? this.backdropSpeed,
     backdropIntensity: backdropIntensity ?? this.backdropIntensity,
     font: font ?? this.font,
@@ -198,6 +206,7 @@ class AppSettings {
     'accentFromCover': accentFromCover,
     'accent': accent.toARGB32(),
     'backdrop': backdrop.name,
+    'playerStyle': playerStyle.name,
     'backdropSpeed': backdropSpeed,
     'backdropIntensity': backdropIntensity,
     'font': font,
@@ -233,6 +242,8 @@ class AppSettings {
       accentFromCover: pick('accentFromCover', d.accentFromCover),
       accent: j['accent'] is int ? Color(j['accent'] as int) : d.accent,
       backdrop: BackdropStyle.values.asNameMap()[j['backdrop']] ?? d.backdrop,
+      playerStyle:
+          PlayerStyle.values.asNameMap()[j['playerStyle']] ?? d.playerStyle,
       backdropSpeed: num_('backdropSpeed', d.backdropSpeed),
       backdropIntensity: num_('backdropIntensity', d.backdropIntensity),
       font: fonts.contains(j['font']) ? j['font'] as String : d.font,
