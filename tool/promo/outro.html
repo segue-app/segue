@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Manrope; font-weight: 800; src: url(../../assets/google_fonts/Manrope-ExtraBold.ttf); }
+  @font-face { font-family: Manrope; font-weight: 600; src: url(../../assets/google_fonts/Manrope-SemiBold.ttf); }
+  @font-face { font-family: Manrope; font-weight: 500; src: url(../../assets/google_fonts/Manrope-Medium.ttf); }
+  html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; }
+  body {
+    background: #0e0d10;
+    color: #f4f1ec;
+    font-family: Manrope, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative;
+  }
+  /* The song's red fading into Segue's own colours. */
+  .glow { position: absolute; inset: 0;
+    background:
+      radial-gradient(60% 40% at 50% 30%, rgba(176, 20, 36, .55), transparent 70%),
+      radial-gradient(55% 35% at 30% 75%, rgba(255, 154, 118, .28), transparent 70%),
+      radial-gradient(55% 35% at 75% 70%, rgba(123, 92, 255, .30), transparent 70%);
+    filter: blur(40px); }
+  .mark { width: 520px; height: 520px; margin: -90px 0 -110px; position: relative; filter: drop-shadow(0 30px 80px rgba(255, 94, 138, .45)); }
+  .name { position: relative; margin-top: 46px; font-size: 168px; font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
+  .sub { position: relative; margin-top: 36px; font-size: 50px; font-weight: 600; color: rgba(244, 241, 236, .78); text-align: center; line-height: 1.25; }
+  .pill { position: relative; margin-top: 70px; padding: 22px 44px; border-radius: 999px;
+    background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12);
+    font-size: 38px; font-weight: 600; color: rgba(244, 241, 236, .85); }
+  .pill b { background: linear-gradient(90deg, #ffb86b, #ff5e8a, #7b5cff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <img class="mark" src="../../assets/brand/segue_mark.svg" alt="">
+  <div class="name">segue</div>
+  <div class="sub">Бесплатный музыкальный плеер<br>для телефона и компьютера</div>
+  <div class="pill"><b>Без рекламы</b> · без подписки · открытый код</div>
+</body>
+</html>

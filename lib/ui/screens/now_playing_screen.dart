@@ -41,6 +41,10 @@ class NowPlayingScreen extends ConsumerStatefulWidget {
 
   static const routeName = '/now-playing';
 
+  /// Shows the phone's controls on a computer (recording a phone video).
+  @visibleForTesting
+  static bool? debugDesktop;
+
   static Route<void> route({bool lyrics = false}) => PageRouteBuilder(
     settings: const RouteSettings(name: routeName),
     // Opaque once it's open: the app behind stops painting and animating
@@ -636,7 +640,9 @@ class _Controls extends ConsumerWidget {
     final progress = duration.inMilliseconds == 0
         ? 0.0
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
-    final desktop = Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+    final desktop =
+        NowPlayingScreen.debugDesktop ??
+        (Platform.isMacOS || Platform.isWindows || Platform.isLinux);
     // Its own layer: it changes several times a second (and the wave
     // moves every frame), the rest of the player doesn't.
     return RepaintBoundary(
