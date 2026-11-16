@@ -598,4 +598,18 @@ const en = <String, String>{
   'Вид плеера': 'Player look',
   'Обложка на весь экран': 'Full-screen cover',
   'Segue': 'Segue',
+  'Общие настройки с другими устройствами':
+      'Share settings with my other devices',
+  'Настройки, изменённые здесь, меняются на всех устройствах, где это включено':
+      'Settings changed here change on every device where this is on',
+  'У этого устройства свои настройки: изменения на других его не трогают': 'This device keeps its own settings: changes on the others don\'t touch it',
+  'Вы искали': 'You searched for',
+  'Подборка': 'Collection',
+  'Убрать из истории': 'Remove from history',
+  'Сегодня': 'Today',
+  'Вчера': 'Yesterday',
+  'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря': 'January|February|March|April|May|June|July|August|September|October|November|December',
+  'Поиск в истории': 'Search history',
+  'Очистить историю?': 'Clear the history?',
+  'Все прослушанные треки пропадут из истории на этом устройстве.': 'All played songs will disappear from the history on this device.',
 };

@@ -19,9 +19,15 @@ void main() {
   testWidgets('lights flash on the beats of a real song', (tester) async {
     MediaKit.ensureInitialized();
     final http = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    http.listen((r) => r.response
-      ..write(jsonEncode({'leds': {'count': 30}}))
-      ..close());
+    http.listen(
+      (r) => r.response
+        ..write(
+          jsonEncode({
+            'leds': {'count': 30},
+          }),
+        )
+        ..close(),
+    );
     final udp = await RawDatagramSocket.bind(InternetAddress.loopbackIPv4, 0);
     final frames = <(int, int)>[]; // ms, red level
     final clock = Stopwatch()..start();
@@ -41,7 +47,10 @@ void main() {
       WledDevice('127.0.0.1', httpPort: http.port, udpPort: udp.port),
     );
     await lights.setEnabled(true);
-    final song = (await yt.search('Daft Punk Get Lucky official audio', limit: 1)).first;
+    final song = (await yt.search(
+      'Daft Punk Get Lucky official audio',
+      limit: 1,
+    )).first;
     await player.playList([song], 0);
     await player.positionStream
         .firstWhere((p) => p > const Duration(seconds: 1))
@@ -65,12 +74,16 @@ void main() {
     ]..sort();
     final median = gaps.isEmpty ? 0 : gaps[gaps.length ~/ 2];
     // ignore: avoid_print
-    print('LIGHTS ${heard.length} frames in 10 s, ${flashes.length} flashes, '
-        'median gap $median ms (116 bpm = 517 ms)');
+    print(
+      'LIGHTS ${heard.length} frames in 10 s, ${flashes.length} flashes, '
+      'median gap $median ms (116 bpm = 517 ms)',
+    );
     expect(heard.length, greaterThan(200)); // ~30 a second
     expect(median, closeTo(517, 40));
     // Every fourth one is the bar's first, brighter.
-    final barGap = bars.length < 2 ? 0 : (bars.last - bars.first) / (bars.length - 1);
+    final barGap = bars.length < 2
+        ? 0
+        : (bars.last - bars.first) / (bars.length - 1);
     expect(barGap, closeTo(4 * 517, 80));
     await lights.setEnabled(false);
     await player.stop();

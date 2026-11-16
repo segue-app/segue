@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/catalog/deezer.dart';
 import '../../core/library/library.dart';
+import '../../core/library/search_history.dart';
 import '../theme/theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/collection.dart';
@@ -41,6 +42,16 @@ class MixScreen extends ConsumerWidget {
         ),
         data: (p) {
           final (mix, tracks) = p;
+          rememberOpened(
+            ref,
+            HistoryItem(
+              kind: HistoryKind.mix,
+              id: '${mix.id}',
+              title: mix.title,
+              subtitle: 'Подборка',
+              image: mix.cover,
+            ),
+          );
           return TrackCollectionView(
             title: mix.title,
             subtitle: 'Подборка · {0}'.trArgs([tracksLabel(tracks.length)]),

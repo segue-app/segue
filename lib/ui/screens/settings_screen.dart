@@ -97,6 +97,7 @@ class SettingsScreen extends ConsumerWidget {
               subtitle: 'Синхронизация, «Где играть», вход по коду'.tr,
               onTap: () => Navigator.of(context).push(DevicesScreen.route()),
             ),
+            const _SharedPrefs(),
             _NavTile(
               icon: Icons.link_rounded,
               title: 'Импорт плейлиста по ссылке'.tr,
@@ -1141,4 +1142,35 @@ class _BackupTileState extends ConsumerState<_BackupTile> {
             ],
           ),
   );
+}
+
+/// Whether this device's settings change together with the user's other
+/// devices, or stay its own (a phone with another look than the computer).
+class _SharedPrefs extends ConsumerStatefulWidget {
+  const _SharedPrefs();
+
+  @override
+  ConsumerState<_SharedPrefs> createState() => _SharedPrefsState();
+}
+
+class _SharedPrefsState extends ConsumerState<_SharedPrefs> {
+  @override
+  Widget build(BuildContext context) {
+    final library = ref.read(libraryProvider);
+    return SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+      secondary: const Icon(Icons.sync_rounded),
+      title: Text('Общие настройки с другими устройствами'.tr),
+      subtitle: Text(
+        library.prefsShared
+            ? 'Настройки, изменённые здесь, меняются на всех устройствах, где это включено'
+                  .tr
+            : 'У этого устройства свои настройки: изменения на других его не трогают'
+                  .tr,
+        style: const TextStyle(color: SegueColors.textDim),
+      ),
+      value: library.prefsShared,
+      onChanged: (v) => setState(() => library.prefsShared = v),
+    );
+  }
 }

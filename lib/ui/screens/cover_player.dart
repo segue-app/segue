@@ -12,6 +12,7 @@ import '../../core/player/player.dart';
 import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import '../widgets/artwork.dart';
+import '../widgets/lyrics_view.dart';
 import '../widgets/motion.dart';
 import '../widgets/output_badge.dart';
 import '../widgets/queue_sheet.dart';
@@ -23,9 +24,17 @@ import 'devices_screen.dart';
 /// melting into its own colour; everything else sits on that colour
 /// below. Chosen in Settings → Player look.
 class CoverPlayer extends ConsumerWidget {
-  const CoverPlayer({super.key, required this.onClose, required this.onLyrics});
+  const CoverPlayer({
+    super.key,
+    required this.onClose,
+    required this.onLyrics,
+    this.lyricsOn = false,
+  });
 
   final VoidCallback onClose;
+
+  /// The lyrics take the cover's place (the look stays the same).
+  final bool lyricsOn;
 
   /// Null when the song has no lyrics.
   final VoidCallback? onLyrics;
@@ -106,27 +115,31 @@ class CoverPlayer extends ConsumerWidget {
                     stops: [0, 0.62, 1],
                   ).createShader(r),
                   blendMode: BlendMode.dstIn,
-                  child: ShaderMask(
-                    // A wide window: the sides melt away too.
-                    shaderCallback: (r) => LinearGradient(
-                      colors: const [
-                        Colors.transparent,
-                        Colors.white,
-                        Colors.white,
-                        Colors.transparent,
-                      ],
-                      stops: box.maxWidth > cover + 2
-                          ? const [0, 0.2, 0.8, 1]
-                          : const [0, 0, 1, 1],
-                    ).createShader(r),
-                    blendMode: BlendMode.dstIn,
-                    child: AnimatedSwitcher(
-                      duration: SegueMotion.slow,
-                      child: Artwork(
-                        key: ValueKey(item?.artUri),
-                        url: item?.artUri?.toString(),
-                        size: cover,
-                        radius: 0,
+                  child: AnimatedOpacity(
+                    duration: SegueMotion.medium,
+                    opacity: lyricsOn ? 0 : 1,
+                    child: ShaderMask(
+                      // A wide window: the sides melt away too.
+                      shaderCallback: (r) => LinearGradient(
+                        colors: const [
+                          Colors.transparent,
+                          Colors.white,
+                          Colors.white,
+                          Colors.transparent,
+                        ],
+                        stops: box.maxWidth > cover + 2
+                            ? const [0, 0.2, 0.8, 1]
+                            : const [0, 0, 1, 1],
+                      ).createShader(r),
+                      blendMode: BlendMode.dstIn,
+                      child: AnimatedSwitcher(
+                        duration: SegueMotion.slow,
+                        child: Artwork(
+                          key: ValueKey(item?.artUri),
+                          url: item?.artUri?.toString(),
+                          size: cover,
+                          radius: 0,
+                        ),
                       ),
                     ),
                   ),
@@ -153,7 +166,35 @@ class CoverPlayer extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const Spacer(),
+                    if (lyricsOn && track != null) ...[
+                      // Small cover and title on top, the lyrics below.
+                      SizedBox(
+                        width: panelW,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 4, 24, 4),
+                          child: _Header(
+                            url: item?.artUri?.toString(),
+                            title: item?.title ?? '',
+                            artist: item?.artist ?? '',
+                            track: track,
+                            liked: liked,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: SizedBox(
+                          width: math.min(box.maxWidth, 760.0),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: LyricsView(
+                              key: ValueKey('lyrics-${track.key}'),
+                              track: track,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else
+                      const Spacer(),
                     Center(
                       child: SizedBox(
                         width: panelW,
@@ -165,6 +206,7 @@ class CoverPlayer extends ConsumerWidget {
                             track: track,
                             liked: liked,
                             onLyrics: onLyrics,
+                            lyricsOn: lyricsOn && track != null,
                           ),
                         ),
                       ),
@@ -187,12 +229,16 @@ class _Panel extends ConsumerWidget {
     required this.track,
     required this.liked,
     required this.onLyrics,
+    this.lyricsOn = false,
   });
 
   final String title, artist;
   final Track? track;
   final bool liked;
   final VoidCallback? onLyrics;
+
+  /// The title is in the header above the lyrics then.
+  final bool lyricsOn;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -233,48 +279,51 @@ class _Panel extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: SoftSwitcher(
-                child: Column(
-                  key: ValueKey(title + artist),
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
+        if (!lyricsOn)
+          Row(
+            children: [
+              Expanded(
+                child: SoftSwitcher(
+                  child: Column(
+                    key: ValueKey(title + artist),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    Text(
-                      artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: Colors.white.withValues(alpha: 0.55),
+                      Text(
+                        artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: Colors.white.withValues(alpha: 0.55),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (t != null) ...[
-              disc(LikeButton(track: t, liked: liked, size: 20), null),
-              const SizedBox(width: 12),
-              disc(
-                const Icon(Icons.more_horiz_rounded, size: 22),
-                () => showTrackActions(context, ref, t),
-              ),
+              if (t != null) ...[
+                disc(LikeButton(track: t, liked: liked, size: 20), null),
+                const SizedBox(width: 12),
+                disc(
+                  const Icon(Icons.more_horiz_rounded, size: 22),
+                  () => showTrackActions(context, ref, t),
+                ),
+              ],
             ],
-          ],
-        ),
-        const SizedBox(height: 18),
-        if (t != null) _LyricLine(track: t, onTap: onLyrics),
+          ),
+        if (!lyricsOn) ...[
+          const SizedBox(height: 18),
+          if (t != null) _LyricLine(track: t, onTap: onLyrics),
+        ],
         const SizedBox(height: 8),
         const _Progress(),
         const SizedBox(height: 18),
@@ -295,7 +344,16 @@ class _Panel extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            bottom(Icons.lyrics_rounded, onLyrics),
+            AnimatedContainer(
+              duration: SegueMotion.medium,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: lyricsOn
+                    ? Colors.white.withValues(alpha: 0.22)
+                    : Colors.transparent,
+              ),
+              child: bottom(Icons.lyrics_rounded, onLyrics),
+            ),
             bottom(Icons.devices_rounded, () => showHandoffSheet(context, ref)),
             bottom(Icons.queue_music_rounded, () => showQueueSheet(context)),
           ],
@@ -466,4 +524,52 @@ class _VolumeRow extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Above the lyrics: a small cover, the title and the song's buttons.
+class _Header extends ConsumerWidget {
+  const _Header({
+    required this.url,
+    required this.title,
+    required this.artist,
+    required this.track,
+    required this.liked,
+  });
+
+  final String? url;
+  final String title, artist;
+  final Track track;
+  final bool liked;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Row(
+    children: [
+      Artwork(url: url, size: 56, radius: 10),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            Text(
+              artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+            ),
+          ],
+        ),
+      ),
+      LikeButton(track: track, liked: liked, size: 22),
+      IconButton(
+        icon: const Icon(Icons.more_horiz_rounded),
+        onPressed: () => showTrackActions(context, ref, track),
+      ),
+    ],
+  );
 }

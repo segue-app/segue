@@ -405,6 +405,8 @@ class Relay {
       // Never changed here: nothing to offer (a fresh install takes the
       // others' settings instead).
       if (library.prefsAt == 0 || _key == null) return;
+      // Settings of its own on this device: nothing goes out.
+      if (!library.prefsShared) return;
       await _publish(
         '$_base/x/$_me',
         await _sealJson(library.exportPrefs()),
@@ -473,7 +475,7 @@ class Relay {
         case 'x':
           // Settings from another device: newer ones are taken.
           final j = await _openJson(data);
-          if (j != null && library.importPrefs(j)) {
+          if (j != null && library.prefsShared && library.importPrefs(j)) {
             debugPrint('relay: settings from $from');
           }
       }

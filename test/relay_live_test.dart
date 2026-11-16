@@ -183,6 +183,23 @@ void main() {
     print('PREFS on the phone: $app');
     expect(app, contains('"font":"Inter"'));
     expect(app, contains('"textScale":1.3')); // its own, kept
+
+    // The phone keeps settings of its own: the Mac's next change stays
+    // on the Mac.
+    libB.prefsShared = false;
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    libA
+      ..setMeta('audio_fx', '{"preset":"Рок","eqOn":true}')
+      ..touchPrefs();
+    await Future<void>.delayed(const Duration(seconds: 6));
+    expect(libB.getMeta('audio_fx'), contains('Бас'));
+    // Shared again: the next change reaches it.
+    libB.prefsShared = true;
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    libA
+      ..setMeta('audio_fx', '{"preset":"Джаз","eqOn":true}')
+      ..touchPrefs();
+    await _until(() => (libB.getMeta('audio_fx') ?? '').contains('Джаз'));
     a.closeInvite();
     await a.stop();
     await b.stop();

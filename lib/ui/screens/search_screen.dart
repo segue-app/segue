@@ -1,12 +1,18 @@
 import 'dart:async';
 
 import '../widgets/net_check_sheet.dart';
+import '../../core/library/search_history.dart';
 import '../widgets/content_width.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'artist_screen.dart';
+import 'album_screen.dart';
+import 'mix_screen.dart';
+import 'playlist_screen.dart';
+import '../widgets/track_actions.dart';
+import '../../core/player/player.dart';
 
 import '../widgets/nav.dart';
 
@@ -88,7 +94,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           child: TextField(
                             controller: _controller,
                             onChanged: _onChanged,
-                            onSubmitted: (v) => setState(() => _query = v),
+                            onSubmitted: (v) {
+                              setState(() => _query = v);
+                              ref.read(searchHistoryProvider).addQuery(v);
+                            },
                             textInputAction: TextInputAction.search,
                             decoration: InputDecoration(
                               hintText: 'Трек, артист или альбом'.tr,
@@ -99,6 +108,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   color: SegueColors.textDim,
                                 ),
                               ),
+                              // Clear: back to the history at once.
+                              suffixIcon: _query.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: 'Очистить'.tr,
+                                      icon: const Icon(Icons.close_rounded),
+                                      onPressed: () {
+                                        _debounce?.cancel();
+                                        _controller.clear();
+                                        setState(() => _query = '');
+                                      },
+                                    ),
                             ),
                           ),
                         ),
@@ -131,6 +152,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         key: ValueKey('$_filter|$_query'),
                         filter: _filter,
                         query: _query.trim(),
+                        onQuery: (q) {
+                          _controller.text = q;
+                          setState(() => _query = q);
+                        },
                         labels: {
                           for (final s in sources.values)
                             if (s.kind.searchable) s.kind: s.label,
@@ -282,19 +307,20 @@ class _Results extends ConsumerWidget {
     required this.filter,
     required this.query,
     required this.labels,
+    this.onQuery,
   });
 
   final SourceKind? filter;
   final String query;
   final Map<SourceKind, String> labels;
 
+  /// Runs a search again from history.
+  final ValueChanged<String>? onQuery;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (query.trim().isEmpty) {
-      return _Hint(
-        icon: Icons.graphic_eq_rounded,
-        text: 'Найди что-нибудь — YouTube и SoundCloud в одном месте'.tr,
-      );
+      return _History(onQuery: onQuery ?? (_) {});
     }
     final async = ref.watch(searchAllProvider(query));
     final r = async.value;
@@ -357,6 +383,11 @@ class _Results extends ConsumerWidget {
               tracks: tracks,
               index: k,
               sourceLabel: filter == null ? labels[tracks[k].source] : null,
+              onPlayed: () {
+                final h = ref.read(searchHistoryProvider);
+                h.add(HistoryItem.ofTrack(tracks[k]));
+                h.addQuery(query);
+              },
             ),
           );
         },
@@ -470,6 +501,185 @@ class _Hint extends StatelessWidget {
               style: const TextStyle(color: SegueColors.textDim, height: 1.4),
             ),
             if (action != null) ...[const SizedBox(height: 10), action!],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// An empty search: recent searches and what was played or opened, as in
+/// Yandex Music. Each can be removed; "Очистить" forgets everything.
+class _History extends ConsumerWidget {
+  const _History({required this.onQuery});
+
+  final ValueChanged<String> onQuery;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final h = ref.read(searchHistoryProvider);
+    return ListenableBuilder(
+      listenable: Listenable.merge([h.items, h.queries]),
+      builder: (context, _) {
+        final items = h.items.value, queries = h.queries.value;
+        if (items.isEmpty && queries.isEmpty) {
+          return _Hint(
+            icon: Icons.graphic_eq_rounded,
+            text: 'Найди что-нибудь — YouTube и SoundCloud в одном месте'.tr,
+          );
+        }
+        final songs = [
+          for (final i in items)
+            if (i.track != null) i.track!,
+        ];
+        return WideScroll(
+          builder: (context, side) => ListView(
+            padding: EdgeInsets.fromLTRB(8 + side, 0, 8 + side, 16),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'Вы искали'.tr,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(onPressed: h.clear, child: Text('Очистить'.tr)),
+                  ],
+                ),
+              ),
+              if (queries.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final q in queries)
+                        InputChip(
+                          avatar: const Icon(Icons.history_rounded, size: 18),
+                          label: Text(q),
+                          onPressed: () => onQuery(q),
+                          onDeleted: () => h.removeQuery(q),
+                          deleteIconColor: SegueColors.textDim,
+                          backgroundColor: Colors.white.withValues(alpha: 0.06),
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              for (final i in items)
+                _HistoryTile(
+                  item: i,
+                  onTap: () => _open(context, ref, i, songs),
+                  onRemove: () => h.remove(i),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _open(
+    BuildContext context,
+    WidgetRef ref,
+    HistoryItem i,
+    List<Track> songs,
+  ) {
+    final nav = Navigator.of(context);
+    final id = int.tryParse(i.id);
+    switch (i.kind) {
+      case HistoryKind.track:
+        // The songs of the history play one after another.
+        final at = songs.indexWhere((t) => t.key == i.id);
+        ref.read(playerProvider).tapTrack(songs, at < 0 ? 0 : at);
+        ref.read(searchHistoryProvider).add(i);
+      case HistoryKind.artist:
+        if (id != null) pushUnique(nav, ArtistScreen.route(id));
+      case HistoryKind.album:
+        if (id != null) nav.push(AlbumScreen.route(id));
+      case HistoryKind.mix:
+        if (id != null) nav.push(MixScreen.route(id));
+      case HistoryKind.playlist:
+        nav.push(PlaylistScreen.route(i.id));
+    }
+  }
+}
+
+class _HistoryTile extends ConsumerWidget {
+  const _HistoryTile({
+    required this.item,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final HistoryItem item;
+  final VoidCallback onTap, onRemove;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kind = switch (item.kind) {
+      HistoryKind.track => 'Трек'.tr,
+      HistoryKind.artist => 'Артист'.tr,
+      HistoryKind.album => 'Альбом'.tr,
+      HistoryKind.mix => 'Подборка'.tr,
+      HistoryKind.playlist => 'Плейлист'.tr,
+    };
+    final sub = item.kind == HistoryKind.track || item.kind == HistoryKind.album
+        ? '$kind · ${item.subtitle}'
+        : kind;
+    final round = item.kind == HistoryKind.artist;
+    return PressScale(
+      scale: 0.98,
+      hoverRadius: 16,
+      onTap: onTap,
+      onLongPress: item.track == null
+          ? null
+          : () => showTrackActions(context, ref, item.track!),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          children: [
+            round
+                ? ClipOval(child: Artwork(url: item.image, size: 52, radius: 0))
+                : Artwork(url: item.image, size: 52, radius: 10),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: SegueColors.textDim,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Убрать из истории'.tr,
+              icon: const Icon(Icons.close_rounded, size: 20),
+              color: SegueColors.textDim,
+              onPressed: onRemove,
+            ),
           ],
         ),
       ),

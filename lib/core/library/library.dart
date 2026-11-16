@@ -39,6 +39,10 @@ final recentlyPlayedProvider = Provider<List<Track>>(
   (ref) => _read(ref, (s) => s.recentlyPlayed()),
 );
 
+final listeningHistoryProvider = Provider<List<(Track, DateTime)>>(
+  (ref) => _read(ref, (s) => s.listeningHistory()),
+);
+
 final peersProvider = Provider<List<Peer>>(
   (ref) => _read(ref, (s) => s.peers()),
 );

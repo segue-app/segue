@@ -52,6 +52,12 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 2));
     store.recordPlay(_t('x'));
     expect(store.recentlyPlayed().map((t) => t.id), ['x', 'y']);
+    // The history screen: each song once, with when it last played.
+    final h = store.listeningHistory();
+    expect(h.map((e) => e.$1.id), ['x', 'y']);
+    expect(h.first.$2.isAfter(h.last.$2) || h.first.$2 == h.last.$2, isTrue);
+    store.removeFromHistory(_t('x'));
+    expect(store.listeningHistory().map((e) => e.$1.id), ['y']);
     store.clearHistory();
     expect(store.recentlyPlayed(), isEmpty);
   });

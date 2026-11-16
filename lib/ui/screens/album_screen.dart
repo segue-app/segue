@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/catalog/deezer.dart';
+import '../../core/library/search_history.dart';
 import '../theme/theme.dart';
 import '../widgets/artwork.dart';
 import '../widgets/collection.dart';
@@ -39,6 +40,16 @@ class AlbumScreen extends ConsumerWidget {
         ),
         data: (p) {
           final (album, tracks) = p;
+          rememberOpened(
+            ref,
+            HistoryItem(
+              kind: HistoryKind.album,
+              id: '${album.id}',
+              title: album.title,
+              subtitle: album.artist,
+              image: album.cover,
+            ),
+          );
           return TrackCollectionView(
             title: album.title,
             subtitle: [

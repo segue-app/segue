@@ -123,7 +123,12 @@ void main() {
           libraryProvider.overrideWithValue(library),
           syncProvider.overrideWithValue(sync),
           connectProvider.overrideWithValue(
-            Connect(sync: sync, relay: relay, library: library, player: handler),
+            Connect(
+              sync: sync,
+              relay: relay,
+              library: library,
+              player: handler,
+            ),
           ),
           jamProvider.overrideWithValue(
             JamService(

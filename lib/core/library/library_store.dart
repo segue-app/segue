@@ -666,6 +666,29 @@ class LibraryStore {
     [limit],
   );
 
+  /// Listening history for its own screen: each song once, at the last
+  /// time it played, newest first.
+  List<(Track, DateTime)> listeningHistory({int limit = 1000}) => [
+    for (final row in _db.select(
+      'SELECT t.json, h.last FROM (SELECT track_key, MAX(played_at) AS last '
+      'FROM history GROUP BY track_key ORDER BY last DESC LIMIT ?) h '
+      'JOIN tracks t ON t.key = h.track_key ORDER BY h.last DESC',
+      [limit],
+    ))
+      (
+        Track.fromJson(
+          jsonDecode(row['json'] as String) as Map<String, dynamic>,
+        ),
+        DateTime.fromMillisecondsSinceEpoch(row['last'] as int),
+      ),
+  ];
+
+  /// Forgets one song's plays (on this device).
+  void removeFromHistory(Track t) {
+    _db.execute('DELETE FROM history WHERE track_key = ?', [t.key]);
+    _changed();
+  }
+
   void clearHistory() {
     _db.execute('DELETE FROM history');
     _changed();
@@ -825,6 +848,14 @@ class LibraryStore {
   /// When the synced settings were last changed (ms since epoch; 0 =
   /// never on this device, so another device's win).
   int get prefsAt => int.tryParse(getMeta('prefs_at') ?? '') ?? 0;
+
+  /// This device shares its settings with the user's other devices (and
+  /// takes theirs). Off: it keeps its own, whatever the others change.
+  bool get prefsShared => getMeta('prefs_shared') != '0';
+
+  /// Turning it back on changes nothing by itself: the next change made
+  /// on any sharing device reaches all of them.
+  set prefsShared(bool v) => setMeta('prefs_shared', v ? '1' : '0');
 
   /// Call after the user changed a synced setting.
   void touchPrefs() {

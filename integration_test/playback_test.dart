@@ -164,9 +164,7 @@ void main() {
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 3)));
 
-  testWidgets('gapless: the next song follows with no reload', (
-    tester,
-  ) async {
+  testWidgets('gapless: the next song follows with no reload', (tester) async {
     MediaKit.ensureInitialized();
     final yt = YouTubeSource();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
@@ -210,8 +208,10 @@ void main() {
     double? seen;
     player.saveLoudness = (_, db) => seen = db;
     await player.setVolume(0.5);
-    final t = (await yt.search('the weeknd blinding lights audio', limit: 1))
-        .first;
+    final t = (await yt.search(
+      'the weeknd blinding lights audio',
+      limit: 1,
+    )).first;
     // Silent anyway: the test checks the volume mpv is given.
     await player.debugSetProperty('mute', 'yes');
     await player.playList([t], 0);
@@ -322,9 +322,7 @@ void main() {
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 2)));
 
-  testWidgets('tapping the playing song pauses and resumes it', (
-    tester,
-  ) async {
+  testWidgets('tapping the playing song pauses and resumes it', (tester) async {
     MediaKit.ensureInitialized();
     final yt = YouTubeSource();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
@@ -364,9 +362,11 @@ void main() {
     await wave.genreWave(152, 'Рок');
     final rock = player.tracks;
     // ignore: avoid_print
-    print('RADIO ${player.waveTitle.value}: ${rock.length} songs, '
-        '${rock.map((t) => t.artist).toSet().length} artists, e.g. '
-        '${rock.take(4).map((t) => '${t.artist} – ${t.title}').join('; ')}');
+    print(
+      'RADIO ${player.waveTitle.value}: ${rock.length} songs, '
+      '${rock.map((t) => t.artist).toSet().length} artists, e.g. '
+      '${rock.take(4).map((t) => '${t.artist} – ${t.title}').join('; ')}',
+    );
     expect(rock.length, greaterThan(15));
     expect(rock.map((t) => t.artist).toSet().length, greaterThan(4));
     await wave.moodWave('Спокойное');
@@ -504,10 +504,8 @@ void main() {
       ..fadeSeconds = 6
       ..autoBounds = ((t) => sb.musicBounds(t.id))
       // The tempo never arrives in time.
-      ..bpmFor = ((t) => Future<double?>.delayed(
-        const Duration(seconds: 5),
-        () => 100,
-      ));
+      ..bpmFor = ((t) =>
+          Future<double?>.delayed(const Duration(seconds: 5), () => 100));
     final a = (await yt.search(
       'Luis Fonsi Despacito ft. Daddy Yankee',
       limit: 3,
@@ -543,8 +541,10 @@ void main() {
     await Future<void>.delayed(const Duration(seconds: 7));
     watch.cancel();
     // ignore: avoid_print
-    print('SLOW MIX switched after ${switchedAt}ms, worst stall $worst ms, '
-        'tail lag ${player.lastMixTailLag?.inMilliseconds} ms');
+    print(
+      'SLOW MIX switched after ${switchedAt}ms, worst stall $worst ms, '
+      'tail lag ${player.lastMixTailLag?.inMilliseconds} ms',
+    );
     expect(player.index, 1);
     expect(player.lastMixTailLag, isNotNull); // it was a real mix
     expect(switchedAt, lessThan(11000));
@@ -560,8 +560,20 @@ void main() {
     player
       ..fadeSeconds = 8
       ..beats = BeatService(uriFor: player.analysisUri);
-    final a = (await yt.search(const String.fromEnvironment('MIX_A', defaultValue: 'Daft Punk Get Lucky official audio'), limit: 1)).first;
-    final b = (await yt.search(const String.fromEnvironment('MIX_B', defaultValue: 'Billie Jean Michael Jackson official audio'), limit: 1)).first;
+    final a = (await yt.search(
+      const String.fromEnvironment(
+        'MIX_A',
+        defaultValue: 'Daft Punk Get Lucky official audio',
+      ),
+      limit: 1,
+    )).first;
+    final b = (await yt.search(
+      const String.fromEnvironment(
+        'MIX_B',
+        defaultValue: 'Billie Jean Michael Jackson official audio',
+      ),
+      limit: 1,
+    )).first;
     await player.playList([a, b], 0);
     await player.positionStream
         .firstWhere((p) => p > const Duration(seconds: 1))
@@ -595,22 +607,27 @@ void main() {
     await Future<void>.delayed(const Duration(seconds: 14));
     timeline.cancel();
     // ignore: avoid_print
-    print('BEAT TIMELINE hand-over ${handAt}ms, new song moving ${startAt}ms, '
-        'old music left then ${leftAtStart?.toStringAsFixed(2)} s');
+    print(
+      'BEAT TIMELINE hand-over ${handAt}ms, new song moving ${startAt}ms, '
+      'old music left then ${leftAtStart?.toStringAsFixed(2)} s',
+    );
     // ignore: avoid_print
     final tr = player.debugMixBeatTrace;
     // ignore: avoid_print
-    print('BEAT TRACE ${[for (var i = 0; i < tr.length; i += 10) tr[i].round()]}');
+    print(
+      'BEAT TRACE ${[for (var i = 0; i < tr.length; i += 10) tr[i].round()]}',
+    );
     // ignore: avoid_print
-    print('BEAT MIX matched ${player.lastMixWasBeatMatched}, '
-        'worst beat gap ${player.lastMixBeatError?.toStringAsFixed(1)} ms');
+    print(
+      'BEAT MIX matched ${player.lastMixWasBeatMatched}, '
+      'worst beat gap ${player.lastMixBeatError?.toStringAsFixed(1)} ms',
+    );
     expect(player.index, 1);
     expect(player.lastMixWasBeatMatched, isTrue);
     expect(player.lastMixBeatError, lessThan(30));
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 3)));
 }
-
 
 extension on Track {
   Track copyWithArtist(String artist, String title) => Track(

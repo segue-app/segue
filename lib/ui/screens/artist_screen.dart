@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../core/library/search_history.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/catalog/deezer.dart';
@@ -59,6 +62,16 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final a = page.artist;
+    rememberOpened(
+      ref,
+      HistoryItem(
+        kind: HistoryKind.artist,
+        id: '${a.id}',
+        title: a.name,
+        subtitle: 'Артист',
+        image: a.picture,
+      ),
+    );
     final accent = ref.watch(currentColorsProvider).accent;
     final top = page.top;
     final wide = MediaQuery.sizeOf(context).width > 600;

@@ -35,11 +35,15 @@ void main() {
       expect(pcm, isNotNull, reason: query);
       final g = analyzeBeats(pcm!, PcmDecoder.sampleRate, offset: 60)!;
       // ignore: avoid_print
-      print('BEATS ${t.title}: $g, decoded ${pcm.length / PcmDecoder.sampleRate}s '
-          'in ${decoded}ms, analysed in ${sw.elapsedMilliseconds - decoded}ms');
+      print(
+        'BEATS ${t.title}: $g, decoded ${pcm.length / PcmDecoder.sampleRate}s '
+        'in ${decoded}ms, analysed in ${sw.elapsedMilliseconds - decoded}ms',
+      );
       final ratio = g.bpm / bpm;
       // Half or double counts the same beats.
-      final folded = ratio < 0.75 ? ratio * 2 : (ratio > 1.5 ? ratio / 2 : ratio);
+      final folded = ratio < 0.75
+          ? ratio * 2
+          : (ratio > 1.5 ? ratio / 2 : ratio);
       expect(folded, closeTo(1, 0.02), reason: '$query: $g');
     }
     await decoder.dispose();

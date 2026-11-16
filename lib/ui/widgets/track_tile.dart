@@ -22,7 +22,11 @@ class TrackTile extends ConsumerWidget {
     this.sourceLabel,
     this.onRemove,
     this.playContext,
+    this.onPlayed,
   });
+
+  /// Called when the song is tapped to play (search keeps it in history).
+  final VoidCallback? onPlayed;
 
   /// Where this list is ('liked', 'playlist:ID'), passed to the player.
   final String? playContext;
@@ -57,9 +61,10 @@ class TrackTile extends ConsumerWidget {
       scale: 0.98,
       hoverRadius: 18,
       onWarm: () => ref.read(playerProvider).warm(t),
-      onTap: () => ref
-          .read(playerProvider)
-          .tapTrack(tracks, index, context: playContext),
+      onTap: () {
+        ref.read(playerProvider).tapTrack(tracks, index, context: playContext);
+        onPlayed?.call();
+      },
       onLongPress: () => showTrackActions(context, ref, t, onRemove: onRemove),
       child: AnimatedContainer(
         duration: SegueMotion.medium,

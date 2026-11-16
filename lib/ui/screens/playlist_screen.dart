@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/library/library.dart';
 import '../../core/models/track.dart';
+import '../../core/library/search_history.dart';
 import '../widgets/collection.dart';
 import '../widgets/track_actions.dart';
 
@@ -29,6 +30,18 @@ class PlaylistScreen extends ConsumerWidget {
         .firstOrNull;
     final tracks = ref.watch(playlistTracksProvider(playlistId));
     final library = ref.read(libraryProvider);
+    if (playlist != null) {
+      rememberOpened(
+        ref,
+        HistoryItem(
+          kind: HistoryKind.playlist,
+          id: playlistId,
+          title: playlist.name,
+          subtitle: 'Плейлист',
+          image: tracks.firstOrNull?.artworkUrl,
+        ),
+      );
+    }
     final size = MediaQuery.sizeOf(context).width > 600 ? 200.0 : 180.0;
 
     return Scaffold(

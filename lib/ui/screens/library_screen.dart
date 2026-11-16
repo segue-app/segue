@@ -409,43 +409,147 @@ class _Playlists extends ConsumerWidget {
   }
 }
 
-class _History extends ConsumerWidget {
+/// Everything listened to, as in Yandex Music: by day (today, yesterday,
+/// a date), searchable, each song removable, the whole of it clearable.
+class _History extends ConsumerStatefulWidget {
   const _History({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tracks = ref.watch(recentlyPlayedProvider);
-    if (tracks.isEmpty) {
+  ConsumerState<_History> createState() => _HistoryState();
+}
+
+class _HistoryState extends ConsumerState<_History> {
+  final _search = TextEditingController();
+  String _q = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  static String _day(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(d.year, d.month, d.day);
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Сегодня'.tr;
+    if (diff == 1) return 'Вчера'.tr;
+    final months = 'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря'
+        .tr
+        .split('|');
+    final m = months.length == 12 ? months[d.month - 1] : '${d.month}';
+    return d.year == now.year ? '${d.day} $m' : '${d.day} $m ${d.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = ref.watch(listeningHistoryProvider);
+    final library = ref.read(libraryProvider);
+    if (all.isEmpty) {
       return Center(
         child: Text(
           'Здесь появится то, что ты слушал'.tr,
-          style: TextStyle(color: SegueColors.textDim),
+          style: const TextStyle(color: SegueColors.textDim),
         ),
       );
+    }
+    final words = _q.toLowerCase().split(RegExp(r'\s+'))
+      ..removeWhere((w) => w.isEmpty);
+    final shown = [
+      for (final e in all)
+        if (words.every('${e.$1.title} ${e.$1.artist}'.toLowerCase().contains))
+          e,
+    ];
+    final tracks = [for (final e in shown) e.$1];
+    // Rows: a day's title, then its songs.
+    final rows = <Object>[];
+    String? last;
+    for (var i = 0; i < shown.length; i++) {
+      final d = _day(shown[i].$2);
+      if (d != last) rows.add(d);
+      last = d;
+      rows.add(i);
     }
     return WideScroll(
       builder: (context, side) => ListView.builder(
         padding: EdgeInsets.fromLTRB(8 + side, 4, 8 + side, 16),
-        itemCount: tracks.length + 1,
-        itemBuilder: (context, i) {
-          if (i == tracks.length) {
+        itemCount: rows.length + 2,
+        itemBuilder: (context, r) {
+          if (r == 0) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+              child: TextField(
+                controller: _search,
+                onChanged: (v) => setState(() => _q = v),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Поиск в истории'.tr,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.06),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            );
+          }
+          if (r == rows.length + 1) {
             return Center(
               child: TextButton.icon(
-                onPressed: () => ref.read(libraryProvider).clearHistory(),
+                onPressed: () async {
+                  final ok = await confirmDialog(
+                    context,
+                    title: 'Очистить историю?'.tr,
+                    message: 'Все прослушанные треки пропадут из истории на этом устройстве.'
+                        .tr,
+                    action: 'Очистить'.tr,
+                  );
+                  if (ok) library.clearHistory();
+                },
                 icon: const Icon(
                   Icons.delete_sweep_rounded,
                   color: SegueColors.textDim,
                 ),
                 label: Text(
                   'Очистить историю'.tr,
-                  style: TextStyle(color: SegueColors.textDim),
+                  style: const TextStyle(color: SegueColors.textDim),
                 ),
               ),
             );
           }
-          return StaggeredEntrance(
-            index: i % 12,
-            child: TrackTile(tracks: tracks, index: i),
+          final row = rows[r - 1];
+          if (row is String) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(10, 16, 10, 4),
+              child: Text(
+                row,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            );
+          }
+          final i = row as int;
+          return Row(
+            children: [
+              Expanded(
+                child: TrackTile(
+                  key: ValueKey(tracks[i].key),
+                  tracks: tracks,
+                  index: i,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Убрать из истории'.tr,
+                icon: const Icon(Icons.close_rounded, size: 20),
+                color: SegueColors.textDim,
+                onPressed: () => library.removeFromHistory(tracks[i]),
+              ),
+            ],
           );
         },
       ),

@@ -37,6 +37,7 @@ import 'package:segue/core/sync/sync_service.dart';
 import 'package:segue/main.dart';
 import 'package:segue/ui/widgets/motion.dart';
 import 'package:segue/ui/screens/mix_screen.dart';
+import 'package:segue/ui/screens/artist_screen.dart';
 import 'package:segue/core/settings/settings.dart';
 import 'package:segue/ui/screens/now_playing_screen.dart';
 import 'package:segue/ui/screens/cover_player.dart';
@@ -232,6 +233,11 @@ void main() {
     await settle(tester, 2);
     await shot(tester, '04b_downloaded');
     expect(library.downloadedTracks(), hasLength(2));
+    // Listening history: by day, searchable.
+    await tester.tap(find.text('История').first);
+    await settle(tester, 2);
+    await shot(tester, '04c_history');
+    expect(find.text('Сегодня'), findsOneWidget);
 
     await tester.tap(find.text('Вечер').first);
     await settle(tester, 2);
@@ -416,6 +422,14 @@ void main() {
     await settle(tester, 1);
     await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
     await settle(tester, 1);
+    // Back in search with an empty field: what was searched and opened.
+    Navigator.of(tester.element(find.byType(ArtistScreen))).pop();
+    await settle(tester, 1);
+    await tester.tap(find.byTooltip('Очистить'));
+    await settle(tester, 1);
+    await shot(tester, '07b1_search_history');
+    expect(find.text('Вы искали'), findsOneWidget);
+    expect(find.text('miyagi'), findsWidgets);
     await tester.tap(find.text('Главная').first);
     await settle(tester, 3);
     await shot(tester, '07d_home_wave_charts');
@@ -427,7 +441,8 @@ void main() {
     await tester.ensureVisible(find.text('Подборки'));
     await settle(tester, 4);
     final mixCard = find.byWidgetPredicate(
-      (w) => w.key is ValueKey<String> &&
+      (w) =>
+          w.key is ValueKey<String> &&
           (w.key! as ValueKey<String>).value.startsWith('mix-'),
     );
     expect(mixCard, findsWidgets);
@@ -487,23 +502,24 @@ void main() {
     // The other look: the cover over the whole top.
     await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
     await settle(tester, 1);
-    ProviderScope.containerOf(
-      tester.element(find.byType(NowPlayingScreen)),
-    ).read(settingsProvider.notifier).update(
-      (s) => s.copyWith(playerStyle: PlayerStyle.cover),
-    );
+    ProviderScope.containerOf(tester.element(find.byType(NowPlayingScreen)))
+        .read(settingsProvider.notifier)
+        .update((s) => s.copyWith(playerStyle: PlayerStyle.cover));
     await settle(tester, 3);
     await shot(tester, '11_phone_cover_player');
+    expect(find.byType(CoverPlayer), findsOneWidget);
+    // Lyrics open inside the same look.
+    await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
+    await settle(tester, 3);
+    await shot(tester, '11a_phone_cover_lyrics');
     expect(find.byType(CoverPlayer), findsOneWidget);
     tester.view.physicalSize = const Size(2400, 1500);
     tester.view.devicePixelRatio = 1.5;
     await settle(tester, 2);
     await shot(tester, '11b_desktop_cover_player');
-    ProviderScope.containerOf(
-      tester.element(find.byType(NowPlayingScreen)),
-    ).read(settingsProvider.notifier).update(
-      (s) => s.copyWith(playerStyle: PlayerStyle.classic),
-    );
+    ProviderScope.containerOf(tester.element(find.byType(NowPlayingScreen)))
+        .read(settingsProvider.notifier)
+        .update((s) => s.copyWith(playerStyle: PlayerStyle.classic));
     await settle(tester, 1);
 
     expect(tester.takeException(), isNull);

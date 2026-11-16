@@ -126,14 +126,14 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                   style: settings.backdrop,
                 ),
               ),
-              // The other look: the cover over the whole top (lyrics
-              // still open in the usual layout).
-              if (settings.playerStyle == PlayerStyle.cover &&
-                  !(showLyrics && track != null))
+              // The other look: the cover over the whole top (the lyrics
+              // open inside it too).
+              if (settings.playerStyle == PlayerStyle.cover)
                 CoverPlayer(
                   onClose: () => Navigator.of(context).pop(),
+                  lyricsOn: showLyrics && track != null,
                   onLyrics: hasLyrics
-                      ? () => setState(() => _lyrics = true)
+                      ? () => setState(() => _lyrics = !_lyrics)
                       : null,
                 )
               else
