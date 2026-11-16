@@ -321,6 +321,9 @@ class LyricsService {
       result = ne ?? lrc;
     }
     _cache[track.key] = result;
+    while (_cache.length > 200) {
+      _cache.remove(_cache.keys.first);
+    }
     return result;
   }
 

@@ -11,8 +11,10 @@ const _red = (r: 255, g: 0, b: 0);
 /// A controller as OpenRGB describes it (protocol 0): [leds] LEDs.
 Uint8List _controller(int leds) {
   final b = BytesBuilder();
-  void u16(int v) => b.add(Uint8List(2)..buffer.asByteData().setUint16(0, v, Endian.little));
-  void u32(int v) => b.add(Uint8List(4)..buffer.asByteData().setUint32(0, v, Endian.little));
+  void u16(int v) =>
+      b.add(Uint8List(2)..buffer.asByteData().setUint16(0, v, Endian.little));
+  void u32(int v) =>
+      b.add(Uint8List(4)..buffer.asByteData().setUint32(0, v, Endian.little));
   void str(String s) {
     u16(s.length + 1);
     b
@@ -65,7 +67,11 @@ void main() {
     final http = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     http.listen((r) {
       r.response
-        ..write(jsonEncode({'leds': {'count': 600}}))
+        ..write(
+          jsonEncode({
+            'leds': {'count': 600},
+          }),
+        )
         ..close();
     });
     final udp = await RawDatagramSocket.bind(InternetAddress.loopbackIPv4, 0);
@@ -132,11 +138,23 @@ void main() {
           buf = buf.sublist(16 + size);
           ids.add(id);
           if (id == 0) {
-            client.add(OpenRgbDevice.packet(0, 0, Uint8List(4)..buffer.asByteData().setUint32(0, 2, Endian.little)));
+            client.add(
+              OpenRgbDevice.packet(
+                0,
+                0,
+                Uint8List(4)
+                  ..buffer.asByteData().setUint32(0, 2, Endian.little),
+              ),
+            );
           } else if (id == 1) {
-            client.add(OpenRgbDevice.packet(dev, 1, _controller(dev == 0 ? 104 : 3)));
+            client.add(
+              OpenRgbDevice.packet(dev, 1, _controller(dev == 0 ? 104 : 3)),
+            );
           } else if (id == 1050) {
-            updates.add((dev, body.buffer.asByteData().getUint16(4, Endian.little)));
+            updates.add((
+              dev,
+              body.buffer.asByteData().getUint16(4, Endian.little),
+            ));
           }
         }
       });

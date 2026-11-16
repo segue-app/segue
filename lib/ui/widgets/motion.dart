@@ -111,7 +111,10 @@ class StaggeredEntrance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) return child;
+    // Only the first screenful arrives with a flourish: rows built while
+    // scrolling appear at once (each fade is an offscreen layer, and a
+    // fling built dozens of them).
+    if (index >= 12 || MediaQuery.disableAnimationsOf(context)) return child;
     final delay = (index * 0.06).clamp(0.0, 0.6);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),

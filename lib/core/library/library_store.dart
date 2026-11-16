@@ -158,6 +158,20 @@ class LibraryStore {
         path TEXT PRIMARY KEY,
         bookmark TEXT
       );
+      CREATE TABLE IF NOT EXISTS saved (
+        key TEXT PRIMARY KEY,
+        json TEXT NOT NULL,
+        saved_at INTEGER NOT NULL,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS kv (
+        ns TEXT NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        at INTEGER NOT NULL,
+        PRIMARY KEY (ns, key)
+      );
       CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -182,6 +196,7 @@ class LibraryStore {
       'playlists',
       'playlist_items',
       'history',
+      'saved',
     ]) {
       final cols = _db
           .select('PRAGMA table_info($table)')
@@ -203,6 +218,7 @@ class LibraryStore {
         'playlists',
         'playlist_items',
         'history',
+        'saved',
       ])
         (_db.select('SELECT MAX(seq) AS m FROM $table').first['m'] as int?) ??
             0,
@@ -216,6 +232,7 @@ class LibraryStore {
       'playlists',
       'playlist_items',
       'history',
+      'saved',
     ]) {
       final old = _db
           .select('SELECT rowid AS r FROM $table WHERE seq = 0 ORDER BY rowid')
@@ -228,7 +245,78 @@ class LibraryStore {
       }
       _db.execute('COMMIT');
     }
+    _migrateBlobs();
   }
+
+  /// Big maps once kept as one JSON value in meta (rewritten whole on
+  /// every change) move to kv, one row each.
+  void _migrateBlobs() {
+    for (final (meta, ns) in [
+      ('matches2', 'match'),
+      ('loudness', 'loud'),
+      ('beats', 'beat'),
+    ]) {
+      final raw = getMeta(meta);
+      if (raw == null) continue;
+      try {
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        _db.execute('BEGIN');
+        var at = 0;
+        for (final e in m.entries) {
+          _db.execute(
+            'INSERT OR REPLACE INTO kv (ns, key, value, at) VALUES (?, ?, ?, ?)',
+            [ns, e.key, jsonEncode(e.value), at++],
+          );
+        }
+        _db.execute('COMMIT');
+      } catch (_) {
+        try {
+          _db.execute('ROLLBACK');
+        } catch (_) {}
+      }
+      _db.execute('DELETE FROM meta WHERE key = ?', [meta]);
+    }
+  }
+
+  // --- Small keyed stores (matches, loudness, beats…), one row per key ---
+
+  /// The JSON value under [key] in [ns], or null.
+  Object? kvGet(String ns, String key) {
+    final r = _db.select('SELECT value FROM kv WHERE ns = ? AND key = ?', [
+      ns,
+      key,
+    ]);
+    if (r.isEmpty) return null;
+    try {
+      return jsonDecode(r.first['value'] as String);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final _kvPuts = <String, int>{};
+
+  /// Stores [value] (JSON-able) under [key]; keeps the newest [keep] keys
+  /// of [ns] (checked now and then, not on every write).
+  void kvPut(String ns, String key, Object? value, {int keep = 0}) {
+    _db.execute(
+      'INSERT OR REPLACE INTO kv (ns, key, value, at) VALUES (?, ?, ?, ?)',
+      [ns, key, jsonEncode(value), _now],
+    );
+    if (keep > 0 && (_kvPuts[ns] = (_kvPuts[ns] ?? 0) + 1) % 100 == 0) {
+      _db.execute(
+        'DELETE FROM kv WHERE ns = ? AND key NOT IN '
+        '(SELECT key FROM kv WHERE ns = ? ORDER BY at DESC LIMIT ?)',
+        [ns, ns, keep],
+      );
+    }
+  }
+
+  void kvRemove(String ns, String key) =>
+      _db.execute('DELETE FROM kv WHERE ns = ? AND key = ?', [ns, key]);
+
+  @visibleForTesting
+  void debugMigrateBlobs() => _migrateBlobs();
 
   /// Raw SQL for tests.
   @visibleForTesting
@@ -276,7 +364,17 @@ class LibraryStore {
       Track.fromJson(jsonDecode(row['json'] as String) as Map<String, dynamic>),
   ];
 
-  void _changed() => _changes.add(null);
+  void _changed([LibChange kind = LibChange.edit]) {
+    _changes.add(null);
+    _kinds.add(kind);
+  }
+
+  final _kinds = StreamController<LibChange>.broadcast();
+
+  /// What changed, for listeners that care about some writes only (the
+  /// relay doesn't re-send the library for a download, a play counts
+  /// for later, a cover…).
+  Stream<LibChange> get changeKinds => _kinds.stream;
 
   /// Gives a stored track a cover if it has none (imported Spotify tracks
   /// get one from their YouTube match).
@@ -331,7 +429,7 @@ class LibraryStore {
       'UPDATE tracks SET json = ?, updated_at = ?, seq = ? WHERE key = ?',
       [jsonEncode(json), _now, _nextSeq, t.key],
     );
-    _changed();
+    _changed(LibChange.artwork);
   }
 
   // --- Likes ------------------------------------------------------------------
@@ -340,6 +438,38 @@ class LibraryStore {
     'SELECT 1 FROM likes WHERE track_key = ? AND deleted = 0',
     [t.key],
   ).isNotEmpty;
+
+  // --- Saved albums (and later other things), synced like likes ---------
+
+  /// [key] is e.g. "album:302127"; [json] what's needed to show it
+  /// without the network (title, artist, cover…).
+  bool isSaved(String key) => _db.select(
+    'SELECT 1 FROM saved WHERE key = ? AND deleted = 0',
+    [key],
+  ).isNotEmpty;
+
+  void setSaved(String key, Map<String, dynamic> json, bool saved) {
+    _db.execute(
+      'INSERT INTO saved (key, json, saved_at, deleted, updated_at, seq) '
+      'VALUES (?, ?, ?, ?, ?, ?) '
+      'ON CONFLICT(key) DO UPDATE SET deleted = excluded.deleted, '
+      'json = excluded.json, updated_at = excluded.updated_at, '
+      'seq = excluded.seq, '
+      'saved_at = CASE WHEN excluded.deleted = 0 THEN excluded.saved_at ELSE saved_at END',
+      [key, jsonEncode(json), _now, saved ? 0 : 1, _now, _nextSeq],
+    );
+    _changed();
+  }
+
+  /// Saved things whose key starts with "[kind]:", newest first.
+  List<Map<String, dynamic>> saved(String kind) => [
+    for (final r in _db.select(
+      'SELECT json FROM saved WHERE key LIKE ? AND deleted = 0 '
+      'ORDER BY saved_at DESC',
+      ['$kind:%'],
+    ))
+      (jsonDecode(r['json'] as String) as Map).cast<String, dynamic>(),
+  ];
 
   void setLiked(Track t, bool liked) {
     _saveTrack(t);
@@ -655,7 +785,7 @@ class LibraryStore {
       'INSERT OR IGNORE INTO history (track_key, played_at, seq) VALUES (?, ?, ?)',
       [t.key, _now, _nextSeq],
     );
-    _changed();
+    _changed(LibChange.history);
   }
 
   /// Most recent first, each track once.
@@ -686,12 +816,12 @@ class LibraryStore {
   /// Forgets one song's plays (on this device).
   void removeFromHistory(Track t) {
     _db.execute('DELETE FROM history WHERE track_key = ?', [t.key]);
-    _changed();
+    _changed(LibChange.history);
   }
 
   void clearHistory() {
     _db.execute('DELETE FROM history');
-    _changed();
+    _changed(LibChange.history);
   }
 
   // --- Downloads (device-local, not synced) -----------------------------------
@@ -714,12 +844,12 @@ class LibraryStore {
       'INSERT OR REPLACE INTO downloads (track_key, path, size, created_at) VALUES (?, ?, ?, ?)',
       [t.key, path, size, _now],
     );
-    _changed();
+    _changed(LibChange.downloads);
   }
 
   void removeDownload(Track t) {
     _db.execute('DELETE FROM downloads WHERE track_key = ?', [t.key]);
-    _changed();
+    _changed(LibChange.downloads);
   }
 
   List<Track> downloadedTracks() => _tracks(
@@ -748,13 +878,13 @@ class LibraryStore {
       'INSERT OR REPLACE INTO folders (path, bookmark) VALUES (?, ?)',
       [path, bookmark],
     );
-    _changed();
+    _changed(LibChange.local);
   }
 
   void removeFolder(String path) {
     _db.execute('DELETE FROM folders WHERE path = ?', [path]);
     _db.execute('DELETE FROM local_files WHERE folder = ?', [path]);
-    _changed();
+    _changed(LibChange.local);
   }
 
   /// Modification times of indexed files in [folder], to skip unchanged ones.
@@ -782,7 +912,7 @@ class LibraryStore {
       _db.execute('ROLLBACK');
       rethrow;
     }
-    _changed();
+    _changed(LibChange.local);
   }
 
   List<Track> localTracks() =>
@@ -919,6 +1049,7 @@ class LibraryStore {
     'tracks': ['key', 'json', 'updated_at'],
     'likes': ['track_key', 'liked_at', 'deleted', 'updated_at'],
     'playlists': ['id', 'name', 'created_at', 'deleted', 'updated_at'],
+    'saved': ['key', 'json', 'saved_at', 'deleted', 'updated_at'],
     'playlist_items': [
       'playlist_id',
       'track_key',
@@ -931,6 +1062,7 @@ class LibraryStore {
     'tracks': ['key'],
     'likes': ['track_key'],
     'playlists': ['id'],
+    'saved': ['key'],
     'playlist_items': ['playlist_id', 'track_key'],
   };
 
@@ -998,7 +1130,7 @@ class LibraryStore {
       _db.execute('ROLLBACK');
       rethrow;
     }
-    if (applied > 0) _changed();
+    if (applied > 0) _changed(LibChange.synced);
     return applied;
   }
 
@@ -1028,16 +1160,36 @@ class LibraryStore {
       'recv_seq = excluded.recv_seq, host = excluded.host, port = excluded.port',
       [p.id, p.name, p.platform, p.token, p.sentSeq, p.recvSeq, p.host, p.port],
     );
-    _changed();
+    _changed(LibChange.peers);
   }
 
   void removePeer(String id) {
     _db.execute('DELETE FROM peers WHERE id = ?', [id]);
-    _changed();
+    _changed(LibChange.peers);
   }
 
   void dispose() {
     _changes.close();
     _db.close();
   }
+}
+
+/// Kinds of library writes (see [LibraryStore.changeKinds]).
+enum LibChange {
+  /// Likes, playlists, saved albums, track data: others want it soon.
+  edit,
+
+  /// A play recorded or history cleaned: others can wait.
+  history,
+
+  /// A cover found for a track: others can wait.
+  artwork,
+
+  /// Rows merged from another device: nothing to send back.
+  synced,
+
+  /// This device only: downloads, music folders, paired devices.
+  downloads,
+  local,
+  peers,
 }

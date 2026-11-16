@@ -90,17 +90,20 @@ class _LivingBackdropState extends State<LivingBackdrop> {
     }
     _base = Color.lerp(_base, widget.base, k)!;
 
-    // Fully paused and settled: stop until something changes.
-    if (_speed < 0.002 && !colorsMoving && !widget.playing) {
-      _repaint.value++;
-      _clock.stop();
-      return;
-    }
     final styleSpeed = switch (widget.style) {
       BackdropStyle.living => 1.0,
       BackdropStyle.calm => 0.35,
       BackdropStyle.plain => 0.0,
     };
+    // Nothing can move (paused, or motion off, or the plain style) and the
+    // colours have settled: stop until something changes. It used to keep
+    // repainting the same picture 15 times a second while music played.
+    final still = !widget.playing || widget.speed * styleSpeed == 0;
+    if (still && (_speed < 0.002 || widget.playing) && !colorsMoving) {
+      _repaint.value++;
+      _clock.stop();
+      return;
+    }
     _t += dt * _speed * widget.speed * styleSpeed;
     _repaint.value++;
   }

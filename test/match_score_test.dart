@@ -30,9 +30,20 @@ void main() {
       duration: const Duration(seconds: 284),
     );
     final r = MatchSource.rank(wanted, [
-      (track: _t('Omnistar East', 'Kino - Gruppa Krovi / Кино - Группа Крови', 285, id: 'a'), official: false),
+      (
+        track: _t(
+          'Omnistar East',
+          'Kino - Gruppa Krovi / Кино - Группа Крови',
+          285,
+          id: 'a',
+        ),
+        official: false,
+      ),
       (track: _t('Кино', 'Группа крови', 284, id: 'b'), official: true),
-      (track: _t('Someone', 'Кино - Группа крови (cover)', 284, id: 'c'), official: false),
+      (
+        track: _t('Someone', 'Кино - Группа крови (cover)', 284, id: 'c'),
+        official: false,
+      ),
     ]);
     expect(r.first.track.id, 'b');
   });
@@ -46,8 +57,24 @@ void main() {
       duration: const Duration(seconds: 205),
     );
     final found = [
-      (track: _t('HammAli & Navai', 'HammAli & Navai - Птичка (Премьера клипа)', 201, id: 'clip'), official: true),
-      (track: _t('HammAli & Navai', 'Птичка (Acoustic Version)', 205, id: 'ac'), official: true),
+      (
+        track: _t(
+          'HammAli & Navai',
+          'HammAli & Navai - Птичка (Премьера клипа)',
+          201,
+          id: 'clip',
+        ),
+        official: true,
+      ),
+      (
+        track: _t(
+          'HammAli & Navai',
+          'Птичка (Acoustic Version)',
+          205,
+          id: 'ac',
+        ),
+        official: true,
+      ),
     ];
     expect(MatchSource.rank(acoustic, found).first.track.id, 'ac');
     final original = Track(
@@ -59,8 +86,24 @@ void main() {
     );
     expect(
       MatchSource.rank(original, [
-        (track: _t('Би-2', 'Полковнику никто не пишет (Version 2024)', 295, id: 'new'), official: true),
-        (track: _t('Fury 2', 'Би 2 - Полковнику никто не пишет', 295, id: 'old'), official: false),
+        (
+          track: _t(
+            'Би-2',
+            'Полковнику никто не пишет (Version 2024)',
+            295,
+            id: 'new',
+          ),
+          official: true,
+        ),
+        (
+          track: _t(
+            'Fury 2',
+            'Би 2 - Полковнику никто не пишет',
+            295,
+            id: 'old',
+          ),
+          official: false,
+        ),
       ]).first.track.id,
       'old',
     );

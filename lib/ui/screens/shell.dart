@@ -47,6 +47,7 @@ import 'package:segue/core/l10n/l10n.dart';
 
 import '../../core/share/track_link.dart';
 import '../../core/sources/stand_in.dart';
+import '../widgets/volume_slider.dart';
 import '../../core/sources/sources.dart';
 import '../../core/sources/youtube_source.dart';
 import '../../core/models/track.dart';
@@ -406,7 +407,7 @@ class _ShellState extends ConsumerState<Shell> {
   void _volume(double v) {
     final player = ref.read(playerProvider);
     player.setVolume(v);
-    ref.read(libraryProvider).setMeta('volume', '${player.volume.value}');
+    saveVolumeSoon(ref.read(libraryProvider), player.volume.value);
   }
 
   @override

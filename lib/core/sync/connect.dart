@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app_visibility.dart';
 import '../library/library_store.dart';
 import '../player/player_handler.dart';
 import 'relay.dart';
@@ -73,6 +74,11 @@ class Connect {
     final started = nowPlaying.difference(_wasPlaying);
     _wasPlaying = nowPlaying;
     final target = p.outputId;
+    // An idle device in the background (a phone in a pocket) doesn't turn
+    // itself into a remote: it would wake up for every state message.
+    // It follows once it's opened again. A device that plays here still
+    // stops, so only one plays.
+    if (!AppVisibility.visible && target == null && !p.isPlaying) return;
     final other = started.where((id) => id != target).firstOrNull;
     if (other != null) {
       _stayHere = false;
@@ -200,6 +206,7 @@ class Connect {
   Future<String> openInvite() async {
     String code;
     try {
+      await relay.goOnline(); // asleep while alone: wake up for this
       code = relay.connected.value ? await relay.openInvite() : _offlineCode();
     } catch (_) {
       code = _offlineCode();

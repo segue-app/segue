@@ -50,6 +50,20 @@ class _WavyProgressState extends State<WavyProgress>
   /// Position while the user drags; overrides [widget.progress].
   double? _drag;
 
+  /// "Less motion" (or the system's reduce motion): the wave holds still.
+  bool _still = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _still = MediaQuery.disableAnimationsOf(context);
+    if (_still && _phase.isAnimating) {
+      _phase.stop();
+    } else if (!_still && widget.playing && !_phase.isAnimating) {
+      _phase.repeat();
+    }
+  }
+
   @override
   void didUpdateWidget(WavyProgress old) {
     super.didUpdateWidget(old);
@@ -57,7 +71,7 @@ class _WavyProgressState extends State<WavyProgress>
     if (p != null && (widget.progress - p).abs() < 0.015) _pending = null;
     if (old.playing != widget.playing) {
       if (widget.playing) {
-        if (!_phase.isAnimating) _phase.repeat();
+        if (!_phase.isAnimating && !_still) _phase.repeat();
         _amplitude.animateTo(1, curve: SegueMotion.ease);
       } else {
         // Flatten, then stop the wave altogether.

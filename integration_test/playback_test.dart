@@ -280,6 +280,49 @@ void main() {
     expect(cache.pathFor(t), isNull);
   }, timeout: const Timeout(Duration(minutes: 3)));
 
+  testWidgets('a song that played through goes to the cache, no 2nd fetch', (
+    tester,
+  ) async {
+    MediaKit.ensureInitialized();
+    final yt = YouTubeSource()..highQuality = true; // Opus, read in ranges
+    final sources = <SourceKind, MusicSource>{SourceKind.youtube: yt};
+    final library = LibraryStore.memory();
+    final tmp = Directory.systemTemp.createTempSync('tee_test');
+    final downloads = _CountingDownloads(
+      library: library,
+      sources: sources,
+      directory: Directory('${tmp.path}/dl')..createSync(),
+    );
+    final cache = AudioCache(
+      library: library,
+      downloads: downloads,
+      sources: sources,
+      directory: Directory('${tmp.path}/cache')..createSync(),
+    );
+    final player = SegueAudioHandler(sources);
+    cache.attach(player);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await player.setVolume(0);
+    final t = (await yt.search('zivert life audio', limit: 1)).first;
+    await player.playList([t], 0);
+    await player.positionStream
+        .firstWhere((p) => p > const Duration(seconds: 2))
+        .timeout(const Duration(seconds: 30));
+    final sw = Stopwatch()..start();
+    await cache.keep(t);
+    final path = cache.pathFor(t);
+    // ignore: avoid_print
+    print(
+      'TEE kept in ${sw.elapsedMilliseconds} ms: $path, '
+      'downloads ${downloads.fetches}',
+    );
+    expect(path, isNotNull);
+    expect(File(path!).lengthSync(), greaterThan(500000));
+    expect(downloads.fetches, 0);
+    await player.stop();
+    await cache.clear();
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
   testWidgets('handoff plays the exact version the other device played', (
     tester,
   ) async {
@@ -642,4 +685,24 @@ extension on Track {
     artworkUrl: artworkUrl,
     duration: duration,
   );
+}
+
+class _CountingDownloads extends DownloadManager {
+  _CountingDownloads({
+    required super.library,
+    required super.sources,
+    super.directory,
+  });
+
+  int fetches = 0;
+
+  @override
+  Future<File> fetchTo(
+    Track t,
+    Directory dir, [
+    void Function(double)? onProgress,
+  ]) {
+    fetches++;
+    return super.fetchTo(t, dir, onProgress);
+  }
 }

@@ -18,14 +18,29 @@ class Beat {
 
   static void add(VoidCallback f) {
     _listeners.add(f);
+    _ensure();
+  }
+
+  static var _watching = false;
+
+  /// Runs while someone listens and the app can be seen. Hidden (screen
+  /// off, minimised), it used to keep waking up 30 times a second only to
+  /// find nothing to draw.
+  static void _ensure() {
+    if (!_watching) {
+      _watching = true;
+      AppVisibility.visibleNotifier.addListener(_ensure);
+    }
+    if (_listeners.isEmpty || !AppVisibility.visible) {
+      _timer?.cancel();
+      _timer = null;
+      return;
+    }
     _timer ??= Timer.periodic(interval, (_) {
       for (final l in List.of(_listeners)) {
         l();
       }
-      if (_listeners.isEmpty) {
-        _timer?.cancel();
-        _timer = null;
-      }
+      if (_listeners.isEmpty || !AppVisibility.visible) _ensure();
     });
   }
 

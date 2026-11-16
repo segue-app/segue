@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:segue/core/catalog/deezer.dart';
 import 'package:segue/core/library/library_store.dart';
 import 'package:segue/core/models/track.dart';
 
@@ -35,6 +36,30 @@ void main() {
     expect(laptop.playlists().single.name, 'Gym');
     expect(laptop.playlistTracks(pid).map((t) => t.id), ['2', '3']);
     expect(phone.recentlyPlayed().map((t) => t.id), ['9']);
+  });
+
+  test('saved albums reach the other device, removal too', () async {
+    const amo = Album(
+      id: 302127,
+      title: 'amo',
+      artist: 'Bring Me The Horizon',
+      cover: 'https://e-cdns-images.dzcdn.net/images/cover/x/1000x1000.jpg',
+      year: 2019,
+      type: 'album',
+    );
+    phone.setSaved(amo.savedKey, amo.toSaved(), true);
+    expect(phone.isSaved('album:302127'), isTrue);
+    _sync(phone, laptop, cursors);
+    final there = Album.fromSaved(laptop.saved('album').single)!;
+    expect(there.title, 'amo');
+    expect(there.year, 2019);
+    expect(there.cover, amo.cover);
+
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    laptop.setSaved(amo.savedKey, amo.toSaved(), false);
+    _sync(phone, laptop, cursors);
+    expect(phone.saved('album'), isEmpty);
+    expect(phone.isSaved('album:302127'), isFalse);
   });
 
   test('deletes propagate and the newest change wins', () async {

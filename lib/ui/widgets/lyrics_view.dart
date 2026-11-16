@@ -346,31 +346,48 @@ class _Line extends StatelessWidget {
                       ),
                     ),
                   )
-                : Text(text, textAlign: align, style: _lineStyle),
+                // Dimmed through its colour, not a see-through layer: a
+                // song has ~100 lines, each an offscreen layer before.
+                : AnimatedDefaultTextStyle(
+                    // On top of the size and font set around the lyrics.
+                    style: DefaultTextStyle.of(context).style.merge(
+                      _lineStyle.copyWith(
+                        color: Colors.white.withValues(alpha: opacity),
+                      ),
+                    ),
+                    duration: const Duration(milliseconds: 450),
+                    child: Text(text, textAlign: align),
+                  ),
             center,
           );
 
+    // Only the line being sung fades as a whole (it hands over to plain
+    // text, so there is nothing to tint); the rest are tinted above.
+    final dimmed = isCurrent || text.isEmpty
+        ? AnimatedOpacity(
+            opacity: text.isEmpty ? opacity : 1,
+            duration: const Duration(milliseconds: 450),
+            child: content,
+          )
+        : content;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 11),
-      child: AnimatedOpacity(
-        opacity: opacity,
-        duration: const Duration(milliseconds: 450),
-        child: _Wheel(
-          // 3D: lines above and below the current one curve away, like
-          // the surface of a turning drum.
-          angle: settings.depth3d && current >= 0
-              ? (index - current).clamp(-6, 6) * -0.045
-              : 0,
-          // Pivot on the line's centre: pivoting on the left edge shears
-          // the text into a fake italic.
-          alignment: Alignment.center,
-          child: AnimatedScale(
-            scale: isCurrent ? 1.0 : 0.93,
-            alignment: center ? Alignment.center : Alignment.centerLeft,
-            duration: const Duration(milliseconds: 650),
-            curve: SegueMotion.spring,
-            child: SizedBox(width: double.infinity, child: content),
-          ),
+      child: _Wheel(
+        // 3D: lines above and below the current one curve away, like
+        // the surface of a turning drum.
+        angle: settings.depth3d && current >= 0
+            ? (index - current).clamp(-6, 6) * -0.045
+            : 0,
+        // Pivot on the line's centre: pivoting on the left edge shears
+        // the text into a fake italic.
+        alignment: Alignment.center,
+        child: AnimatedScale(
+          scale: isCurrent ? 1.0 : 0.93,
+          alignment: center ? Alignment.center : Alignment.centerLeft,
+          duration: const Duration(milliseconds: 650),
+          curve: SegueMotion.spring,
+          child: SizedBox(width: double.infinity, child: dimmed),
         ),
       ),
     );
@@ -534,7 +551,10 @@ class _Word extends StatelessWidget {
         ? 1 + 0.08 * math.sin((progress * 3).clamp(0.0, 1.0) * math.pi)
         : 1.0;
 
-    final glow = settings.lyricsGlow * (progress > 0 ? 1 : 0);
+    // A blurred text shadow per word, every frame: on phones and PCs
+    // without strong graphics only a soft, small one.
+    final glow =
+        settings.lyricsGlow * (progress > 0 ? 1 : 0) * (lightEffects ? 0.6 : 1);
     return Transform.translate(
       offset: Offset(0, -3 * lift),
       child: Transform.scale(
@@ -560,7 +580,7 @@ class _Word extends StatelessWidget {
                                       (progress * 2.5).clamp(0.0, 1.0))
                                   .clamp(0.0, 1.0),
                         ),
-                        blurRadius: 14 + 10 * lift,
+                        blurRadius: lightEffects ? 8 : 14 + 10 * lift,
                       ),
                     ],
                   ),
@@ -586,10 +606,28 @@ class _Dots extends StatefulWidget {
 }
 
 class _DotsState extends State<_Dots> with SlowTickerProviderStateMixin {
+  // Breathes only while it's the current "line": every instrumental gap
+  // of the song animated all the time before.
   late final _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1400),
-  )..repeat();
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _c.repeat();
+  }
+
+  @override
+  void didUpdateWidget(_Dots old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !_c.isAnimating) {
+      _c.repeat();
+    } else if (!widget.active && _c.isAnimating) {
+      _c.stop();
+    }
+  }
 
   @override
   void dispose() {

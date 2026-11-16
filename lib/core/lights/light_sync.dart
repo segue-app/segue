@@ -95,7 +95,8 @@ class LightSync {
   }
 
   void _follow(bool playing) {
-    if (playing) {
+    // No lights added: nothing to drive, no 30-a-second timer.
+    if (playing && devices.value.isNotEmpty) {
       _timer ??= Timer.periodic(
         const Duration(milliseconds: 33),
         (_) => _tick(),
@@ -109,6 +110,7 @@ class LightSync {
 
   Future<void> add(LightDevice d) async {
     devices.value = [...devices.value, d];
+    _follow(player.isPlayingNow);
     if (enabled.value) {
       await d.open();
       devices.value = [...devices.value];

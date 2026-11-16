@@ -41,7 +41,9 @@ void main() {
     for (final q in _queries) {
       // ignore: avoid_print
       final res = await http.get(
-        Uri.parse('https://api.deezer.com/search?q=${Uri.encodeQueryComponent(q)}&limit=1'),
+        Uri.parse(
+          'https://api.deezer.com/search?q=${Uri.encodeQueryComponent(q)}&limit=1',
+        ),
       );
       final d = ((jsonDecode(res.body) as Map)['data'] as List).first as Map;
       final wanted = Track(
@@ -62,9 +64,11 @@ void main() {
         continue;
       }
       // ignore: avoid_print
-      print('${wanted.artist} — ${wanted.title} (${wanted.duration!.inSeconds}s)\n'
-          '   → ${got.artist} — ${got.title} (${got.duration?.inSeconds}s) '
-          '${sw.elapsedMilliseconds}ms');
+      print(
+        '${wanted.artist} — ${wanted.title} (${wanted.duration!.inSeconds}s)\n'
+        '   → ${got.artist} — ${got.title} (${got.duration?.inSeconds}s) '
+        '${sw.elapsedMilliseconds}ms',
+      );
     }
   }, timeout: const Timeout(Duration(minutes: 5)));
 }

@@ -7,6 +7,7 @@ import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 
+import '../app_visibility.dart';
 import '../models/track.dart';
 import '../sources/music_source.dart';
 import '../dj/beat_grid.dart';
@@ -22,6 +23,9 @@ import 'package:segue/core/l10n/l10n.dart';
 /// it remotely ("Spotify Connect").
 abstract interface class PlaybackControl {
   Map<String, dynamic> snapshot();
+
+  /// Music is playing (cheap: no snapshot of the queue).
+  bool get isPlaying;
   Future<void> restore(Map<String, dynamic> snapshot);
   Future<void> pause();
   Future<void> play();
@@ -81,10 +85,15 @@ class SegueAudioHandler extends BaseAudioHandler
         ..start();
       // mpv reports dozens of times a second; the UI needs a few (a jump,
       // like a seek or a new track, goes through at once).
+      // Hidden (phone screen off, window minimised): once a second is plenty
+      // for what still listens (scrobbling, the system's own progress).
       final now = DateTime.now();
+      final every = AppVisibility.visible
+          ? const Duration(milliseconds: 200)
+          : const Duration(seconds: 1);
       if (_out == null &&
-          (now.difference(_posSentAt) >= const Duration(milliseconds: 200) ||
-              (pos - _posSent).abs() > const Duration(seconds: 1))) {
+          (now.difference(_posSentAt) >= every ||
+              (pos - _posSent).abs() > const Duration(seconds: 2))) {
         _posSentAt = now;
         _posSent = pos;
         _positionCtl.add(pos);
@@ -231,12 +240,31 @@ class SegueAudioHandler extends BaseAudioHandler
   Future<List<Track>> Function()? _refill;
   bool _refilling = false;
 
+  /// The queue as the system shows it (lock screen, Android Auto): up to
+  /// 200 songs after the current one. Thousands (all liked songs) made
+  /// one huge message to Android each time, which it can refuse. Only the
+  /// end is cut, so positions in it stay the same as here.
+  int _publishedEnd = -1;
+
+  void _publishQueue() {
+    final end = math.min(_tracks.length, math.max(0, _index) + 201);
+    _publishedEnd = end;
+    queue.add([for (final t in _tracks.take(end)) _toMediaItem(t)]);
+  }
+
+  /// Near the end of what the system was given: give it more.
+  void _extendQueue() {
+    if (_publishedEnd < _tracks.length && _index + 50 > _publishedEnd) {
+      _publishQueue();
+    }
+  }
+
   /// Title of the running wave, null for an ordinary queue.
   final waveTitle = ValueNotifier<String?>(null);
 
   void _queueChanged() {
     _checkGapless();
-    queue.add(_tracks.map(_toMediaItem).toList());
+    _publishQueue();
     queueVersion.value++;
     _changed();
   }
@@ -404,6 +432,7 @@ class SegueAudioHandler extends BaseAudioHandler
     _gapless = null;
     _leaving(skipped: !mixing);
     _index = i;
+    _extendQueue();
     queueVersion.value++;
     unawaited(_maybeRefill());
     final track = _tracks[i];
@@ -521,13 +550,27 @@ class SegueAudioHandler extends BaseAudioHandler
   /// Resolved streams of upcoming tracks; URLs expire, so not for long.
   final _resolved = <String, (Future<StreamInfo>, DateTime)>{};
 
-  Future<StreamInfo> _resolve(Track track) {
-    final hit = _resolved.remove(track.key);
+  /// [keep]: leave the prepared stream for later use (analysis looks at a
+  /// song that will play soon; taking it meant resolving it again).
+  Future<StreamInfo> _resolve(Track track, {bool keep = false}) {
+    final hit = keep ? _resolved[track.key] : _resolved.remove(track.key);
     if (hit != null &&
         DateTime.now().difference(hit.$2) < const Duration(minutes: 20)) {
       return hit.$1;
     }
-    return _sources[track.source]!.resolveStream(track);
+    final f = _sources[track.source]!.resolveStream(track);
+    if (keep) {
+      _resolved[track.key] = (f, DateTime.now());
+      f
+          .then(
+            (_) {},
+            onError: (Object _) {
+              _resolved.remove(track.key);
+            },
+          )
+          .ignore();
+    }
+    return f;
   }
 
   /// Drops [track]'s prepared stream, e.g. after another version of it
@@ -543,7 +586,7 @@ class SegueAudioHandler extends BaseAudioHandler
   void _prefetchNext() {
     _prepareSongBeats();
     final i = _index + 1;
-    if (i < _tracks.length) warm(_tracks[i]);
+    if (i < _tracks.length) warm(_tracks[i], next: true);
     if (fadeSeconds >= 1 && i < _tracks.length) {
       // A mix comes at the end of this song: know its tempo, and have the
       // second player made (starting libmpv takes a moment) well before.
@@ -682,17 +725,24 @@ class SegueAudioHandler extends BaseAudioHandler
       final u = _currentUri!;
       return u.startsWith('/') ? Uri.file(u) : Uri.parse(u);
     }
-    return Uri.parse(await _playableUri(await _resolve(t)));
+    // Looking only: the prepared stream stays for when the song plays.
+    return Uri.parse(await _playableUri(await _resolve(t, keep: true)));
   }
 
   Player _tailPlayer() => _tail ??= Player(
     configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error),
   );
 
+  int _warming = 0;
+
   /// Gets [track] ready to start instantly. Cheap to call often: the UI
   /// calls it when the pointer rests on a track or a finger touches it.
-  void warm(Track track) {
+  /// [next]: the song that plays after this one, always prepared.
+  void warm(Track track, {bool next = false}) {
     if (_resolved.containsKey(track.key) || track.key == current?.key) return;
+    // Running the pointer down a list must not fire a request per row
+    // (with YouTube blocked each one fans out to mirrors): two at a time.
+    if (!next && _warming >= 2) return;
     final local = localPathFor?.call(track);
     if (local != null && File(local).existsSync()) return;
     final source = _sources[track.source];
@@ -706,7 +756,9 @@ class SegueAudioHandler extends BaseAudioHandler
       _resolved.remove(_resolved.keys.first);
     }
     _resolved[track.key] = (f, DateTime.now());
+    _warming++;
     f
+        .whenComplete(() => _warming--)
         .then(
           (info) {
             if (info.hls && _resolved.containsKey(track.key)) {
@@ -732,6 +784,8 @@ class SegueAudioHandler extends BaseAudioHandler
   Future<void> _configureMpv() async {
     try {
       await _mpv('cache-on-disk', 'no');
+      // Music videos carry a picture: never decode it.
+      await _mpv('vid', 'no');
       await _mpv('cache', 'yes');
       await _mpv('demuxer-max-bytes', '${32 * 1024 * 1024}');
     } catch (e) {
@@ -756,6 +810,7 @@ class SegueAudioHandler extends BaseAudioHandler
       return (await ChunkProxy.instance.wrap(
         info.url,
         info.contentLength!,
+        mime: info.mimeType,
       )).toString();
     }
     return info.url.toString();
@@ -799,6 +854,19 @@ class SegueAudioHandler extends BaseAudioHandler
   bool matchTempo = true;
 
   String? _currentUri;
+
+  /// The current song as a whole file, once playing it fetched every byte
+  /// (see ChunkProxy.teeDir); null if it won't be. For the offline cache.
+  Future<File?> keptFile(Track t) {
+    final u = _currentUri;
+    if (t.key != current?.key ||
+        u == null ||
+        !u.startsWith('http://127.0.0.1')) {
+      return Future.value(null);
+    }
+    return ChunkProxy.instance.kept(Uri.parse(u));
+  }
+
   bool _currentHls = false;
 
   /// Playback rate on top of the effects: 1, or a little off while a
@@ -931,6 +999,7 @@ class SegueAudioHandler extends BaseAudioHandler
     _leaving(skipped: false);
     final track = _tracks[g.index];
     _index = g.index;
+    _extendQueue();
     final token = ++_loadToken;
     _openedToken = token;
     _trimStart = g.start;
@@ -1873,6 +1942,7 @@ class SegueAudioHandler extends BaseAudioHandler
   Timer? _remoteTick;
   double _localVolume = 1;
 
+  @override
   bool get isPlaying => _out != null ? _remotePlaying : _localPlaying;
 
   /// Where playback is now, here or on the device this one controls.
@@ -1893,7 +1963,10 @@ class SegueAudioHandler extends BaseAudioHandler
     output.value = name;
     _remoteTick?.cancel();
     _remoteTick = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      if (_remotePlaying) _positionCtl.add(_remotePosition());
+      // Nobody sees the moving position while the app is hidden.
+      if (_remotePlaying && AppVisibility.visible) {
+        _positionCtl.add(_remotePosition());
+      }
     });
     _broadcastState();
   }
@@ -1936,12 +2009,20 @@ class SegueAudioHandler extends BaseAudioHandler
         _index < 0 ||
         _index >= _tracks.length ||
         _tracks[_index].key != queue[index].key;
+    // The system's queue (lock screen, Android Auto) only when it really
+    // changed: a state comes every few seconds.
+    final sameQueue =
+        queue.length == _tracks.length &&
+        Iterable<int>.generate(queue.length)
+            .every((i) => queue[i].key == _tracks[i].key);
     _tracks
       ..clear()
       ..addAll(queue);
     _index = index;
-    if (queue.isNotEmpty) this.queue.add(queue.map(_toMediaItem).toList());
-    queueVersion.value++;
+    if (!sameQueue) {
+      if (queue.isNotEmpty) this.queue.add(queue.map(_toMediaItem).toList());
+      queueVersion.value++;
+    }
     if (index >= 0 && index < queue.length) {
       final ms = snap['durationMs'] as int?;
       final item = _toMediaItem(queue[index]);

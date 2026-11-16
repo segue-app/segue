@@ -31,8 +31,9 @@ void main() {
 
     // Boris joins with the code: he gets the songs.
     final pb = await b.join(code.toLowerCase());
-    List<String> ids(LibraryStore l, String p) =>
-        [for (final t in l.playlistTracks(p)) t.id];
+    List<String> ids(LibraryStore l, String p) => [
+      for (final t in l.playlistTracks(p)) t.id,
+    ];
     expect(ids(libB, pb), ['1', '2']);
     expect(libB.playlists().firstWhere((p) => p.id == pb).name, 'Вечеринка');
 

@@ -43,7 +43,10 @@ class NowPlayingScreen extends ConsumerStatefulWidget {
 
   static Route<void> route({bool lyrics = false}) => PageRouteBuilder(
     settings: const RouteSettings(name: routeName),
-    opaque: false,
+    // Opaque once it's open: the app behind stops painting and animating
+    // (it used to draw every frame under the full player). It shows again
+    // while the player opens, closes or is dragged down.
+    opaque: true,
     transitionDuration: SegueMotion.slow,
     reverseTransitionDuration: SegueMotion.medium,
     pageBuilder: (_, _, _) => NowPlayingScreen(lyrics: lyrics),
@@ -74,6 +77,15 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   /// Vertical drag offset for swipe-down-to-close.
   double _dragY = 0;
 
+  /// Lets the app behind be seen (and painted) while dragging down.
+  void _showBehind(bool show) {
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    // Opening or closing: the route sees to it itself.
+    if (route.animation?.status != AnimationStatus.completed) return;
+    route.overlayEntries.firstOrNull?.opaque = !show;
+  }
+
   /// Lyrics replace the cover while on.
   late bool _lyrics = widget.lyrics;
 
@@ -97,6 +109,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
         _lyrics && (hasLyrics || (lyricsState?.isLoading ?? false));
 
     return GestureDetector(
+      onVerticalDragStart: (_) => _showBehind(true),
       onVerticalDragUpdate: (d) =>
           setState(() => _dragY = (_dragY + d.delta.dy).clamp(0, 400)),
       onVerticalDragEnd: (d) {
@@ -104,6 +117,10 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
           Navigator.of(context).pop();
         } else {
           setState(() => _dragY = 0);
+          // Hidden again once it has sprung back.
+          Future<void>.delayed(SegueMotion.medium, () {
+            if (mounted && _dragY == 0) _showBehind(false);
+          });
         }
       },
       child: AnimatedContainer(
@@ -115,17 +132,20 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
           body: Stack(
             fit: StackFit.expand,
             children: [
-              // Living backdrop built from the cover's colours.
-              RepaintBoundary(
-                child: LivingBackdrop(
-                  palette: colors.palette,
-                  base: colors.background,
-                  playing: playing,
-                  speed: settings.reduceMotion ? 0 : settings.backdropSpeed,
-                  intensity: settings.backdropIntensity,
-                  style: settings.backdrop,
+              // Living backdrop built from the cover's colours (not under
+              // the cover look: it covers it all, and the backdrop kept
+              // animating there unseen).
+              if (settings.playerStyle != PlayerStyle.cover)
+                RepaintBoundary(
+                  child: LivingBackdrop(
+                    palette: colors.palette,
+                    base: colors.background,
+                    playing: playing,
+                    speed: settings.reduceMotion ? 0 : settings.backdropSpeed,
+                    intensity: settings.backdropIntensity,
+                    style: settings.backdrop,
+                  ),
                 ),
-              ),
               // The other look: the cover over the whole top (the lyrics
               // open inside it too).
               if (settings.playerStyle == PlayerStyle.cover)
@@ -617,50 +637,57 @@ class _Controls extends ConsumerWidget {
         ? 0.0
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
     final desktop = Platform.isMacOS || Platform.isWindows || Platform.isLinux;
-    return Column(
-      children: [
-        WavyProgress(
-          // A new track starts with a fresh bar (no leftover seek).
-          key: ValueKey(player.current?.key),
-          progress: progress,
-          // The wave can be switched off in settings.
-          playing: playing && wavy,
-          color: accent,
-          onSeek: duration == Duration.zero
-              ? null
-              : (f) => player.seek(duration * f),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // Its own layer: it changes several times a second (and the wave
+    // moves every frame), the rest of the player doesn't.
+    return RepaintBoundary(
+      child: Column(
+        children: [
+          WavyProgress(
+            // A new track starts with a fresh bar (no leftover seek).
+            key: ValueKey(player.current?.key),
+            progress: progress,
+            // The wave can be switched off in settings.
+            playing: playing && wavy,
+            color: accent,
+            onSeek: duration == Duration.zero
+                ? null
+                : (f) => player.seek(duration * f),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _Time(formatDuration(position)),
+                _Time(formatDuration(duration)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _Time(formatDuration(position)),
-              _Time(formatDuration(duration)),
+              // A computer has no volume buttons on its side: a speaker on
+              // the right, its slider pops up over it (balanced on the left).
+              if (desktop) const SizedBox(width: 44),
+              _RoundIcon(
+                icon: Icons.skip_previous_rounded,
+                onTap: player.skipToPrevious,
+              ),
+              PlayButton(
+                playing: playing,
+                color: accent,
+                onPressed: playing ? player.pause : player.play,
+              ),
+              _RoundIcon(
+                icon: Icons.skip_next_rounded,
+                onTap: player.skipToNext,
+              ),
+              if (desktop) const HoverVolume(),
             ],
           ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // A computer has no volume buttons on its side: a speaker on
-            // the right, its slider pops up over it (balanced on the left).
-            if (desktop) const SizedBox(width: 44),
-            _RoundIcon(
-              icon: Icons.skip_previous_rounded,
-              onTap: player.skipToPrevious,
-            ),
-            PlayButton(
-              playing: playing,
-              color: accent,
-              onPressed: playing ? player.pause : player.play,
-            ),
-            _RoundIcon(icon: Icons.skip_next_rounded, onTap: player.skipToNext),
-            if (desktop) const HoverVolume(),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

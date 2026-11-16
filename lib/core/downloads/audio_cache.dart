@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../library/library_store.dart';
 import '../models/track.dart';
+import '../player/chunked_source.dart';
 import '../player/player_handler.dart';
 import '../sources/music_source.dart';
 import 'download_manager.dart';
@@ -32,7 +34,26 @@ class AudioCache {
   final DownloadManager downloads;
   final Map<SourceKind, MusicSource> sources;
 
-  bool enabled = true;
+  bool _enabled = true;
+  bool get enabled => _enabled;
+  set enabled(bool v) {
+    if (_enabled == v) return;
+    _enabled = v;
+    unawaited(_syncTee());
+  }
+
+  /// Songs being played are written next to the cache as they stream
+  /// (same disk, so taking one is a rename), only while keeping is on.
+  Future<void> _syncTee({bool clear = false}) async {
+    try {
+      final dir = Directory(
+        '${(await _folder()).path}${Platform.pathSeparator}.incoming',
+      );
+      if (clear && dir.existsSync()) dir.deleteSync(recursive: true);
+      ChunkProxy.instance.teeDir = _enabled ? dir : null;
+    } catch (_) {}
+  }
+
   static const maxTracks = 100;
   static const maxBytes = 1500 * 1024 * 1024;
 
@@ -103,7 +124,12 @@ class AudioCache {
   bool contains(Track t) => _entries.containsKey(t.key);
 
   /// Watches what plays and keeps songs listened to for 30 s.
+  SegueAudioHandler? _player;
+
   void attach(SegueAudioHandler player) {
+    _player = player;
+    // Leftovers of songs cut short last time go.
+    unawaited(_syncTee(clear: true));
     player.mediaItem.listen((_) {
       _listened?.cancel();
       final t = player.current;
@@ -131,8 +157,16 @@ class AudioCache {
       return;
     }
     try {
-      if (!await _onUnmeteredNetwork()) return;
-      final file = await downloads.fetchTo(t, await _folder());
+      // Playing it fetched the whole file already: take that one instead
+      // of downloading the song a second time.
+      final teed = await _player?.keptFile(t);
+      final File file;
+      if (teed != null && teed.existsSync()) {
+        file = await _moveInto(teed, t, await _folder());
+      } else {
+        if (!await _onUnmeteredNetwork()) return;
+        file = await downloads.fetchTo(t, await _folder());
+      }
       _entries[t.key] = (
         path: file.path,
         size: file.lengthSync(),
@@ -144,6 +178,21 @@ class AudioCache {
       debugPrint('cache ${t.title}: $e');
     } finally {
       _fetching.remove(t.key);
+    }
+  }
+
+  static Future<File> _moveInto(File from, Track t, Directory dir) async {
+    final ext = from.path.split('.').last;
+    final name = sha1.convert(utf8.encode(t.key)).toString();
+    final out = File('${dir.path}${Platform.pathSeparator}$name.$ext');
+    if (out.existsSync()) out.deleteSync();
+    try {
+      return await from.rename(out.path);
+    } catch (_) {
+      // Another volume: copy, then remove the original.
+      final copy = await from.copy(out.path);
+      await from.delete();
+      return copy;
     }
   }
 

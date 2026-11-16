@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.3.21+25
+version: 0.3.22+26
 
 environment:
   sdk: ^3.13.4
@@ -52,6 +52,9 @@ dependencies:
   macos_secure_bookmarks: ^0.3.0
   media_kit: ^1.2.6
   audio_session: ^0.2.4
+  # The video build, though nothing here shows video: media_kit's audio-only
+  # libmpv can't read HLS streams (YouTube's normal quality, SoundCloud),
+  # tested 2026-11-16. Video decoding itself is switched off (vid=no).
   media_kit_libs_video: ^1.0.7
   url_launcher: ^6.3.3
   mqtt_client: ^10.14.0
@@ -89,6 +92,9 @@ flutter:
   assets:
     - assets/brand/mark_256.png
     - assets/brand/icon_256.png
+    # The default font, so the first launch (or one offline) shows it at
+    # once; google_fonts finds these before trying the network.
+    - assets/google_fonts/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

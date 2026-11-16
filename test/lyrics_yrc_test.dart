@@ -20,7 +20,10 @@ void main() {
   test('a found song must be the same song', () {
     const want = (artist: 'МОТ', title: 'Капкан');
     const d = Duration(seconds: 228);
-    expect(LyricsService.similarity(want, d, 'Капкан', 'Mot', d), greaterThan(0));
+    expect(
+      LyricsService.similarity(want, d, 'Капкан', 'Mot', d),
+      greaterThan(0),
+    );
     expect(LyricsService.similarity(want, d, 'Другая песня', 'МОТ', d), 0);
     expect(LyricsService.similarity(want, d, 'Капкан', 'Someone Else', d), 0);
   });

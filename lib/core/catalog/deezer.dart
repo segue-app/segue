@@ -70,6 +70,31 @@ class Album {
   /// "album", "single", "ep"…
   final String? type;
 
+  /// What the library keeps of a saved album (shown without the network).
+  Map<String, dynamic> toSaved() => {
+    'id': id,
+    'title': title,
+    'artist': artist,
+    'cover': ?cover,
+    'year': ?year,
+    'type': ?type,
+  };
+
+  static Album? fromSaved(Map j) {
+    final id = j['id'];
+    if (id is! int) return null;
+    return Album(
+      id: id,
+      title: j['title'] as String? ?? '',
+      artist: j['artist'] as String? ?? '',
+      cover: j['cover'] as String?,
+      year: j['year'] as int?,
+      type: j['type'] as String?,
+    );
+  }
+
+  String get savedKey => 'album:$id';
+
   factory Album.fromJson(Map j, {String? artist}) => Album(
     id: j['id'] as int,
     title: j['title'] as String? ?? '',
@@ -104,6 +129,10 @@ class Catalog {
       throw StateError('Deezer: ${body['error']}');
     }
     _cache[path] = body as Object;
+    // Every page ever opened stayed in memory: keep the recent ones.
+    while (_cache.length > 300) {
+      _cache.remove(_cache.keys.first);
+    }
     return body;
   }
 

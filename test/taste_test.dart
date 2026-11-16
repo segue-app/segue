@@ -5,8 +5,12 @@ import 'package:segue/core/catalog/taste.dart';
 import 'package:segue/core/library/library_store.dart';
 import 'package:segue/core/models/track.dart';
 
-Track _t(String id, String artist) =>
-    Track(id: id, source: SourceKind.youtube, title: 'Song $id', artist: artist);
+Track _t(String id, String artist) => Track(
+  id: id,
+  source: SourceKind.youtube,
+  title: 'Song $id',
+  artist: artist,
+);
 
 void main() {
   test('skips push an artist out, full listens pull it in', () {

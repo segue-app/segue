@@ -19,7 +19,11 @@ void main() {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const SizedBox(height: 60, child: Text('track')),
-                    SeekLine(progress: 0.1, color: Colors.red, onSeek: seeks.add),
+                    SeekLine(
+                      progress: 0.1,
+                      color: Colors.red,
+                      onSeek: seeks.add,
+                    ),
                   ],
                 ),
               ),

@@ -80,8 +80,12 @@ class JamService {
     final c = Relay.randomId(8);
     await _open(c, asHost: true);
     _playerSub = player.stateChanges.listen((_) => _scheduleState());
-    // Guests that join later, and clock drift: a regular heartbeat.
-    _beat = Timer.periodic(const Duration(seconds: 4), (_) => _publishState());
+    // Guests that join later, and clock drift: a regular heartbeat. Paused,
+    // nothing drifts: every 20 s is enough for newcomers.
+    var ticks = 0;
+    _beat = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (player.isPlaying || ++ticks % 5 == 0) _publishState();
+    });
     await _publishState();
     return c;
   }

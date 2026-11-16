@@ -5,11 +5,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/library/library.dart';
+import '../../core/library/library_store.dart';
 import '../../core/player/player.dart';
 import '../theme/artwork_colors.dart';
 import 'motion.dart';
 
 /// Mute button and volume slider; in the bar and in the full player.
+
+Timer? _volumeSave;
+
+/// Remembers the volume once the slider rests: dragging sent a disk write
+/// (with a flush) for every pixel of movement.
+void saveVolumeSoon(LibraryStore library, double v) {
+  _volumeSave?.cancel();
+  _volumeSave = Timer(
+    const Duration(milliseconds: 400),
+    () => library.setMeta('volume', '$v'),
+  );
+}
+
 class VolumeSlider extends ConsumerWidget {
   const VolumeSlider({super.key, this.width = 104});
 
@@ -21,7 +35,7 @@ class VolumeSlider extends ConsumerWidget {
     final accent = ref.watch(currentColorsProvider).accent;
     void set(double v) {
       player.setVolume(v);
-      ref.read(libraryProvider).setMeta('volume', '${player.volume.value}');
+      saveVolumeSoon(ref.read(libraryProvider), player.volume.value);
     }
 
     return ValueListenableBuilder<double>(
@@ -119,7 +133,7 @@ class _HoverVolumeState extends ConsumerState<HoverVolume> {
   void _set(double v) {
     final player = ref.read(playerProvider);
     player.setVolume(v.clamp(0.0, 1.0));
-    ref.read(libraryProvider).setMeta('volume', '${player.volume.value}');
+    saveVolumeSoon(ref.read(libraryProvider), player.volume.value);
   }
 
   @override

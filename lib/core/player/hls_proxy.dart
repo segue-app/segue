@@ -34,6 +34,7 @@ class HlsProxy {
   Future<Uri> wrap(Uri playlist) async {
     final port = await _port();
     final s = _streamFor(playlist);
+    _playing = s.id;
     await s.ready;
     return Uri.parse('http://127.0.0.1:$port/h/${s.id}/index.m3u8');
   }
@@ -54,11 +55,21 @@ class HlsProxy {
     _streams[s.id] = s;
     _order.add(s.id);
     // Keep the current track, the prefetched next one and a little history.
+    // Never the one playing: hovering over a few songs used to push it out
+    // and cut it off mid-song.
     while (_order.length > 4) {
-      _streams.remove(_order.removeAt(0));
+      final old = _order.firstWhere(
+        (id) => id != _playing && id != s.id,
+        orElse: () => _order.first,
+      );
+      _order.remove(old);
+      _streams.remove(old);
     }
     return s;
   }
+
+  /// The stream the player was last given.
+  String? _playing;
 
   Future<void> _serve(HttpRequest req) async {
     final res = req.response;

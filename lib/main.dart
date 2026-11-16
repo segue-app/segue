@@ -77,26 +77,13 @@ Future<void> main() async {
   )..attach(handler);
   handler.localPathFor = (t) =>
       library.downloadedPath(t) ?? audioCache.pathFor(t);
-  // Loudness of tracks played before, for files that don't carry it.
-  final loudness = <String, dynamic>{};
-  try {
-    loudness.addAll(
-      jsonDecode(library.getMeta('loudness') ?? '{}') as Map<String, dynamic>,
-    );
-  } catch (_) {}
-  Timer? saveLoudness;
-  handler.storedLoudness = (t) => (loudness[t.key] as num?)?.toDouble();
+  // Loudness of tracks played before, for files that don't carry it
+  // (one row per song: nothing big is read at launch or rewritten).
+  handler.storedLoudness = (t) =>
+      (library.kvGet('loud', t.key) as num?)?.toDouble();
   handler.saveLoudness = (t, db) {
-    if (loudness[t.key] == db) return;
-    loudness[t.key] = db;
-    while (loudness.length > 3000) {
-      loudness.remove(loudness.keys.first);
-    }
-    saveLoudness?.cancel();
-    saveLoudness = Timer(
-      const Duration(seconds: 3),
-      () => library.setMeta('loudness', jsonEncode(loudness)),
-    );
+    if (library.kvGet('loud', t.key) == db) return;
+    library.kvPut('loud', t.key, db, keep: 3000);
   };
   handler.seekableCopy = downloads.seekableCopy;
   final catalog = Catalog();
@@ -107,18 +94,9 @@ Future<void> main() async {
   );
   // YouTube matches are remembered, so a song found once starts without
   // searching again.
-  final matches = <String, dynamic>{};
-  try {
-    matches.addAll(
-      jsonDecode(library.getMeta('matches2') ?? '{}') as Map<String, dynamic>,
-    );
-  } catch (_) {}
-  Timer? saveMatches;
   match.recall = (key) {
-    final j = matches[key];
-    return j == null
-        ? null
-        : Track.fromJson((j as Map).cast<String, dynamic>());
+    final j = library.kvGet('match', key);
+    return j is Map ? Track.fromJson(j.cast<String, dynamic>()) : null;
   };
   // Imported songs come without covers: the album's from Deezer (sharp,
   // square), the video thumbnail meanwhile or if Deezer doesn't have it.
@@ -134,15 +112,7 @@ Future<void> main() async {
       library.fillArtwork(imported, found.artworkUrl!);
     }
     unawaited(realCover(imported));
-    matches[imported.key] = found.toJson();
-    while (matches.length > 2000) {
-      matches.remove(matches.keys.first);
-    }
-    saveMatches?.cancel();
-    saveMatches = Timer(
-      const Duration(seconds: 3),
-      () => library.setMeta('matches2', jsonEncode(matches)),
-    );
+    library.kvPut('match', imported.key, found.toJson(), keep: 2000);
   };
   // Old Spotify imports stored artist links instead of names: fix them
   // and let those songs be found again.
@@ -151,10 +121,9 @@ Future<void> main() async {
         .then((fixed) {
           if (fixed.isEmpty) return;
           for (final k in fixed.keys) {
-            matches.remove(k);
+            library.kvRemove('match', k);
             match.forget(k);
           }
-          library.setMeta('matches2', jsonEncode(matches));
           handler.updateTracks(fixed);
           debugPrint('fixed ${fixed.length} imported artists');
         })
@@ -266,15 +235,8 @@ Future<void> main() async {
   // Beats of the songs' ends and starts, for mixes that line them up.
   handler.beats = BeatService(
     uriFor: handler.analysisUri,
-    load: () {
-      try {
-        return jsonDecode(library.getMeta('beats') ?? '{}')
-            as Map<String, dynamic>;
-      } catch (_) {
-        return null;
-      }
-    },
-    save: (all) => library.setMeta('beats', jsonEncode(all)),
+    get: (key) => library.kvGet('beat', key),
+    put: (key, json) => library.kvPut('beat', key, json, keep: 4000),
   );
   final autoDj = AutoDj(
     player: handler,

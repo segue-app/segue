@@ -12,8 +12,14 @@ import 'pcm_decoder.dart';
 /// plays (where it's mixed out) and the start of the next (where it comes
 /// in). Analysed in the background as a song starts, kept for next time.
 class BeatService {
-  BeatService({required this.uriFor, this.load, this.save, PcmDecoder? decoder})
-    : _decoder = decoder ?? PcmDecoder();
+  BeatService({
+    required this.uriFor,
+    this.load,
+    this.save,
+    this.get,
+    this.put,
+    PcmDecoder? decoder,
+  }) : _decoder = decoder ?? PcmDecoder();
 
   /// A URL libmpv can open for the song.
   final Future<Uri> Function(Track track) uriFor;
@@ -21,6 +27,10 @@ class BeatService {
   /// Stored grids (from an earlier session), and where to keep new ones.
   final Map<String, dynamic>? Function()? load;
   final void Function(Map<String, dynamic> all)? save;
+
+  /// One grid at a time from storage (instead of [load]/[save] of all).
+  final Object? Function(String key)? get;
+  final void Function(String key, Object json)? put;
 
   final PcmDecoder _decoder;
   final _cache = <String, Future<BeatGrid?>>{};
@@ -56,7 +66,15 @@ class BeatService {
   BeatGrid? knownOutro(Track t, Duration end) =>
       _known(_key(t, 'o', end.inMilliseconds / 1000));
 
-  BeatGrid? _known(String key) => BeatGrid.fromJson(_storedMap()[key]);
+  BeatGrid? _known(String key) {
+    final one = get;
+    if (one != null) {
+      return _stored?[key] != null
+          ? BeatGrid.fromJson(_stored![key])
+          : BeatGrid.fromJson(one(key));
+    }
+    return BeatGrid.fromJson(_storedMap()[key]);
+  }
 
   Map<String, dynamic> _storedMap() => _stored ??= {...?load?.call()};
 
@@ -89,6 +107,11 @@ class BeatService {
   }
 
   void _remember(String key, BeatGrid g) {
+    final one = put;
+    if (one != null) {
+      one(key, g.toJson());
+      return;
+    }
     final all = _storedMap();
     all[key] = g.toJson();
     while (all.length > 4000) {

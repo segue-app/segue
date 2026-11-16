@@ -25,7 +25,9 @@ void main() {
   test('placeholders survive translation', () {
     final ph = RegExp(r'\{\d\}');
     for (final e in en.entries) {
-      Set<String> of(String s) => {for (final m in ph.allMatches(s)) m.group(0)!};
+      Set<String> of(String s) => {
+        for (final m in ph.allMatches(s)) m.group(0)!,
+      };
       expect(of(e.value), of(e.key), reason: e.key);
     }
   });

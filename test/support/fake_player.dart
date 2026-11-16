@@ -17,6 +17,9 @@ class FakePlayer implements PlaybackControl {
   Map<String, dynamic> snapshot() => state;
 
   @override
+  bool get isPlaying => state['playing'] == true;
+
+  @override
   Future<void> restore(Map<String, dynamic> s) async {
     state = {...s, 'playing': true};
     _c.add(null);

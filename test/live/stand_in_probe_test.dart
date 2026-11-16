@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 // Finds real songs on SoundCloud as YouTube stand-ins (network required).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:segue/core/models/track.dart';
@@ -24,7 +25,9 @@ void main() {
           duration: Duration(seconds: secs),
         ),
       );
-      print('$artist — $title → ${t == null ? 'none' : '${t.artist} — ${t.title} (${t.duration?.inSeconds}s)'}'); // ignore: avoid_print
+      print(
+        '$artist — $title → ${t == null ? 'none' : '${t.artist} — ${t.title} (${t.duration?.inSeconds}s)'}',
+      );
       if (t != null) hits++;
     }
     expect(hits, greaterThan(0));

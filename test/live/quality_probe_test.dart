@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 // Normal vs high quality YouTube audio, from this machine (network required).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -9,7 +10,12 @@ void main() {
     final yt = YouTubeSource();
     await yt.warmUp();
     for (final id in ['4NRXx6U8ABQ', 'fHI8X4OXluQ', 'kJQP7kiw5Fk']) {
-      final t = Track(id: id, source: SourceKind.youtube, title: id, artist: '');
+      final t = Track(
+        id: id,
+        source: SourceKind.youtube,
+        title: id,
+        artist: '',
+      );
       for (final high in [false, true]) {
         yt.highQuality = high;
         final sw = Stopwatch()..start();
@@ -29,15 +35,21 @@ void main() {
           tail = '${r.statusCode}';
           expect(r.statusCode, 206);
         }
-        // ignore: avoid_print
-        print('$id ${high ? 'high  ' : 'normal'} ${info.hls ? 'HLS AAC' : info.mimeType} '
-            '${kbps?.toStringAsFixed(0) ?? '128'} kbps, ready in $ms ms, tail $tail');
+        print(
+          '$id ${high ? 'high  ' : 'normal'} ${info.hls ? 'HLS AAC' : info.mimeType} '
+          '${kbps?.toStringAsFixed(0) ?? '128'} kbps, ready in $ms ms, tail $tail',
+        );
         if (high) expect(info.mimeType, contains('webm'));
       }
     }
     final file = await yt.resolveFile(
-      const Track(id: '4NRXx6U8ABQ', source: SourceKind.youtube, title: 'x', artist: ''),
+      const Track(
+        id: '4NRXx6U8ABQ',
+        source: SourceKind.youtube,
+        title: 'x',
+        artist: '',
+      ),
     );
-    print('download: ${file.mimeType}'); // ignore: avoid_print
+    print('download: ${file.mimeType}');
   }, timeout: const Timeout(Duration(minutes: 3)));
 }

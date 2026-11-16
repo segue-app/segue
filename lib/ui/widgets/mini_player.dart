@@ -84,10 +84,8 @@ class _Bar extends ConsumerWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(26),
-                child: BackdropFilter(
-                  filter: glass
-                      ? ImageFilter.blur(sigmaX: 24, sigmaY: 24)
-                      : ImageFilter.blur(),
+                child: _Glass(
+                  on: glass,
                   child: AnimatedContainer(
                     duration: SegueMotion.slow,
                     decoration: BoxDecoration(
@@ -118,6 +116,23 @@ class _Bar extends ConsumerWidget {
       },
     );
   }
+}
+
+/// Frosted glass under the bar, or nothing at all when it's off: a
+/// zero blur still read back the screen behind the bar every frame.
+class _Glass extends StatelessWidget {
+  const _Glass({required this.on, required this.child});
+
+  final bool on;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => on
+      ? BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: child,
+        )
+      : child;
 }
 
 /// Cover, title and artist; shared by both layouts.
@@ -186,13 +201,7 @@ class _Compact extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playing = ref.watch(playingProvider).value ?? false;
-    final position = ref.watch(positionProvider).value ?? Duration.zero;
-    final duration = ref.watch(durationProvider).value ?? item.duration;
-    final accent = ref.watch(currentColorsProvider).accent;
     final player = ref.read(playerProvider);
-    final progress = (duration == null || duration.inMilliseconds == 0)
-        ? 0.0
-        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -240,17 +249,39 @@ class _Compact extends ConsumerWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-          child: SeekLine(
-            // A new track starts with a fresh bar (no leftover seek).
-            key: ValueKey(player.current?.key),
-            progress: progress,
-            color: accent,
-            onSeek: duration == null || duration == Duration.zero
-                ? null
-                : (f) => player.seek(duration * f),
-          ),
+          child: _CompactSeek(item: item),
         ),
       ],
+    );
+  }
+}
+
+/// The phone bar's progress line: the only part that changes several times
+/// a second, so the only part rebuilt (the cover and title stay put).
+class _CompactSeek extends ConsumerWidget {
+  const _CompactSeek({required this.item});
+
+  final MediaItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final position = ref.watch(positionProvider).value ?? Duration.zero;
+    final duration = ref.watch(durationProvider).value ?? item.duration;
+    final accent = ref.watch(currentColorsProvider).accent;
+    final player = ref.read(playerProvider);
+    final progress = (duration == null || duration.inMilliseconds == 0)
+        ? 0.0
+        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+    return RepaintBoundary(
+      child: SeekLine(
+        // A new track starts with a fresh bar (no leftover seek).
+        key: ValueKey(player.current?.key),
+        progress: progress,
+        color: accent,
+        onSeek: duration == null || duration == Duration.zero
+            ? null
+            : (f) => player.seek(duration * f),
+      ),
     );
   }
 }

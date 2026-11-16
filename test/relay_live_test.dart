@@ -27,6 +27,23 @@ Future<void> _until(bool Function() ok, {int seconds = 20}) async {
 }
 
 void main() {
+  test('alone, the relay sleeps: no connection until it invites', () async {
+    final solo = Relay(
+      library: LibraryStore.memory(),
+      player: FakePlayer(),
+      deviceName: () => 'Solo',
+    );
+    await solo.start();
+    expect(solo.dormant, isTrue);
+    await Future<void>.delayed(const Duration(seconds: 2));
+    expect(solo.connected.value, isFalse);
+    // Inviting another device wakes it up.
+    await solo.openInvite();
+    expect(solo.dormant, isFalse);
+    expect(solo.connected.value, isTrue);
+    await solo.stop();
+  });
+
   test('pair by code, sync the library, control playback', () async {
     final libA = LibraryStore.memory(), libB = LibraryStore.memory();
     final playerA = FakePlayer(), playerB = FakePlayer();
@@ -40,7 +57,8 @@ void main() {
     final b = Relay(library: libB, player: playerB, deviceName: () => 'Phone');
     await a.start();
     await b.start();
-    expect(a.connected.value && b.connected.value, isTrue);
+    // Alone, both sleep until the invite.
+    expect(a.dormant && b.dormant, isTrue);
 
     final code = await a.openInvite();
     expect(Relay.normalizeCode(code.toLowerCase()), code);
@@ -70,8 +88,7 @@ void main() {
     await b.command(libA.deviceId, 'next');
     // Through two brokers the commands may arrive in either order.
     await _until(
-      () =>
-          playerA.calls.contains('next') && playerA.calls.contains('seek 90'),
+      () => playerA.calls.contains('next') && playerA.calls.contains('seek 90'),
     );
     expect(playerA.calls.where((c) => c == 'next'), hasLength(1)); // deduped
     expect(playerA.calls, contains('seek 90'));
@@ -128,8 +145,16 @@ void main() {
 
   test('one dropped broker connection does not take a device offline', () async {
     final libA = LibraryStore.memory(), libB = LibraryStore.memory();
-    final a = Relay(library: libA, player: FakePlayer(), deviceName: () => 'Mac');
-    final b = Relay(library: libB, player: FakePlayer(), deviceName: () => 'Phone');
+    final a = Relay(
+      library: libA,
+      player: FakePlayer(),
+      deviceName: () => 'Mac',
+    );
+    final b = Relay(
+      library: libB,
+      player: FakePlayer(),
+      deviceName: () => 'Phone',
+    );
     await a.start();
     await b.start();
     await b.join(await a.openInvite());
@@ -165,8 +190,16 @@ void main() {
 
   test('settings follow you to another device, its own stay', () async {
     final libA = LibraryStore.memory(), libB = LibraryStore.memory();
-    final a = Relay(library: libA, player: FakePlayer(), deviceName: () => 'Mac');
-    final b = Relay(library: libB, player: FakePlayer(), deviceName: () => 'Phone');
+    final a = Relay(
+      library: libA,
+      player: FakePlayer(),
+      deviceName: () => 'Mac',
+    );
+    final b = Relay(
+      library: libB,
+      player: FakePlayer(),
+      deviceName: () => 'Phone',
+    );
     // The phone has its own interface scale; a fresh install otherwise.
     libB.setMeta('appearance', '{"textScale":1.3}');
     await a.start();

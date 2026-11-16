@@ -126,9 +126,26 @@ class _DjScreenState extends ConsumerState<DjScreen>
       _last = elapsed;
       _clock.tick(ref.read(playerProvider), _state, dt);
     })..start();
-    // Names, tempo, status: four times a second is plenty.
+    // Names, tempo, status: four times a second is plenty, and only while
+    // something moves (paused, the screen used to redraw everything anyway).
     _slow = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      if (mounted) setState(() => _state = ref.read(playerProvider).dj);
+      if (!mounted) return;
+      final next = ref.read(playerProvider).dj;
+      final moving = next.playing || next.mixing;
+      final same =
+          !moving &&
+          !_state.playing &&
+          !_state.mixing &&
+          next.outgoing?.key == _state.outgoing?.key &&
+          next.incoming?.key == _state.incoming?.key;
+      if (!same) setState(() => _state = next);
+      // The decks turn on every frame only while there is music.
+      if (moving && !_ticker.isActive) {
+        _last = Duration.zero;
+        _ticker.start();
+      } else if (!moving && _ticker.isActive) {
+        _ticker.stop();
+      }
     });
   }
 

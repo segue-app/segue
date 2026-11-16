@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +11,8 @@ import '../../core/player/player.dart';
 import '../theme/artwork_colors.dart';
 import '../theme/theme.dart';
 import '../widgets/artwork.dart';
+import '../widgets/baked_blur.dart';
+import '../widgets/volume_slider.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/motion.dart';
 import '../widgets/output_badge.dart';
@@ -65,24 +66,7 @@ class CoverPlayer extends ConsumerWidget {
               // panel below sits on its colours (drawn once per song).
               Positioned.fill(
                 child: RepaintBoundary(
-                  child: ClipRect(
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(
-                        sigmaX: 110,
-                        sigmaY: 110,
-                        tileMode: TileMode.clamp,
-                      ),
-                      child: Transform.scale(
-                        scale: 1.6,
-                        child: Artwork(
-                          key: ValueKey('bg-${item?.artUri}'),
-                          url: item?.artUri?.toString(),
-                          size: math.max(box.maxWidth, box.maxHeight),
-                          radius: 0,
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: BakedBlur(url: item?.artUri?.toString()),
                 ),
               ),
               // Darker towards the bottom, so the controls always read.
@@ -106,39 +90,43 @@ class CoverPlayer extends ConsumerWidget {
                 left: (box.maxWidth - cover) / 2,
                 width: cover,
                 height: cover,
-                child: ShaderMask(
-                  // Solid at the top, gone at the bottom.
-                  shaderCallback: (r) => const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.white, Colors.white, Colors.transparent],
-                    stops: [0, 0.62, 1],
-                  ).createShader(r),
-                  blendMode: BlendMode.dstIn,
-                  child: AnimatedOpacity(
-                    duration: SegueMotion.medium,
-                    opacity: lyricsOn ? 0 : 1,
-                    child: ShaderMask(
-                      // A wide window: the sides melt away too.
-                      shaderCallback: (r) => LinearGradient(
-                        colors: const [
-                          Colors.transparent,
-                          Colors.white,
-                          Colors.white,
-                          Colors.transparent,
-                        ],
-                        stops: box.maxWidth > cover + 2
-                            ? const [0, 0.2, 0.8, 1]
-                            : const [0, 0, 1, 1],
-                      ).createShader(r),
-                      blendMode: BlendMode.dstIn,
-                      child: AnimatedSwitcher(
-                        duration: SegueMotion.slow,
-                        child: Artwork(
-                          key: ValueKey(item?.artUri),
-                          url: item?.artUri?.toString(),
-                          size: cover,
-                          radius: 0,
+                // Its own layer: the progress and lyric line below change
+                // several times a second and must not repaint the masks.
+                child: RepaintBoundary(
+                  child: ShaderMask(
+                    // Solid at the top, gone at the bottom.
+                    shaderCallback: (r) => const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.white, Colors.white, Colors.transparent],
+                      stops: [0, 0.62, 1],
+                    ).createShader(r),
+                    blendMode: BlendMode.dstIn,
+                    child: AnimatedOpacity(
+                      duration: SegueMotion.medium,
+                      opacity: lyricsOn ? 0 : 1,
+                      child: ShaderMask(
+                        // A wide window: the sides melt away too.
+                        shaderCallback: (r) => LinearGradient(
+                          colors: const [
+                            Colors.transparent,
+                            Colors.white,
+                            Colors.white,
+                            Colors.transparent,
+                          ],
+                          stops: box.maxWidth > cover + 2
+                              ? const [0, 0.2, 0.8, 1]
+                              : const [0, 0, 1, 1],
+                        ).createShader(r),
+                        blendMode: BlendMode.dstIn,
+                        child: AnimatedSwitcher(
+                          duration: SegueMotion.slow,
+                          child: Artwork(
+                            key: ValueKey(item?.artUri),
+                            url: item?.artUri?.toString(),
+                            size: cover,
+                            radius: 0,
+                          ),
                         ),
                       ),
                     ),
@@ -460,25 +448,29 @@ class _Progress extends ConsumerWidget {
       color: Color(0x99FFFFFF),
       fontFeatures: [FontFeature.tabularFigures()],
     );
-    return Column(
-      children: [
-        SeekLine(
-          key: ValueKey(player.current?.key),
-          progress: f,
-          color: Colors.white.withValues(alpha: 0.9),
-          onSeek: total == 0 ? null : (x) => player.seek(dur! * x),
-        ),
-        Row(
-          children: [
-            Text(formatDuration(pos), style: style),
-            const Spacer(),
-            Text(
-              '−${formatDuration(left.isNegative ? Duration.zero : left)}',
-              style: style,
-            ),
-          ],
-        ),
-      ],
+    // Its own layer: it changes several times a second (and the wave
+    // moves every frame), the rest of the player doesn't.
+    return RepaintBoundary(
+      child: Column(
+        children: [
+          SeekLine(
+            key: ValueKey(player.current?.key),
+            progress: f,
+            color: Colors.white.withValues(alpha: 0.9),
+            onSeek: total == 0 ? null : (x) => player.seek(dur! * x),
+          ),
+          Row(
+            children: [
+              Text(formatDuration(pos), style: style),
+              const Spacer(),
+              Text(
+                '−${formatDuration(left.isNegative ? Duration.zero : left)}',
+                style: style,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -511,9 +503,10 @@ class _VolumeRow extends ConsumerWidget {
                   value: v,
                   onChanged: (x) {
                     player.setVolume(x);
-                    ref
-                        .read(libraryProvider)
-                        .setMeta('volume', '${player.volume.value}');
+                    saveVolumeSoon(
+                      ref.read(libraryProvider),
+                      player.volume.value,
+                    );
                   },
                 ),
               ),

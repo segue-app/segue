@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -10,6 +11,7 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:typed_data/typed_buffers.dart';
 
+import '../app_visibility.dart';
 import '../library/library_store.dart';
 import '../models/track.dart';
 import '../player/player_handler.dart';
@@ -234,35 +236,125 @@ class Relay {
 
   // --- connection --------------------------------------------------------------
 
+  /// Started, but asleep: no other device yet, so nothing to sync and no
+  /// connection is kept (a phone's radio can rest). Wakes up when this
+  /// device invites or joins another one.
+  bool get dormant => _running && !_online;
+  var _online = false;
+
+  /// This device belongs to a group with someone else in it.
+  bool get _hasPeers => library.peers().isNotEmpty;
+
   Future<void> start() async {
     if (_running) return;
     _running = true;
     final token = groupToken();
     _key = await _groupKey(token);
     _base = 'segue/v1/${(await hash('segue-topic:$token')).substring(0, 24)}';
-    await Future.wait([for (final host in brokers) _connect(host)]);
+    try {
+      final applied = jsonDecode(library.getMeta('relay_applied') ?? '{}');
+      _appliedRev.addAll((applied as Map).cast<String, String>());
+    } catch (_) {}
+    // Paired later (on Wi-Fi, or another device joined us): wake up.
+    _wakeSub = library.changes.listen((_) {
+      if (!_online && _hasPeers) unawaited(goOnline());
+    });
+    if (_hasPeers || forceOnline) await goOnline();
+  }
+
+  StreamSubscription<void>? _wakeSub;
+
+  /// Keeps the relay connected even without other devices (tests).
+  @visibleForTesting
+  bool forceOnline = false;
+
+  /// Connects (if asleep) and waits a little for a first broker.
+  Future<void> goOnline() async {
+    if (!_running || _online) {
+      if (_online && _clients.isEmpty) {
+        await _waitConnected(const Duration(seconds: 8));
+      }
+      return;
+    }
+    _online = true;
+    final connecting = Future.wait([
+      for (final host in brokers) _connect(host),
+    ]);
     // A broker that couldn't be reached at start (no network yet, a phone
     // waking up) is tried again: before, the device stayed unseen until
-    // the app was restarted.
-    _retry?.cancel();
-    _retry = Timer.periodic(const Duration(seconds: 15), (_) => _reconnect());
-
-    _libSub = library.changes.listen((_) => _scheduleLibrary());
+    // the app was restarted. Less often while nobody looks at the app.
+    _scheduleRetry();
+    _libSub = library.changeKinds.listen((k) {
+      switch (k) {
+        case LibChange.edit:
+          _scheduleLibrary();
+        // Plays and covers ride along with the next edit, or go out
+        // within a few minutes: not a whole-library upload per song.
+        case LibChange.history || LibChange.artwork:
+          _scheduleLibrary(later: true);
+        case LibChange.synced ||
+            LibChange.downloads ||
+            LibChange.local ||
+            LibChange.peers:
+          break;
+      }
+    });
     _playerSub = player.stateChanges.listen((_) => _scheduleState());
     _prefsSub = library.prefsChanges.listen((_) => _schedulePrefs());
-    // While music plays, say where it is every few seconds: others always
-    // have a fresh position, timed by their own clock.
-    _stateBeat?.cancel();
-    _stateBeat = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (player.snapshot()['playing'] == true) unawaited(_publishState());
+    AppVisibility.visibleNotifier.addListener(_onVisibility);
+    _scheduleBeat();
+    // Both brokers (each gives up after 12 s), as before sleeping existed:
+    // what others send right after pairing must find us subscribed.
+    await connecting;
+  }
+
+  Future<void> _waitConnected(Duration limit) async {
+    final end = DateTime.now().add(limit);
+    while (_clients.isEmpty && DateTime.now().isBefore(end)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  void _onVisibility() {
+    if (!_online) return;
+    _scheduleRetry();
+    _scheduleBeat();
+  }
+
+  int _retryFails = 0;
+
+  void _scheduleRetry() {
+    _retry?.cancel();
+    if (!_running || !_online) return;
+    // Back off while a broker stays unreachable: 15 s, 30 s … 5 min, and
+    // never faster than a minute in the background.
+    final base = 15 * (1 << _retryFails.clamp(0, 4));
+    final secs = AppVisibility.visible ? base : max(60, base);
+    _retry = Timer(Duration(seconds: min(secs, 300)), () {
+      final missing = brokers.where((h) => !_hosts.contains(h)).toList();
+      _retryFails = missing.isEmpty ? 0 : _retryFails + 1;
+      _reconnect();
+      _scheduleRetry();
     });
-    _scheduleLibrary(immediately: true);
-    _scheduleState();
+  }
+
+  /// While music plays, say where it is now and then: others always have
+  /// a fresh position, timed by their own clock. Only when another device
+  /// is there to see it, and rarely while this one is in the background.
+  void _scheduleBeat() {
+    _stateBeat?.cancel();
+    if (!_online) return;
+    final every = AppVisibility.visible ? 5 : 30;
+    _stateBeat = Timer.periodic(Duration(seconds: every), (_) {
+      if (!player.isPlaying) return;
+      if (!devices.value.values.any((d) => d.online)) return;
+      unawaited(_publishState());
+    });
   }
 
   /// Brokers not reached yet: try again.
   void _reconnect() {
-    if (!_running) return;
+    if (!_running || !_online) return;
     for (final host in brokers) {
       if (!_hosts.contains(host)) unawaited(_connect(host));
     }
@@ -272,7 +364,9 @@ class Relay {
   /// cut while it slept are made again now, not after a keep-alive
   /// timeout, and the others hear where this device is at.
   void wake() {
-    if (!_running) return;
+    if (!_running || !_online) return;
+    _retryFails = 0;
+    _scheduleRetry();
     for (final c in _clients) {
       if (c.connectionStatus?.state != MqttConnectionState.connected) {
         try {
@@ -286,6 +380,9 @@ class Relay {
 
   Future<void> stop() async {
     _running = false;
+    if (_online) AppVisibility.visibleNotifier.removeListener(_onVisibility);
+    _online = false;
+    await _wakeSub?.cancel();
     _retry?.cancel();
     _libDebounce?.cancel();
     _stateDebounce?.cancel();
@@ -325,8 +422,11 @@ class Relay {
 
   /// After the group changed (joined another device's group).
   Future<void> restart() async {
+    // Joining a group restarts with nobody known yet: stay awake for them.
+    final wasOnline = _online;
     await stop();
     await start();
+    if (wasOnline) await goOnline();
   }
 
   Future<void> _connect(String host) async {
@@ -594,6 +694,9 @@ class Relay {
       final i = int.tryParse(part);
       if (i == null || plain.length < 16) return;
       final rev = utf8.decode(plain.sublist(0, 16));
+      // A version merged before (it's retained, so it comes back on every
+      // reconnect and launch): nothing to keep.
+      if (_appliedRev[from] == rev) return;
       (_chunks['$from/$rev'] ??= {})[i] = Uint8List.fromList(plain.sublist(16));
     }
     final m = _manifests[from];
@@ -616,10 +719,10 @@ class Relay {
     _chunks.removeWhere((k, _) => k.startsWith('$from/'));
     _manifests.remove(from);
     _appliedRev[from] = rev;
+    library.setMeta('relay_applied', jsonEncode(_appliedRev));
     try {
-      final changes = jsonDecode(
-        utf8.decode(gzip.decode(blob.toBytes())),
-      ) as Map<String, dynamic>;
+      final bytes = blob.toBytes();
+      final changes = await _openLibraryOff(bytes);
       final applied = library.applyChanges(changes);
       debugPrint('relay: library from $from, $applied rows applied');
     } catch (e) {
@@ -629,10 +732,16 @@ class Relay {
 
   // --- outgoing: library and player -------------------------------------------
 
-  void _scheduleLibrary({bool immediately = false}) {
+  void _scheduleLibrary({bool immediately = false, bool later = false}) {
+    // A later upload never pushes back a sooner one already planned.
+    if (later && (_libDebounce?.isActive ?? false)) return;
     _libDebounce?.cancel();
     _libDebounce = Timer(
-      immediately ? Duration.zero : const Duration(seconds: 2),
+      immediately
+          ? Duration.zero
+          : later
+          ? const Duration(minutes: 5)
+          : const Duration(seconds: 2),
       _publishLibrary,
     );
   }
@@ -668,18 +777,17 @@ class Relay {
     if (history.length > 400) {
       all['history'] = history.sublist(history.length - 400);
     }
-    final blob = gzip.encode(utf8.encode(jsonEncode(all)));
     final rev = randomId(16);
-    final n = (blob.length / _chunk).ceil().clamp(1, 1 << 20);
+    // Encoding, compressing and encrypting a big library takes a while:
+    // off the UI thread, so the app doesn't stutter as a song starts.
+    final keyBytes = await _key!.extractBytes();
+    final sealed = await _sealLibraryOff(all, rev, keyBytes);
+    final n = sealed.length;
     Future<void> send(String topic, List<int> data) => Future.wait([
       for (final c in targets) _publishTo(c, topic, data, retain: true),
     ]);
     for (var i = 0; i < n; i++) {
-      final part = blob.sublist(i * _chunk, min((i + 1) * _chunk, blob.length));
-      await send(
-        '$_base/l/$_me/$i',
-        await seal(_key!, [...utf8.encode(rev), ...part]),
-      );
+      await send('$_base/l/$_me/$i', sealed[i]);
     }
     // The manifest last: receivers wait for it before assembling.
     await send(
@@ -845,22 +953,20 @@ class Relay {
   ) async {
     final topic =
         '$prefix/${(await hash('segue-$purpose:$code')).substring(0, 24)}';
-    // Slow on purpose: guessing codes offline must not pay off.
-    final key =
-        await Pbkdf2(
-          macAlgorithm: Hmac.sha256(),
-          iterations: 60000,
-          bits: 256,
-        ).deriveKey(
-          secretKey: SecretKey(utf8.encode(code)),
-          nonce: utf8.encode('segue-$purpose-v1'),
-        );
-    return (topic, key);
+    // Slow on purpose: guessing codes offline must not pay off. Slow for
+    // us too (tenths of a second on a phone), so off the UI thread, and
+    // remembered: shared playlists derive theirs at every launch.
+    final cacheKey = '$purpose:$code';
+    final bytes = _derived[cacheKey] ??= await _pbkdf2Off(code, purpose);
+    return (topic, SecretKey(bytes));
   }
+
+  static final _derived = <String, List<int>>{};
 
   /// Opens an invite for 10 minutes. Another device that enters the code
   /// (or scans it) joins this group, on any network.
   Future<String> openInvite() async {
+    await goOnline();
     final code = randomId(8);
     inviteCode.value = code;
     final (topic, key) = await _inviteKeys(code);
@@ -902,6 +1008,7 @@ class Relay {
   Future<String> join(String code) async {
     final c = normalizeCode(code);
     if (c == null) throw FormatException('Код из 8 букв и цифр'.tr);
+    await goOnline();
     if (_clients.isEmpty) throw StateError('Нет связи с интернетом'.tr);
     final (topic, key) = await _inviteKeys(c);
     _joinKey = key;
@@ -928,3 +1035,50 @@ class Relay {
     }
   }
 }
+
+/// The library as encrypted chunks: rev + part each (runs in an isolate).
+Future<List<Uint8List>> _sealLibrary(
+  Map<String, Object> all,
+  String rev,
+  List<int> keyBytes,
+) async {
+  final blob = gzip.encode(utf8.encode(jsonEncode(all)));
+  final key = SecretKey(keyBytes);
+  final n = (blob.length / Relay._chunk).ceil().clamp(1, 1 << 20);
+  return [
+    for (var i = 0; i < n; i++)
+      await Relay.seal(key, [
+        ...utf8.encode(rev),
+        ...blob.sublist(
+          i * Relay._chunk,
+          min((i + 1) * Relay._chunk, blob.length),
+        ),
+      ]),
+  ];
+}
+
+// Top-level so the isolate gets only these arguments, never the relay
+// (a closure inside a method can carry `this`, sockets and all).
+Future<List<Uint8List>> _sealLibraryOff(
+  Map<String, Object> all,
+  String rev,
+  List<int> keyBytes,
+) => Isolate.run(() => _sealLibrary(all, rev, keyBytes));
+
+Future<Map<String, dynamic>> _openLibraryOff(Uint8List bytes) => Isolate.run(
+  () => jsonDecode(utf8.decode(gzip.decode(bytes))) as Map<String, dynamic>,
+);
+
+Future<List<int>> _pbkdf2Off(String code, String purpose) =>
+    Isolate.run(() async {
+      final key =
+          await Pbkdf2(
+            macAlgorithm: Hmac.sha256(),
+            iterations: 60000,
+            bits: 256,
+          ).deriveKey(
+            secretKey: SecretKey(utf8.encode(code)),
+            nonce: utf8.encode('segue-$purpose-v1'),
+          );
+      return key.extractBytes();
+    });

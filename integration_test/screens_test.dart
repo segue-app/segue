@@ -45,6 +45,7 @@ import 'package:segue/ui/widgets/volume_slider.dart';
 import 'package:segue/ui/widgets/h_scroll.dart';
 import 'package:segue/core/downloads/audio_cache.dart';
 import 'package:segue/ui/screens/settings_screen.dart';
+import 'package:segue/ui/screens/album_screen.dart';
 import 'package:flutter/gestures.dart';
 import 'package:segue/ui/widgets/track_actions.dart';
 import 'package:segue/ui/widgets/track_tile.dart';
@@ -478,6 +479,20 @@ void main() {
       await m.moveTo(tester.getCenter(row));
       await settle(tester, 0.5);
       await shot(tester, '07b0_artist_row_hover');
+      // ♥ on an album: it's in Library → Albums.
+      await m.moveTo(Offset.zero);
+      await tester.tap(
+        find.descendant(of: row, matching: find.byType(PressScale)).first,
+      );
+      await settle(tester, 4);
+      await tester.tap(find.byKey(const ValueKey('save-album')));
+      await settle(tester, 1);
+      await shot(tester, '07b01_album_saved');
+      expect(library.saved('album'), hasLength(1));
+      Navigator.of(tester.element(find.byType(AlbumScreen))).pop();
+      await settle(tester, 1);
+      await m.moveTo(tester.getCenter(row));
+      await settle(tester, 0.5);
       await tester.tap(find.byKey(const ValueKey('hscroll-forward')).first);
       await settle(tester, 1);
       final paged = offset();
@@ -520,6 +535,15 @@ void main() {
     await shot(tester, '07b1_search_history');
     expect(find.text('Вы искали'), findsOneWidget);
     expect(find.text('miyagi'), findsWidgets);
+    // The saved album is in Library → Albums.
+    await tester.tap(find.text('Библиотека').first);
+    await settle(tester, 1);
+    await tester.tap(find.text('Альбомы'));
+    await settle(tester, 2);
+    await shot(tester, '04d_library_albums');
+    expect(find.byType(GridView), findsOneWidget);
+    await tester.tap(find.text('Любимые').first);
+    await settle(tester, 1);
     await tester.tap(find.text('Главная').first);
     await settle(tester, 3);
     await shot(tester, '07d_home_wave_charts');
@@ -563,7 +587,11 @@ void main() {
     await shot(tester, '07f_my_wave_playing');
     expect(handler.waveTitle.value, 'Моя волна');
 
-    // Phone layout.
+    // Phone layout, in the classic player (another test device may have
+    // shared its own look over the relay).
+    ProviderScope.containerOf(tester.element(find.byType(SegueApp)))
+        .read(settingsProvider.notifier)
+        .update((s) => s.copyWith(playerStyle: PlayerStyle.classic));
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     await settle(tester, 2);

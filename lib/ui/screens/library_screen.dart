@@ -19,7 +19,9 @@ import '../widgets/nav.dart';
 import '../widgets/track_actions.dart';
 import '../widgets/track_tile.dart';
 import 'devices_screen.dart';
+import 'album_screen.dart';
 import 'playlist_screen.dart';
+import '../widgets/artwork.dart';
 import 'settings_screen.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
@@ -27,7 +29,7 @@ import 'package:segue/core/l10n/l10n.dart';
 import '../widgets/shared_playlist_sheet.dart';
 import '../widgets/h_scroll.dart';
 
-enum LibrarySection { liked, playlists, downloaded, local, history }
+enum LibrarySection { liked, playlists, albums, downloaded, local, history }
 
 /// Which library section is open; the sidebar and home cards can set it.
 final librarySectionProvider = StateProvider<LibrarySection>(
@@ -97,6 +99,7 @@ class LibraryScreen extends ConsumerWidget {
                             for (final (s, label) in [
                               (LibrarySection.liked, 'Любимые'.tr),
                               (LibrarySection.playlists, 'Плейлисты'.tr),
+                              (LibrarySection.albums, 'Альбомы'.tr),
                               (LibrarySection.downloaded, 'Скачанные'.tr),
                               (LibrarySection.local, 'Мои файлы'.tr),
                               (LibrarySection.history, 'История'.tr),
@@ -132,6 +135,9 @@ class LibraryScreen extends ConsumerWidget {
                     ),
                     LibrarySection.playlists => const _Playlists(
                       key: ValueKey('pl'),
+                    ),
+                    LibrarySection.albums => const _Albums(
+                      key: ValueKey('albums'),
                     ),
                     LibrarySection.downloaded => const _Downloaded(
                       key: ValueKey('dl'),
@@ -328,6 +334,94 @@ class _Liked extends ConsumerWidget {
   }
 }
 
+/// Albums added with ♥ on their page: covers in a grid.
+class _Albums extends ConsumerWidget {
+  const _Albums({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final albums = ref.watch(savedAlbumsProvider);
+    if (albums.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.album_rounded,
+                size: 48,
+                color: SegueColors.textDim,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Здесь будут твои альбомы'.tr,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Открой альбом и нажми ♥ рядом с «Слушать»'.tr,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: SegueColors.textDim),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return WideScroll(
+      builder: (context, side) => GridView.builder(
+        padding: EdgeInsets.fromLTRB(16 + side, 4, 16 + side, 24),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 200,
+          mainAxisSpacing: 18,
+          crossAxisSpacing: 16,
+          childAspectRatio: 0.74,
+        ),
+        itemCount: albums.length,
+        itemBuilder: (context, i) {
+          final al = albums[i];
+          return PressScale(
+            onTap: () =>
+                pushUnique(Navigator.of(context), AlbumScreen.route(al.id)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: LayoutBuilder(
+                    builder: (context, c) =>
+                        Artwork(url: al.cover, size: c.maxWidth, radius: 18),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  al.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  [al.artist, if (al.year != null) '${al.year}'].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: SegueColors.textDim,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _Playlists extends ConsumerWidget {
   const _Playlists({super.key});
 
@@ -432,6 +526,44 @@ class _HistoryState extends ConsumerState<_History> {
     super.dispose();
   }
 
+  // The last result, reused until the history or the query changes: up to
+  // a thousand songs were lowercased and regrouped on every rebuild.
+  List<(Track, DateTime)>? _memoAll;
+  List<String> _hay = const [];
+  String? _memoQ;
+  late (List<(Track, DateTime)>, List<Track>, List<Object>) _memo;
+
+  (List<(Track, DateTime)>, List<Track>, List<Object>) _rowsFor(
+    List<(Track, DateTime)> all,
+    String q,
+  ) {
+    if (identical(all, _memoAll) && q == _memoQ) return _memo;
+    if (!identical(all, _memoAll)) {
+      _hay = [
+        for (final e in all) '${e.$1.title} ${e.$1.artist}'.toLowerCase(),
+      ];
+    }
+    _memoAll = all;
+    _memoQ = q;
+    final words = q.toLowerCase().split(RegExp(r'\s+'))
+      ..removeWhere((w) => w.isEmpty);
+    final shown = [
+      for (var i = 0; i < all.length; i++)
+        if (words.every(_hay[i].contains)) all[i],
+    ];
+    final tracks = [for (final e in shown) e.$1];
+    // Rows: a day's title, then its songs.
+    final rows = <Object>[];
+    String? last;
+    for (var i = 0; i < shown.length; i++) {
+      final d = _day(shown[i].$2);
+      if (d != last) rows.add(d);
+      last = d;
+      rows.add(i);
+    }
+    return _memo = (shown, tracks, rows);
+  }
+
   static String _day(DateTime d) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -458,23 +590,7 @@ class _HistoryState extends ConsumerState<_History> {
         ),
       );
     }
-    final words = _q.toLowerCase().split(RegExp(r'\s+'))
-      ..removeWhere((w) => w.isEmpty);
-    final shown = [
-      for (final e in all)
-        if (words.every('${e.$1.title} ${e.$1.artist}'.toLowerCase().contains))
-          e,
-    ];
-    final tracks = [for (final e in shown) e.$1];
-    // Rows: a day's title, then its songs.
-    final rows = <Object>[];
-    String? last;
-    for (var i = 0; i < shown.length; i++) {
-      final d = _day(shown[i].$2);
-      if (d != last) rows.add(d);
-      last = d;
-      rows.add(i);
-    }
+    final (shown, tracks, rows) = _rowsFor(all, _q);
     return WideScroll(
       builder: (context, side) => ListView.builder(
         padding: EdgeInsets.fromLTRB(8 + side, 4, 8 + side, 16),

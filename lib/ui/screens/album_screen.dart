@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/catalog/deezer.dart';
+import '../../core/library/library.dart';
 import '../../core/library/search_history.dart';
 import '../theme/theme.dart';
 import '../widgets/artwork.dart';
@@ -60,6 +61,7 @@ class AlbumScreen extends ConsumerWidget {
             tracks: tracks,
             cover: Artwork(url: album.cover, size: size, radius: 20),
             actions: [
+              _SaveAlbumButton(album: album),
               DownloadAllButton(tracks: tracks),
               HeaderIconButton(
                 icon: Icons.playlist_add_rounded,
@@ -69,6 +71,42 @@ class AlbumScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// ♥ for the whole album: it goes to Library → Albums.
+class _SaveAlbumButton extends ConsumerWidget {
+  const _SaveAlbumButton({required this.album});
+
+  final Album album;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(
+      savedAlbumsProvider.select((l) => l.any((a) => a.id == album.id)),
+    );
+    return HeaderIconButton(
+      key: const ValueKey('save-album'),
+      icon: saved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+      tooltip: saved ? 'Убрать из библиотеки'.tr : 'Добавить в библиотеку'.tr,
+      onTap: () {
+        ref
+            .read(libraryProvider)
+            .setSaved(album.savedKey, album.toSaved(), !saved);
+        ScaffoldMessenger.maybeOf(context)
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                saved
+                    ? 'Альбом убран из библиотеки'.tr
+                    : 'Альбом добавлен: Библиотека → Альбомы'.tr,
+              ),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      },
     );
   }
 }

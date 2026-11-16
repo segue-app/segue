@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -210,10 +211,21 @@ class _EqualizerBarsState extends State<EqualizerBars>
     if (widget.active) _c.repeat();
   }
 
+  /// "Less motion": the bars stand still.
+  bool _still = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _still = MediaQuery.disableAnimationsOf(context);
+    if (_still && _c.isAnimating) _c.stop();
+    if (!_still && widget.active && !_c.isAnimating) _c.repeat();
+  }
+
   @override
   void didUpdateWidget(EqualizerBars old) {
     super.didUpdateWidget(old);
-    if (widget.active && !_c.isAnimating) _c.repeat();
+    if (widget.active && !_c.isAnimating && !_still) _c.repeat();
     if (!widget.active && _c.isAnimating) {
       _c.animateTo(0, duration: SegueMotion.medium);
     }
@@ -256,6 +268,59 @@ class _EqualizerBarsState extends State<EqualizerBars>
 
 /// Tiny indicator: a ring while downloading, a check-mark arrow once the
 /// track is on the device. Nothing otherwise.
+/// One song's download progress out of the map of all of them: rebuilds
+/// only when that song's number changes (every chunk of any download
+/// rebuilt the badge of every row on screen).
+class _ProgressOf extends StatefulWidget {
+  const _ProgressOf({
+    required this.progress,
+    required this.keyOf,
+    required this.builder,
+  });
+
+  final ValueListenable<Map<String, double>> progress;
+  final String keyOf;
+  final Widget Function(BuildContext context, double? p) builder;
+
+  @override
+  State<_ProgressOf> createState() => _ProgressOfState();
+}
+
+class _ProgressOfState extends State<_ProgressOf> {
+  double? _p;
+
+  @override
+  void initState() {
+    super.initState();
+    _p = widget.progress.value[widget.keyOf];
+    widget.progress.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_ProgressOf old) {
+    super.didUpdateWidget(old);
+    if (old.progress != widget.progress) {
+      old.progress.removeListener(_changed);
+      widget.progress.addListener(_changed);
+    }
+    _p = widget.progress.value[widget.keyOf];
+  }
+
+  void _changed() {
+    final p = widget.progress.value[widget.keyOf];
+    if (p != _p && mounted) setState(() => _p = p);
+  }
+
+  @override
+  void dispose() {
+    widget.progress.removeListener(_changed);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _p);
+}
+
 class DownloadBadge extends ConsumerWidget {
   const DownloadBadge({super.key, required this.track});
 
@@ -265,10 +330,10 @@ class DownloadBadge extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final downloaded = ref.watch(downloadedKeysProvider).contains(track.key);
     final accent = ref.watch(currentColorsProvider).accent;
-    return ValueListenableBuilder<Map<String, double>>(
-      valueListenable: ref.read(downloadsProvider).progress,
-      builder: (context, busy, _) {
-        final p = busy[track.key];
+    return _ProgressOf(
+      progress: ref.read(downloadsProvider).progress,
+      keyOf: track.key,
+      builder: (context, p) {
         final Widget child;
         if (p != null) {
           child = SizedBox.square(

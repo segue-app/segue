@@ -43,7 +43,11 @@ void main() {
 
   test('half and double tempo count as close', () {
     final songs = {_t('fast'): _g(172, -9), _t('mid'): _g(110, -9)};
-    final order = AutoDj.orderSet(songs.keys.toList(), songs, start: _g(86, -9));
+    final order = AutoDj.orderSet(
+      songs.keys.toList(),
+      songs,
+      start: _g(86, -9),
+    );
     expect(order.first.id, 'fast');
   });
 }

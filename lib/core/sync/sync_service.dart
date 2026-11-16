@@ -8,6 +8,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../app_visibility.dart';
 import '../library/library_store.dart';
 import '../player/player_handler.dart';
 
@@ -101,14 +102,26 @@ class SyncService {
     _server!.listen(_handle, onError: (_) {});
     if (enableDiscovery) await _startBonjour();
 
-    // Sync shortly after local changes, and every minute as a safety net.
-    _libSub = library.changes.listen((_) {
+    // Sync shortly after local changes, and every minute as a safety net
+    // (every five while the app is in the background). Only changes others
+    // get: saving a peer after a sync used to trigger the next sync, round
+    // and round.
+    _libSub = library.changeKinds.listen((k) {
       if (_applyingRemote) return;
+      if (k != LibChange.edit && k != LibChange.history) return;
       _debounce?.cancel();
-      _debounce = Timer(const Duration(seconds: 3), syncAll);
+      _debounce = Timer(
+        Duration(seconds: k == LibChange.edit ? 3 : 60),
+        syncAll,
+      );
     });
-    _periodic = Timer.periodic(const Duration(seconds: 60), (_) => syncAll());
+    _periodic = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!AppVisibility.visible && ++_hiddenTicks % 5 != 0) return;
+      syncAll();
+    });
   }
+
+  int _hiddenTicks = 0;
 
   Future<void> dispose() async {
     _periodic?.cancel();
@@ -362,7 +375,11 @@ class SyncService {
 
   Future<void> syncAll() async {
     for (final p in library.peers()) {
-      if (p.host != null) unawaited(syncWith(p.id));
+      // Only devices seen on this network now (an old home address tried
+      // from the street just waits for a timeout).
+      if (p.host == null) continue;
+      if (enableDiscovery && !isOnline(p.id)) continue;
+      unawaited(syncWith(p.id));
     }
   }
 
