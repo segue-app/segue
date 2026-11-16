@@ -179,6 +179,10 @@ class YouTubeSource implements MusicSource, FileSource {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
+  /// Opus instead of AAC 128 when streaming (a setting). Downloads are
+  /// always the best there is.
+  bool highQuality = false;
+
   /// Plays a song from elsewhere when YouTube won't (see StandIn).
   Future<StreamInfo> Function(Track wanted)? standIn;
 
@@ -373,9 +377,12 @@ class YouTubeSource implements MusicSource, FileSource {
       }
     }
 
-    // Best option: the audio-only HLS rendition. Every platform player
-    // handles HLS natively, with exact duration and seeking.
-    final hlsUrl = hls ? streaming['hlsManifestUrl'] as String? : null;
+    // Quick option: the audio-only HLS rendition (AAC 128 kbps). Every
+    // platform player handles HLS natively, with exact duration and
+    // seeking. High quality skips it for Opus.
+    final hlsUrl = hls && !highQuality
+        ? streaming['hlsManifestUrl'] as String?
+        : null;
     if (hlsUrl != null) {
       final audio = await _hlsAudioPlaylist(hlsUrl);
       if (audio != null) {
@@ -394,20 +401,14 @@ class YouTubeSource implements MusicSource, FileSource {
             .where(
               (f) =>
                   f['url'] != null &&
-                  (f['mimeType'] as String? ?? '').startsWith('audio/'),
+                  (f['mimeType'] as String? ?? '').startsWith('audio/') &&
+                  // Not the dynamic-range-compressed copy, nor a dub.
+                  f['isDrc'] != true &&
+                  (f['audioTrack'] as Map?)?['audioIsDefault'] != false,
             )
             .toList();
     if (formats.isEmpty) throw StateError('no audio formats');
-    // Prefer AAC/MP4: it plays everywhere, including iOS and macOS.
-    final mp4 = formats.where(
-      (f) => (f['mimeType'] as String).startsWith('audio/mp4'),
-    );
-    final pool = (mp4.isNotEmpty ? mp4 : formats).toList()
-      ..sort(
-        (a, b) =>
-            (b['bitrate'] as int? ?? 0).compareTo(a['bitrate'] as int? ?? 0),
-      );
-    final best = pool.first;
+    final best = pickAudio(formats, opus: highQuality || !hls);
     return StreamInfo(
       Uri.parse(best['url'] as String),
       contentLength: int.tryParse('${best['contentLength']}'),
@@ -416,6 +417,23 @@ class YouTubeSource implements MusicSource, FileSource {
       duration: duration,
       loudnessDb: loudness,
     );
+  }
+
+  /// The format to play: Opus (itag 251, ~130–160 kbps, the best YouTube
+  /// gives) for high quality and files, else AAC (itag 140, 128 kbps).
+  /// libmpv plays both on every platform.
+  static Map<String, dynamic> pickAudio(
+    List<Map<String, dynamic>> formats, {
+    required bool opus,
+  }) {
+    bool isOpus(Map f) => '${f['mimeType']}'.contains('opus');
+    final preferred = formats.where((f) => isOpus(f) == opus).toList();
+    final pool = (preferred.isNotEmpty ? preferred : formats).toList()
+      ..sort(
+        (a, b) =>
+            (b['bitrate'] as int? ?? 0).compareTo(a['bitrate'] as int? ?? 0),
+      );
+    return pool.first;
   }
 
   static Duration? _approxDuration(Map<String, dynamic> streaming) {
@@ -505,8 +523,14 @@ class YouTubeSource implements MusicSource, FileSource {
           .timeout(const Duration(seconds: 12));
       final audio = manifest.audioOnly;
       if (audio.isEmpty) return null;
+      final opus = audio.where((s) => s.audioCodec.contains('opus'));
       final mp4 = audio.where((s) => s.container == yt.StreamContainer.mp4);
-      final s = (mp4.isNotEmpty ? mp4 : audio).withHighestBitrate();
+      final pool = highQuality && opus.isNotEmpty
+          ? opus
+          : mp4.isNotEmpty
+          ? mp4
+          : audio;
+      final s = pool.withHighestBitrate();
       final info = StreamInfo(
         s.url,
         contentLength: s.size.totalBytes,

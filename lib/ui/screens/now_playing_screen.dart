@@ -690,7 +690,7 @@ class _TopBar extends StatelessWidget {
       builder: (context, c) => Stack(
         alignment: Alignment.center,
         children: [
-          if (c.maxWidth >= 2 * (6 * 52) + 150)
+          if (c.maxWidth >= 2 * (3 * 52) + 150)
             IgnorePointer(
               child: Text(
                 'Сейчас играет'.tr,
@@ -732,57 +732,79 @@ class _TopBar extends StatelessWidget {
       onTap: () => showQueueSheet(context),
       size: 44,
     );
-    // A phone: the lyrics and the queue stay, the rest goes in "⋯".
-    if (width < 520) {
-      return Row(
-        children: [
-          close,
-          const Spacer(),
-          lyrics,
-          const SizedBox(width: 8),
-          queue,
-          const SizedBox(width: 8),
-          _RoundIcon(
-            icon: Icons.more_horiz_rounded,
-            onTap: () => _menu(context),
-            size: 44,
-          ),
-        ],
-      );
-    }
+    // Only what's used all the time stays on top: the lyrics and the
+    // queue. DJ, sound, devices and the song's actions are in "⋯".
     return Row(
       children: [
         close,
         const Spacer(),
-        _RoundIcon(
-          icon: Icons.album_rounded,
-          onTap: () => Navigator.of(context).push(DjScreen.route()),
-          size: 44,
-        ),
+        lyrics,
         const SizedBox(width: 8),
         queue,
         const SizedBox(width: 8),
-        _RoundIcon(
-          icon: Icons.equalizer_rounded,
-          onTap: () => showSoundSheet(context),
-          size: 44,
+        Builder(
+          builder: (button) => _RoundIcon(
+            icon: Icons.more_horiz_rounded,
+            onTap: () => width < 520 ? _menu(context) : _popup(button),
+            size: 44,
+          ),
         ),
-        const SizedBox(width: 8),
-        if (onDevices != null) ...[
-          _RoundIcon(icon: Icons.devices_rounded, onTap: onDevices, size: 44),
-          const SizedBox(width: 8),
-        ],
-        lyrics,
-        const SizedBox(width: 8),
-        onMore == null
-            ? const SizedBox(width: 44)
-            : _RoundIcon(
-                icon: Icons.more_horiz_rounded,
-                onTap: onMore!,
-                size: 44,
-              ),
       ],
     );
+  }
+
+  /// The computer's "⋯": a menu right under the button.
+  Future<void> _popup(BuildContext button) async {
+    final nav = Navigator.of(button);
+    final box = button.findRenderObject()! as RenderBox;
+    final overlay =
+        Overlay.of(button, rootOverlay: true).context.findRenderObject()!
+            as RenderBox;
+    final at = box.localToGlobal(
+      Offset(0, box.size.height + 6),
+      ancestor: overlay,
+    );
+    PopupMenuItem<VoidCallback> item(
+      IconData icon,
+      String label,
+      VoidCallback? onTap,
+    ) => PopupMenuItem(
+      value: onTap,
+      enabled: onTap != null,
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 14),
+          Text(label),
+        ],
+      ),
+    );
+    final picked = await showMenu<VoidCallback>(
+      context: button,
+      useRootNavigator: true,
+      color: SegueColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      position: RelativeRect.fromLTRB(
+        at.dx - 160,
+        at.dy,
+        overlay.size.width - at.dx - box.size.width,
+        0,
+      ),
+      items: [
+        item(
+          Icons.album_rounded,
+          'Диджей'.tr,
+          () => nav.push(DjScreen.route()),
+        ),
+        item(Icons.equalizer_rounded, 'Звук'.tr, () {
+          if (button.mounted) showSoundSheet(button);
+        }),
+        if (onDevices != null)
+          item(Icons.devices_rounded, 'Устройства'.tr, onDevices),
+        item(Icons.more_horiz_rounded, 'Трек'.tr, onMore),
+      ],
+    );
+    picked?.call();
   }
 
   /// The phone's "⋯": DJ, sound, devices and the song's own actions.

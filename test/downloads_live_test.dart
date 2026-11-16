@@ -18,6 +18,14 @@ String kindOf(List<int> b) {
   }
   if (String.fromCharCodes(b.take(3)) == 'ID3') return 'mp3';
   if (b.length > 1 && b[0] == 0xFF && (b[1] & 0xE0) == 0xE0) return 'mp3';
+  // EBML header: WebM (Opus).
+  if (b.length > 3 &&
+      b[0] == 0x1A &&
+      b[1] == 0x45 &&
+      b[2] == 0xDF &&
+      b[3] == 0xA3) {
+    return 'webm';
+  }
   return 'unknown';
 }
 

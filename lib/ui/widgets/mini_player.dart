@@ -256,7 +256,7 @@ class _Compact extends ConsumerWidget {
 }
 
 /// Desktop: track and like on the left, transport with a seekable wave in
-/// the middle, lyrics / queue / volume on the right.
+/// the middle, queue / sound / volume on the right.
 class _Wide extends ConsumerWidget {
   const _Wide({required this.item});
 
@@ -356,19 +356,12 @@ class _Wide extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   icon(
-                    Icons.lyrics_rounded,
-                    () =>
-                        Navigator.of(context)
-                            .push(NowPlayingScreen.route(lyrics: true)),
-                    size: 20,
-                  ),
-                  icon(
                     Icons.queue_music_rounded,
                     () => showQueueSheet(context),
                   ),
                   icon(Icons.equalizer_rounded, () => showSoundSheet(context)),
                   const SizedBox(width: 4),
-                  VolumeSlider(width: (c.maxWidth - 186).clamp(40.0, 104.0)),
+                  VolumeSlider(width: (c.maxWidth - 146).clamp(40.0, 104.0)),
                   const SizedBox(width: 4),
                   icon(
                     Icons.open_in_full_rounded,

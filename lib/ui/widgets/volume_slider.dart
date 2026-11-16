@@ -81,6 +81,15 @@ class _HoverVolumeState extends ConsumerState<HoverVolume> {
   Timer? _hide;
   double _before = 1;
 
+  /// The slider is being dragged: stays open even off the popup.
+  bool _dragging = false;
+
+  /// Where the mouse is: over the speaker, over the popup.
+  bool _onIcon = false, _onPopup = false;
+
+  /// The last press was a finger (no hover to open the popup).
+  bool _touch = false;
+
   @override
   void dispose() {
     _hide?.cancel();
@@ -92,11 +101,19 @@ class _HoverVolumeState extends ConsumerState<HoverVolume> {
     if (!_portal.isShowing) setState(_portal.show);
   }
 
+  /// The pointer left: gone at once, as in Yandex Music (a moment's
+  /// grace only to cross from the speaker to the popup).
   void _leave() {
     _hide?.cancel();
-    _hide = Timer(const Duration(milliseconds: 1200), () {
-      if (mounted && _portal.isShowing) setState(_portal.hide);
-    });
+    // Still over one of them (or dragging): stays.
+    if (_dragging || _onIcon || _onPopup) return;
+    _hide = Timer(const Duration(milliseconds: 100), _close);
+  }
+
+  void _close() {
+    _hide?.cancel();
+    _onPopup = false; // it goes away under the pointer: no exit comes
+    if (mounted && _portal.isShowing) setState(_portal.hide);
   }
 
   void _set(double v) {
@@ -153,7 +170,15 @@ class _HoverVolumeState extends ConsumerState<HoverVolume> {
                     inactiveTrackColor: Colors.white.withValues(alpha: 0.14),
                     thumbColor: Colors.white,
                   ),
-                  child: Slider(value: v, onChanged: _set),
+                  child: Slider(
+                    value: v,
+                    onChanged: _set,
+                    onChangeStart: (_) => _dragging = true,
+                    onChangeEnd: (_) {
+                      _dragging = false;
+                      if (!_touch) _leave();
+                    },
+                  ),
                 ),
               ),
             ),
@@ -174,67 +199,99 @@ class _HoverVolumeState extends ConsumerState<HoverVolume> {
             link: _link,
             targetAnchor: Alignment.topCenter,
             followerAnchor: Alignment.bottomCenter,
-            offset: const Offset(0, -8),
-            child: MouseRegion(
-              onEnter: (_) => _show(),
-              onExit: (_) => _leave(),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOutCubic,
-                builder: (context, t, child) => Opacity(
-                  opacity: t,
-                  child: Transform.translate(
-                    offset: Offset(0, 8 * (1 - t)),
-                    child: child,
+            child: TapRegion(
+              groupId: _link,
+              onTapOutside: (_) {
+                if (_touch) _close();
+              },
+              child: MouseRegion(
+                onEnter: (_) {
+                  _onPopup = true;
+                  _show();
+                },
+                onExit: (_) {
+                  _onPopup = false;
+                  _leave();
+                },
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, t, child) => Opacity(
+                    opacity: t,
+                    child: Transform.translate(
+                      offset: Offset(0, 8 * (1 - t)),
+                      child: child,
+                    ),
+                  ),
+                  // The bottom margin is part of the popup's hover area,
+                  // so moving up from the speaker never "leaves" it.
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: popup,
+                    ),
                   ),
                 ),
-                child: Material(type: MaterialType.transparency, child: popup),
               ),
             ),
           ),
         ),
-        child: MouseRegion(
-          onEnter: (_) => _show(),
-          onExit: (_) => _leave(),
-          child: Listener(
-            // The wheel turns the volume.
-            onPointerSignal: (e) {
-              if (e is PointerScrollEvent) {
-                _show();
-                _set(player.volume.value - e.scrollDelta.dy / 800);
-                _leave();
-              }
+        child: TapRegion(
+          groupId: _link,
+          child: MouseRegion(
+            onEnter: (_) {
+              _onIcon = true;
+              _show();
             },
-            child: ValueListenableBuilder<double>(
-              valueListenable: player.volume,
-              builder: (context, v, _) => PressScale(
-                scale: 0.86,
-                onTap: () {
-                  // Mute, and back to where it was.
-                  if (v > 0) {
-                    _before = v;
-                    _set(0);
-                  } else {
-                    _set(_before > 0 ? _before : 1);
-                  }
+            onExit: (_) {
+              _onIcon = false;
+              _leave();
+            },
+            child: Listener(
+              onPointerDown: (e) => _touch = e.kind == PointerDeviceKind.touch,
+              // The wheel turns the volume.
+              onPointerSignal: (e) {
+                if (e is PointerScrollEvent) {
                   _show();
-                  _leave();
-                },
-                child: Container(
-                  width: widget.size,
-                  height: widget.size,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
-                  child: Icon(
-                    v == 0
-                        ? Icons.volume_off_rounded
-                        : v < 0.5
-                        ? Icons.volume_down_rounded
-                        : Icons.volume_up_rounded,
-                    size: widget.size * 0.5,
+                  _set(player.volume.value - e.scrollDelta.dy / 800);
+                }
+              },
+              child: ValueListenableBuilder<double>(
+                valueListenable: player.volume,
+                builder: (context, v, _) => PressScale(
+                  scale: 0.86,
+                  onTap: () {
+                    // A finger has no hover: the tap opens (or closes) it.
+                    if (_touch) {
+                      _portal.isShowing ? _close() : _show();
+                      return;
+                    }
+                    // Mute, and back to where it was.
+                    if (v > 0) {
+                      _before = v;
+                      _set(0);
+                    } else {
+                      _set(_before > 0 ? _before : 1);
+                    }
+                    _show();
+                  },
+                  child: Container(
+                    width: widget.size,
+                    height: widget.size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                    child: Icon(
+                      v == 0
+                          ? Icons.volume_off_rounded
+                          : v < 0.5
+                          ? Icons.volume_down_rounded
+                          : Icons.volume_up_rounded,
+                      size: widget.size * 0.5,
+                    ),
                   ),
                 ),
               ),

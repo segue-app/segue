@@ -35,7 +35,9 @@ import 'package:segue/core/l10n/l10n.dart';
 
 /// Appearance settings with a live preview, in the spirit of Riff's theme
 /// editor: accent, backdrop, font, sizes, and motion.
-class SettingsScreen extends ConsumerWidget {
+/// Settings, sorted into a few categories: a list of them, and each one
+/// on its own page (side by side on a wide window).
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   static const routeName = '/settings';
@@ -46,37 +48,709 @@ class SettingsScreen extends ConsumerWidget {
   );
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
-    void set(AppSettings Function(AppSettings) f) => notifier.update(f);
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
 
+enum _Cat { general, sound, look, lyrics, lights, library, keys, about }
+
+extension on _Cat {
+  IconData get icon => switch (this) {
+    _Cat.general => Icons.tune_rounded,
+    _Cat.sound => Icons.graphic_eq_rounded,
+    _Cat.look => Icons.palette_rounded,
+    _Cat.lyrics => Icons.lyrics_rounded,
+    _Cat.lights => Icons.light_mode_rounded,
+    _Cat.library => Icons.library_music_rounded,
+    _Cat.keys => Icons.keyboard_rounded,
+    _Cat.about => Icons.info_rounded,
+  };
+
+  Color get color => switch (this) {
+    _Cat.general => const Color(0xFF7B8CFF),
+    _Cat.sound => const Color(0xFFFF9A76),
+    _Cat.look => const Color(0xFFE779C1),
+    _Cat.lyrics => const Color(0xFF5BD6C0),
+    _Cat.lights => const Color(0xFFFFC857),
+    _Cat.library => const Color(0xFF7BD389),
+    _Cat.keys => const Color(0xFF9AA4B5),
+    _Cat.about => const Color(0xFF6EC3FF),
+  };
+
+  String get title => switch (this) {
+    _Cat.general => 'Основные'.tr,
+    _Cat.sound => 'Звук и воспроизведение'.tr,
+    _Cat.look => 'Внешний вид'.tr,
+    _Cat.lyrics => 'Текст песен'.tr,
+    _Cat.lights => 'Свет'.tr,
+    _Cat.library => 'Библиотека и аккаунты'.tr,
+    _Cat.keys => 'Горячие клавиши'.tr,
+    _Cat.about => 'О приложении'.tr,
+  };
+
+  String get hint => switch (this) {
+    _Cat.general => 'Устройства, импорт музыки, язык'.tr,
+    _Cat.sound => 'Качество, эквалайзер, сведение, громкость'.tr,
+    _Cat.look => 'Цвет, вид плеера, фон, шрифт, анимации'.tr,
+    _Cat.lyrics => 'Анимация, размер, перевод, сдвиг'.tr,
+    _Cat.lights => 'Подсветка и лампы в такт музыке'.tr,
+    _Cat.library => 'Резервная копия, Last.fm'.tr,
+    _Cat.keys => 'Управление с клавиатуры'.tr,
+    _Cat.about => 'Версия, обновления, проверка связи'.tr,
+  };
+}
+
+/// Categories this device shows (no keyboard shortcuts on a phone).
+List<_Cat> get _cats => [
+  for (final c in _Cat.values)
+    if (c != _Cat.keys || !(Platform.isAndroid || Platform.isIOS)) c,
+];
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  _Cat _open = _Cat.general;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         scrolledUnderElevation: 0,
       ),
-      body: WideScroll(
-        max: 720,
-        builder: (context, side) => ListView(
-          padding: EdgeInsets.fromLTRB(16 + side, 0, 16 + side, 32),
-          children: [
-            Row(
+      body: LayoutBuilder(
+        builder: (context, box) {
+          // Wide: the list on the left, the open category on the right.
+          if (box.maxWidth >= 900) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                SizedBox(
+                  width: 300,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 8, 32),
+                    children: [
+                      const _Heading(),
+                      for (final c in _cats)
+                        _CatTile(
+                          cat: c,
+                          selected: c == _open,
+                          onTap: () => setState(() => _open = c),
+                        ),
+                    ],
+                  ),
+                ),
                 Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(6, 0, 6, 14),
+                  child: KeyedSubtree(
+                    key: ValueKey(_open),
+                    child: _CatBody(_open, wide: true),
+                  ),
+                ),
+              ],
+            );
+          }
+          return WideScroll(
+            max: 720,
+            builder: (context, side) => ListView(
+              padding: EdgeInsets.fromLTRB(16 + side, 0, 16 + side, 32),
+              children: [
+                const _Heading(),
+                for (final c in _cats)
+                  _CatTile(
+                    cat: c,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => Scaffold(
+                          backgroundColor: Colors.transparent,
+                          appBar: AppBar(
+                            backgroundColor: Colors.transparent,
+                            scrolledUnderElevation: 0,
+                          ),
+                          body: _CatBody(c, wide: false),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Heading extends StatelessWidget {
+  const _Heading();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(6, 0, 6, 14),
+    child: Text(
+      'Настройки'.tr,
+      style: const TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -1.2,
+      ),
+    ),
+  );
+}
+
+/// A category: coloured icon, name and what's inside.
+class _CatTile extends StatelessWidget {
+  const _CatTile({
+    required this.cat,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final _Cat cat;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Material(
+      color: selected
+          ? Colors.white.withValues(alpha: 0.1)
+          : Colors.white.withValues(alpha: 0.04),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: cat.color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(cat.icon, color: cat.color, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      cat.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      cat.hint,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: SegueColors.textDim,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: SegueColors.textDim,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// One category's settings.
+class _CatBody extends ConsumerWidget {
+  const _CatBody(this.cat, {required this.wide});
+
+  final _Cat cat;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider);
+    final notifier = ref.read(settingsProvider.notifier);
+    void set(AppSettings Function(AppSettings) f) => notifier.update(f);
+
+    final List<Widget> items = switch (cat) {
+      _Cat.general => [
+        // Moved here from the sidebar: devices and bringing music in.
+        _NavTile(
+          icon: Icons.devices_rounded,
+          title: 'Устройства'.tr,
+          subtitle: 'Синхронизация, «Где играть», вход по коду'.tr,
+          onTap: () => Navigator.of(context).push(DevicesScreen.route()),
+        ),
+        const _SharedPrefs(),
+        _NavTile(
+          icon: Icons.link_rounded,
+          title: 'Импорт плейлиста по ссылке'.tr,
+          subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud'.tr,
+          onTap: () async {
+            final id = await showImportDialog(context);
+            if (id != null && context.mounted) {
+              Navigator.of(context).push(PlaylistScreen.route(id));
+            }
+          },
+        ),
+        _NavTile(
+          icon: Icons.move_down_rounded,
+          title: 'Перенести всю библиотеку'.tr,
+          subtitle: 'Все лайки и плейлисты из Яндекс Музыки или Spotify'.tr,
+          onTap: () => showLibraryImport(context),
+        ),
+        _Section('Язык'.tr),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final e in {
+                'system': 'Как в системе'.tr,
+                ...L10n.languages,
+              }.entries)
+                ChoiceChip(
+                  label: Text(e.value),
+                  selected: s.language == e.key,
+                  onSelected: (_) => set((x) => x.copyWith(language: e.key)),
+                ),
+            ],
+          ),
+        ),
+      ],
+      _Cat.sound => [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: const SoundPanel(),
+        ),
+        const SizedBox(height: 8),
+        _Slider(
+          title: 'Сведение треков'.tr,
+          value: s.fadeSeconds,
+          min: 0,
+          max: 16,
+          label: s.fadeSeconds < 0.5
+              ? 'выкл'.tr
+              : '{0} с'.trArgs([s.fadeSeconds.round()]),
+          onChanged: (v) =>
+              set((x) => x.copyWith(fadeSeconds: v.roundToDouble())),
+        ),
+        _Tile(
+          title: 'Подстраивать темп'.tr,
+          subtitle: 'Как у диджея: следующая песня встаёт в темп и на сильную долю текущей, потом плавно возвращается к своему темпу'
+              .tr,
+          trailing: Switch(
+            value: s.matchTempo,
+            onChanged: s.fadeSeconds < 1
+                ? null
+                : (v) => set((x) => x.copyWith(matchTempo: v)),
+          ),
+        ),
+        _Tile(
+          title: 'Пропускать вступления клипов'.tr,
+          subtitle: 'Разговоры в начале и сценки в конце музыкальных видео (по данным SponsorBlock)'
+              .tr,
+          trailing: Switch(
+            value: s.skipIntros,
+            onChanged: (v) => set((x) => x.copyWith(skipIntros: v)),
+          ),
+        ),
+        _Tile(
+          title: 'Выравнивать громкость'.tr,
+          subtitle: 'Громкие и тихие треки звучат одинаково'.tr,
+          trailing: Switch(
+            value: s.normalizeVolume,
+            onChanged: (v) => set((x) => x.copyWith(normalizeVolume: v)),
+          ),
+        ),
+        _Tile(
+          title: 'Высокое качество звука'.tr,
+          subtitle: 'YouTube в Opus: чище верха и детали, трафик почти тот же. Выключи, если треки начинают играть с задержкой'
+              .tr,
+          trailing: Switch(
+            key: const ValueKey('high-quality'),
+            value: s.highQuality,
+            onChanged: (v) => set((x) => x.copyWith(highQuality: v)),
+          ),
+        ),
+        const _CacheTile(),
+      ],
+      _Cat.look => [
+        const _Preview(),
+        const SizedBox(height: 8),
+        _Section('Цвет акцента'.tr),
+        _Tile(
+          title: 'Брать из обложки'.tr,
+          subtitle: 'Кнопки и прогресс окрашиваются под играющий трек'.tr,
+          trailing: Switch(
+            value: s.accentFromCover,
+            onChanged: (v) => set((x) => x.copyWith(accentFromCover: v)),
+          ),
+        ),
+        AnimatedOpacity(
+          opacity: s.accentFromCover ? 0.35 : 1,
+          duration: SegueMotion.medium,
+          child: IgnorePointer(
+            ignoring: s.accentFromCover,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final c in AppSettings.accents)
+                    PressScale(
+                      onTap: () => set((x) => x.copyWith(accent: c)),
+                      child: AnimatedContainer(
+                        duration: SegueMotion.medium,
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: s.accent == c
+                                ? Colors.white
+                                : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        _Section('Вид плеера'.tr),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: SegmentedButton<PlayerStyle>(
+            segments: [
+              ButtonSegment(
+                value: PlayerStyle.classic,
+                label: Text('Segue'.tr),
+                icon: const Icon(Icons.crop_square_rounded),
+              ),
+              ButtonSegment(
+                value: PlayerStyle.cover,
+                label: Text('Обложка на весь экран'.tr),
+                icon: const Icon(Icons.panorama_rounded),
+              ),
+            ],
+            selected: {s.playerStyle},
+            onSelectionChanged: (v) =>
+                set((x) => x.copyWith(playerStyle: v.first)),
+          ),
+        ),
+        _Section('Фон плеера'.tr),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: SegmentedButton<BackdropStyle>(
+            segments: [
+              ButtonSegment(
+                value: BackdropStyle.living,
+                label: Text('Живой'.tr),
+                icon: Icon(Icons.blur_on_rounded),
+              ),
+              ButtonSegment(
+                value: BackdropStyle.calm,
+                label: Text('Спокойный'.tr),
+                icon: Icon(Icons.water_rounded),
+              ),
+              ButtonSegment(
+                value: BackdropStyle.plain,
+                label: Text('Однотонный'.tr),
+                icon: Icon(Icons.square_rounded),
+              ),
+            ],
+            selected: {s.backdrop},
+            onSelectionChanged: (v) =>
+                set((x) => x.copyWith(backdrop: v.first)),
+          ),
+        ),
+        _Slider(
+          title: 'Скорость движения'.tr,
+          value: s.backdropSpeed,
+          min: 0.2,
+          max: 2.5,
+          label: '×${s.backdropSpeed.toStringAsFixed(1)}',
+          onChanged: (v) => set((x) => x.copyWith(backdropSpeed: v)),
+        ),
+        _Slider(
+          title: 'Яркость цветов'.tr,
+          value: s.backdropIntensity,
+          min: 0.4,
+          max: 1.4,
+          label: '${(s.backdropIntensity * 100).round()}%',
+          onChanged: (v) => set((x) => x.copyWith(backdropIntensity: v)),
+        ),
+        _Section('Шрифт'.tr),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final f in AppSettings.fonts)
+                PressScale(
+                  onTap: () => set((x) => x.copyWith(font: f)),
+                  child: AnimatedContainer(
+                    duration: SegueMotion.medium,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: s.font == f
+                          ? SegueColors.text
+                          : SegueColors.surfaceHigh,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Text(
-                      'Настройки'.tr,
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1.2,
+                      f,
+                      style: GoogleFonts.getFont(
+                        f,
+                        fontWeight: FontWeight.w700,
+                        color: s.font == f ? SegueColors.ink : SegueColors.text,
                       ),
                     ),
                   ),
                 ),
+            ],
+          ),
+        ),
+        _Section('Размеры'.tr),
+        _Slider(
+          title: 'Масштаб интерфейса'.tr,
+          value: s.textScale,
+          min: 0.85,
+          max: 1.25,
+          label: '${(s.textScale * 100).round()}%',
+          onChanged: (v) => set((x) => x.copyWith(textScale: v)),
+        ),
+        _Section('Эффекты'.tr),
+        _Tile(
+          title: 'Волна в прогрессе'.tr,
+          subtitle: 'Полоска колышется во время игры'.tr,
+          trailing: Switch(
+            value: s.wavyProgress,
+            onChanged: (v) => set((x) => x.copyWith(wavyProgress: v)),
+          ),
+        ),
+        _Tile(
+          title: 'Стекло'.tr,
+          subtitle: 'Размытие под мини-плеером'.tr,
+          trailing: Switch(
+            value: s.glass,
+            onChanged: (v) => set((x) => x.copyWith(glass: v)),
+          ),
+        ),
+        if (Platform.isMacOS)
+          _Tile(
+            title: 'Виджет на рабочем столе'.tr,
+            subtitle: 'Карточка с обложкой и кнопками под окнами. Её можно перетащить куда угодно'
+                .tr,
+            trailing: Switch(
+              value: s.desktopWidget,
+              onChanged: (v) => set((x) => x.copyWith(desktopWidget: v)),
+            ),
+          ),
+        if (Platform.isMacOS)
+          _Tile(
+            title: 'Живая чёлка'.tr,
+            subtitle: 'На MacBook с вырезом: что играет — вокруг камеры, наведи мышь для кнопок'
+                .tr,
+            trailing: Switch(
+              value: s.notchIsland,
+              onChanged: (v) => set((x) => x.copyWith(notchIsland: v)),
+            ),
+          ),
+        _Tile(
+          title: 'Меньше анимаций'.tr,
+          subtitle: 'Фон замирает, списки появляются сразу. Бережёт батарею'.tr,
+          trailing: Switch(
+            value: s.reduceMotion,
+            onChanged: (v) => set((x) => x.copyWith(reduceMotion: v)),
+          ),
+        ),
+      ],
+      _Cat.lyrics => [
+        _Slider(
+          title: 'Текст песен'.tr,
+          value: s.lyricsSize,
+          min: 20,
+          max: 38,
+          label: '${s.lyricsSize.round()}',
+          onChanged: (v) => set((x) => x.copyWith(lyricsSize: v)),
+        ),
+        _Section('Анимация текста'.tr),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: LyricsPreview(settings: s),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: SegmentedButton<LyricsStyle>(
+            segments: [
+              ButtonSegment(
+                value: LyricsStyle.sweep,
+                label: Text('Заливка'.tr),
+              ),
+              ButtonSegment(
+                value: LyricsStyle.pop,
+                label: Text('По словам'.tr),
+              ),
+              ButtonSegment(value: LyricsStyle.line, label: Text('Строкой'.tr)),
+            ],
+            selected: {s.lyricsStyle},
+            onSelectionChanged: (v) =>
+                set((x) => x.copyWith(lyricsStyle: v.first)),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: SegmentedButton<LyricsAlign>(
+            segments: [
+              ButtonSegment(
+                value: LyricsAlign.left,
+                label: Text('Слева'.tr),
+                icon: Icon(Icons.format_align_left_rounded),
+              ),
+              ButtonSegment(
+                value: LyricsAlign.center,
+                label: Text('По центру'.tr),
+                icon: Icon(Icons.format_align_center_rounded),
+              ),
+            ],
+            selected: {s.lyricsAlign},
+            onSelectionChanged: (v) =>
+                set((x) => x.copyWith(lyricsAlign: v.first)),
+          ),
+        ),
+        _Slider(
+          title: 'Свечение'.tr,
+          value: s.lyricsGlow,
+          min: 0,
+          max: 1,
+          label: '${(s.lyricsGlow * 100).round()}%',
+          onChanged: (v) => set((x) => x.copyWith(lyricsGlow: v)),
+        ),
+        _Slider(
+          title: 'Сдвиг текста'.tr,
+          value: s.lyricsOffsetMs.toDouble(),
+          min: -1500,
+          max: 1500,
+          label: '{0}{1} с'.trArgs([
+            s.lyricsOffsetMs > 0 ? '+' : '',
+            (s.lyricsOffsetMs / 1000).toStringAsFixed(1),
+          ]),
+          onChanged: (v) =>
+              set((x) => x.copyWith(lyricsOffsetMs: (v / 100).round() * 100)),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(6, 0, 6, 6),
+          child: Text(
+            'Если текст отстаёт от песни — сдвинь вправо, если спешит — влево.'
+                .tr,
+            style: TextStyle(color: SegueColors.textDim, fontSize: 12.5),
+          ),
+        ),
+        _Tile(
+          title: '3D-перспектива'.tr,
+          subtitle:
+              'Обложка и текст развёрнуты к центру, строки уходят вглубь'.tr,
+          trailing: Switch(
+            value: s.depth3d,
+            onChanged: (v) => set((x) => x.copyWith(depth3d: v)),
+          ),
+        ),
+        _Tile(
+          title: 'Перевод текста'.tr,
+          subtitle: 'Под каждой строкой — перевод на язык устройства'.tr,
+          trailing: Switch(
+            value: s.lyricsTranslate,
+            onChanged: (v) => set((x) => x.copyWith(lyricsTranslate: v)),
+          ),
+        ),
+        _Tile(
+          title: 'Подъём слова'.tr,
+          subtitle: 'Слово, которое поётся, слегка приподнимается'.tr,
+          trailing: Switch(
+            value: s.lyricsLift,
+            onChanged: (v) => set((x) => x.copyWith(lyricsLift: v)),
+          ),
+        ),
+      ],
+      _Cat.lights => [const LightsPanel()],
+      _Cat.library => [
+        _Section('Резервная копия'.tr),
+        const _BackupTile(),
+        const _Section('Last.fm'),
+        const _LastFmTile(),
+      ],
+      _Cat.keys => [const _Hotkeys()],
+      _Cat.about => [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+          leading: const Icon(Icons.network_check_rounded),
+          title: Text('Проверка связи и сообщить о проблеме'.tr),
+          subtitle: Text(
+            'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети, и поможет отправить отчёт'
+                .tr,
+            style: const TextStyle(color: SegueColors.textDim),
+          ),
+          onTap: () => showNetCheckSheet(context),
+        ),
+        const _About(),
+      ],
+    };
+    return WideScroll(
+      max: 720,
+      builder: (context, side) => ListView(
+        padding: EdgeInsets.fromLTRB(
+          (wide ? 16 : 16 + side),
+          0,
+          (wide ? 24 : 16 + side),
+          32,
+        ),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(6, wide ? 6 : 0, 6, 8),
+                  child: Text(
+                    cat.title,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.8,
+                    ),
+                  ),
+                ),
+              ),
+              // Back to the default look.
+              if (cat == _Cat.look)
                 TextButton.icon(
                   onPressed: notifier.reset,
                   icon: const Icon(
@@ -85,445 +759,13 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   label: Text(
                     'Сбросить'.tr,
-                    style: TextStyle(color: SegueColors.textDim),
+                    style: const TextStyle(color: SegueColors.textDim),
                   ),
                 ),
-              ],
-            ),
-            // Moved here from the sidebar: devices and bringing music in.
-            _NavTile(
-              icon: Icons.devices_rounded,
-              title: 'Устройства'.tr,
-              subtitle: 'Синхронизация, «Где играть», вход по коду'.tr,
-              onTap: () => Navigator.of(context).push(DevicesScreen.route()),
-            ),
-            const _SharedPrefs(),
-            _NavTile(
-              icon: Icons.link_rounded,
-              title: 'Импорт плейлиста по ссылке'.tr,
-              subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud'.tr,
-              onTap: () async {
-                final id = await showImportDialog(context);
-                if (id != null && context.mounted) {
-                  Navigator.of(context).push(PlaylistScreen.route(id));
-                }
-              },
-            ),
-            _NavTile(
-              icon: Icons.move_down_rounded,
-              title: 'Перенести всю библиотеку'.tr,
-              subtitle: 'Все лайки и плейлисты из Яндекс Музыки или Spotify'.tr,
-              onTap: () => showLibraryImport(context),
-            ),
-            _Section('Язык'.tr),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final e in {
-                    'system': 'Как в системе'.tr,
-                    ...L10n.languages,
-                  }.entries)
-                    ChoiceChip(
-                      label: Text(e.value),
-                      selected: s.language == e.key,
-                      onSelected: (_) =>
-                          set((x) => x.copyWith(language: e.key)),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            const _Preview(),
-            _Section('Звук'.tr),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: const SoundPanel(),
-            ),
-            const SizedBox(height: 8),
-            _Slider(
-              title: 'Сведение треков'.tr,
-              value: s.fadeSeconds,
-              min: 0,
-              max: 16,
-              label: s.fadeSeconds < 0.5
-                  ? 'выкл'.tr
-                  : '{0} с'.trArgs([s.fadeSeconds.round()]),
-              onChanged: (v) =>
-                  set((x) => x.copyWith(fadeSeconds: v.roundToDouble())),
-            ),
-            _Tile(
-              title: 'Подстраивать темп'.tr,
-              subtitle: 'Как у диджея: следующая песня встаёт в темп и на сильную долю текущей, потом плавно возвращается к своему темпу'
-                  .tr,
-              trailing: Switch(
-                value: s.matchTempo,
-                onChanged: s.fadeSeconds < 1
-                    ? null
-                    : (v) => set((x) => x.copyWith(matchTempo: v)),
-              ),
-            ),
-            _Tile(
-              title: 'Пропускать вступления клипов'.tr,
-              subtitle: 'Разговоры в начале и сценки в конце музыкальных видео (по данным SponsorBlock)'
-                  .tr,
-              trailing: Switch(
-                value: s.skipIntros,
-                onChanged: (v) => set((x) => x.copyWith(skipIntros: v)),
-              ),
-            ),
-            _Tile(
-              title: 'Выравнивать громкость'.tr,
-              subtitle: 'Громкие и тихие треки звучат одинаково'.tr,
-              trailing: Switch(
-                value: s.normalizeVolume,
-                onChanged: (v) => set((x) => x.copyWith(normalizeVolume: v)),
-              ),
-            ),
-            const _CacheTile(),
-            _Section('Свет'.tr),
-            const LightsPanel(),
-            _Section('Цвет акцента'.tr),
-            _Tile(
-              title: 'Брать из обложки'.tr,
-              subtitle: 'Кнопки и прогресс окрашиваются под играющий трек'.tr,
-              trailing: Switch(
-                value: s.accentFromCover,
-                onChanged: (v) => set((x) => x.copyWith(accentFromCover: v)),
-              ),
-            ),
-            AnimatedOpacity(
-              opacity: s.accentFromCover ? 0.35 : 1,
-              duration: SegueMotion.medium,
-              child: IgnorePointer(
-                ignoring: s.accentFromCover,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      for (final c in AppSettings.accents)
-                        PressScale(
-                          onTap: () => set((x) => x.copyWith(accent: c)),
-                          child: AnimatedContainer(
-                            duration: SegueMotion.medium,
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: c,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: s.accent == c
-                                    ? Colors.white
-                                    : Colors.transparent,
-                                width: 3,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            _Section('Вид плеера'.tr),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: SegmentedButton<PlayerStyle>(
-                segments: [
-                  ButtonSegment(
-                    value: PlayerStyle.classic,
-                    label: Text('Segue'.tr),
-                    icon: const Icon(Icons.crop_square_rounded),
-                  ),
-                  ButtonSegment(
-                    value: PlayerStyle.cover,
-                    label: Text('Обложка на весь экран'.tr),
-                    icon: const Icon(Icons.panorama_rounded),
-                  ),
-                ],
-                selected: {s.playerStyle},
-                onSelectionChanged: (v) =>
-                    set((x) => x.copyWith(playerStyle: v.first)),
-              ),
-            ),
-            _Section('Фон плеера'.tr),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: SegmentedButton<BackdropStyle>(
-                segments: [
-                  ButtonSegment(
-                    value: BackdropStyle.living,
-                    label: Text('Живой'.tr),
-                    icon: Icon(Icons.blur_on_rounded),
-                  ),
-                  ButtonSegment(
-                    value: BackdropStyle.calm,
-                    label: Text('Спокойный'.tr),
-                    icon: Icon(Icons.water_rounded),
-                  ),
-                  ButtonSegment(
-                    value: BackdropStyle.plain,
-                    label: Text('Однотонный'.tr),
-                    icon: Icon(Icons.square_rounded),
-                  ),
-                ],
-                selected: {s.backdrop},
-                onSelectionChanged: (v) =>
-                    set((x) => x.copyWith(backdrop: v.first)),
-              ),
-            ),
-            _Slider(
-              title: 'Скорость движения'.tr,
-              value: s.backdropSpeed,
-              min: 0.2,
-              max: 2.5,
-              label: '×${s.backdropSpeed.toStringAsFixed(1)}',
-              onChanged: (v) => set((x) => x.copyWith(backdropSpeed: v)),
-            ),
-            _Slider(
-              title: 'Яркость цветов'.tr,
-              value: s.backdropIntensity,
-              min: 0.4,
-              max: 1.4,
-              label: '${(s.backdropIntensity * 100).round()}%',
-              onChanged: (v) => set((x) => x.copyWith(backdropIntensity: v)),
-            ),
-            _Section('Шрифт'.tr),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final f in AppSettings.fonts)
-                    PressScale(
-                      onTap: () => set((x) => x.copyWith(font: f)),
-                      child: AnimatedContainer(
-                        duration: SegueMotion.medium,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: s.font == f
-                              ? SegueColors.text
-                              : SegueColors.surfaceHigh,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          f,
-                          style: GoogleFonts.getFont(
-                            f,
-                            fontWeight: FontWeight.w700,
-                            color: s.font == f
-                                ? SegueColors.ink
-                                : SegueColors.text,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            _Section('Размеры'.tr),
-            _Slider(
-              title: 'Масштаб интерфейса'.tr,
-              value: s.textScale,
-              min: 0.85,
-              max: 1.25,
-              label: '${(s.textScale * 100).round()}%',
-              onChanged: (v) => set((x) => x.copyWith(textScale: v)),
-            ),
-            _Slider(
-              title: 'Текст песен'.tr,
-              value: s.lyricsSize,
-              min: 20,
-              max: 38,
-              label: '${s.lyricsSize.round()}',
-              onChanged: (v) => set((x) => x.copyWith(lyricsSize: v)),
-            ),
-            _Section('Анимация текста'.tr),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: LyricsPreview(settings: s),
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: SegmentedButton<LyricsStyle>(
-                segments: [
-                  ButtonSegment(
-                    value: LyricsStyle.sweep,
-                    label: Text('Заливка'.tr),
-                  ),
-                  ButtonSegment(
-                    value: LyricsStyle.pop,
-                    label: Text('По словам'.tr),
-                  ),
-                  ButtonSegment(
-                    value: LyricsStyle.line,
-                    label: Text('Строкой'.tr),
-                  ),
-                ],
-                selected: {s.lyricsStyle},
-                onSelectionChanged: (v) =>
-                    set((x) => x.copyWith(lyricsStyle: v.first)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: SegmentedButton<LyricsAlign>(
-                segments: [
-                  ButtonSegment(
-                    value: LyricsAlign.left,
-                    label: Text('Слева'.tr),
-                    icon: Icon(Icons.format_align_left_rounded),
-                  ),
-                  ButtonSegment(
-                    value: LyricsAlign.center,
-                    label: Text('По центру'.tr),
-                    icon: Icon(Icons.format_align_center_rounded),
-                  ),
-                ],
-                selected: {s.lyricsAlign},
-                onSelectionChanged: (v) =>
-                    set((x) => x.copyWith(lyricsAlign: v.first)),
-              ),
-            ),
-            _Slider(
-              title: 'Свечение'.tr,
-              value: s.lyricsGlow,
-              min: 0,
-              max: 1,
-              label: '${(s.lyricsGlow * 100).round()}%',
-              onChanged: (v) => set((x) => x.copyWith(lyricsGlow: v)),
-            ),
-            _Slider(
-              title: 'Сдвиг текста'.tr,
-              value: s.lyricsOffsetMs.toDouble(),
-              min: -1500,
-              max: 1500,
-              label: '{0}{1} с'.trArgs([
-                s.lyricsOffsetMs > 0 ? '+' : '',
-                (s.lyricsOffsetMs / 1000).toStringAsFixed(1),
-              ]),
-              onChanged: (v) => set(
-                (x) => x.copyWith(lyricsOffsetMs: (v / 100).round() * 100),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(6, 0, 6, 6),
-              child: Text(
-                'Если текст отстаёт от песни — сдвинь вправо, если спешит — влево.'
-                    .tr,
-                style: TextStyle(color: SegueColors.textDim, fontSize: 12.5),
-              ),
-            ),
-            _Tile(
-              title: '3D-перспектива'.tr,
-              subtitle:
-                  'Обложка и текст развёрнуты к центру, строки уходят вглубь'
-                      .tr,
-              trailing: Switch(
-                value: s.depth3d,
-                onChanged: (v) => set((x) => x.copyWith(depth3d: v)),
-              ),
-            ),
-            _Tile(
-              title: 'Перевод текста'.tr,
-              subtitle: 'Под каждой строкой — перевод на язык устройства'.tr,
-              trailing: Switch(
-                value: s.lyricsTranslate,
-                onChanged: (v) => set((x) => x.copyWith(lyricsTranslate: v)),
-              ),
-            ),
-            _Tile(
-              title: 'Подъём слова'.tr,
-              subtitle: 'Слово, которое поётся, слегка приподнимается'.tr,
-              trailing: Switch(
-                value: s.lyricsLift,
-                onChanged: (v) => set((x) => x.copyWith(lyricsLift: v)),
-              ),
-            ),
-            _Section('Эффекты'.tr),
-            _Tile(
-              title: 'Волна в прогрессе'.tr,
-              subtitle: 'Полоска колышется во время игры'.tr,
-              trailing: Switch(
-                value: s.wavyProgress,
-                onChanged: (v) => set((x) => x.copyWith(wavyProgress: v)),
-              ),
-            ),
-            _Tile(
-              title: 'Стекло'.tr,
-              subtitle: 'Размытие под мини-плеером'.tr,
-              trailing: Switch(
-                value: s.glass,
-                onChanged: (v) => set((x) => x.copyWith(glass: v)),
-              ),
-            ),
-            if (Platform.isMacOS)
-              _Tile(
-                title: 'Виджет на рабочем столе'.tr,
-                subtitle: 'Карточка с обложкой и кнопками под окнами. Её можно перетащить куда угодно'
-                    .tr,
-                trailing: Switch(
-                  value: s.desktopWidget,
-                  onChanged: (v) => set((x) => x.copyWith(desktopWidget: v)),
-                ),
-              ),
-            if (Platform.isMacOS)
-              _Tile(
-                title: 'Живая чёлка'.tr,
-                subtitle: 'На MacBook с вырезом: что играет — вокруг камеры, наведи мышь для кнопок'
-                    .tr,
-                trailing: Switch(
-                  value: s.notchIsland,
-                  onChanged: (v) => set((x) => x.copyWith(notchIsland: v)),
-                ),
-              ),
-            _Tile(
-              title: 'Меньше анимаций'.tr,
-              subtitle:
-                  'Фон замирает, списки появляются сразу. Бережёт батарею'.tr,
-              trailing: Switch(
-                value: s.reduceMotion,
-                onChanged: (v) => set((x) => x.copyWith(reduceMotion: v)),
-              ),
-            ),
-            _Section('Резервная копия'.tr),
-            const _BackupTile(),
-            const _Section('Last.fm'),
-            const _LastFmTile(),
-            _Section('Горячие клавиши'.tr),
-            const _Hotkeys(),
-            _Section('О приложении'.tr),
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 6),
-              leading: const Icon(Icons.network_check_rounded),
-              title: Text('Проверка связи и сообщить о проблеме'.tr),
-              subtitle: Text(
-                'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети, и поможет отправить отчёт'
-                    .tr,
-                style: const TextStyle(color: SegueColors.textDim),
-              ),
-              onTap: () => showNetCheckSheet(context),
-            ),
-            const _About(),
-          ],
-        ),
+            ],
+          ),
+          ...items,
+        ],
       ),
     );
   }

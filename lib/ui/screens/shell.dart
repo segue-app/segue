@@ -47,6 +47,8 @@ import 'package:segue/core/l10n/l10n.dart';
 
 import '../../core/share/track_link.dart';
 import '../../core/sources/stand_in.dart';
+import '../../core/sources/sources.dart';
+import '../../core/sources/youtube_source.dart';
 import '../../core/models/track.dart';
 import '../../core/sync/shared_playlists.dart';
 
@@ -117,6 +119,8 @@ class _ShellState extends ConsumerState<Shell> {
         ..skipIntros = s.skipIntros
         ..matchTempo = s.matchTempo
         ..setNormalize(s.normalizeVolume);
+      final yt = ref.read(sourcesProvider)[SourceKind.youtube];
+      if (yt is YouTubeSource) yt.highQuality = s.highQuality;
       ref.read(audioCacheProvider).enabled = s.offlineCache;
     }, fireImmediately: true);
     HardwareKeyboard.instance.addHandler(_onKey);

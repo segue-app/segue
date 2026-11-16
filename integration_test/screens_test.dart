@@ -43,6 +43,8 @@ import 'package:segue/ui/screens/now_playing_screen.dart';
 import 'package:segue/ui/screens/cover_player.dart';
 import 'package:segue/ui/widgets/volume_slider.dart';
 import 'package:segue/ui/widgets/h_scroll.dart';
+import 'package:segue/core/downloads/audio_cache.dart';
+import 'package:segue/ui/screens/settings_screen.dart';
 import 'package:flutter/gestures.dart';
 import 'package:segue/ui/widgets/track_actions.dart';
 import 'package:segue/ui/widgets/track_tile.dart';
@@ -182,6 +184,14 @@ void main() {
             ),
           ),
           downloadsProvider.overrideWithValue(downloads),
+          audioCacheProvider.overrideWithValue(
+            AudioCache(
+              library: library,
+              downloads: downloads,
+              sources: sources,
+              directory: Directory.systemTemp.createTempSync('segue_cache'),
+            )..enabled = false,
+          ),
           sharedPlaylistsProvider.overrideWithValue(
             SharedPlaylists(library: library, deviceName: () => 'Mac'),
           ),
@@ -339,10 +349,19 @@ void main() {
     await tester.tap(find.text('Настройки').first);
     await settle(tester, 2);
     await shot(tester, '06g_settings');
+    // Categories: each opens its own settings beside the list.
+    await tester.tap(find.text('Звук и воспроизведение'));
+    await settle(tester, 1);
+    expect(find.text('Высокое качество звука'), findsOneWidget);
+    await shot(tester, '06g1_settings_sound');
+    await tester.tap(find.text('Внешний вид'));
+    await settle(tester, 1);
+    await shot(tester, '06g2_settings_look');
     // Tapping the same menu item again must not stack another page.
     await tester.tap(find.text('Настройки').first);
     await settle(tester, 1);
     expect(find.text('Сбросить'), findsOneWidget);
+    expect(find.byType(SettingsScreen), findsOneWidget);
 
     // Home must show Home even after visiting other sections.
     await tester.tap(find.text('Главная').first);
@@ -359,7 +378,12 @@ void main() {
     await shot(tester, '06h0_lyrics_opening');
     await settle(tester, 4);
     await shot(tester, '06h_desktop_lyrics');
-    await tester.tap(find.byIcon(Icons.equalizer_rounded).last);
+    // The few top buttons; the rest is in "⋯".
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
+    await settle(tester, 1);
+    await shot(tester, '06h1_desktop_more');
+    expect(find.text('Диджей'), findsOneWidget);
+    await tester.tap(find.text('Звук').last);
     await settle(tester, 1);
     if (find.text('Бас').evaluate().isEmpty) {
       final texts = find
@@ -394,8 +418,24 @@ void main() {
     expect((pop.center.dx - icon.center.dx).abs(), lessThan(4));
     expect(pop.bottom, lessThan(icon.top));
     expect(icon.top - pop.bottom, lessThan(40));
+    // Changing the volume on the popup keeps it open while the mouse is
+    // still on it.
+    final slider = find.descendant(
+      of: find.byType(RotatedBox).last,
+      matching: find.byType(Slider),
+    );
+    final sliderRect = tester.getRect(slider);
+    await mouse.moveTo(sliderRect.center);
+    await settle(tester, 0.3);
+    await mouse.down(sliderRect.center);
+    await mouse.moveBy(const Offset(0, -20));
+    await tester.pump(const Duration(milliseconds: 50));
+    await mouse.up();
+    await settle(tester, 1);
+    expect(find.byType(RotatedBox), findsOneWidget);
+    // Gone as soon as the pointer leaves, as in Yandex Music.
     await mouse.moveTo(Offset.zero);
-    await settle(tester, 2);
+    await settle(tester, 0.3);
     expect(find.byType(RotatedBox), findsNothing);
     await mouse.removePointer();
     await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));

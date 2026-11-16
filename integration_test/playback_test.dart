@@ -22,13 +22,17 @@ import 'package:segue/core/sources/sponsorblock.dart';
 import 'package:segue/core/catalog/deezer.dart';
 import 'package:segue/core/catalog/wave.dart';
 
+/// --dart-define=HQ=true plays Opus instead of AAC.
+YouTubeSource _yt() =>
+    YouTubeSource()..highQuality = const bool.fromEnvironment('HQ');
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('tracks play, seek and take effects', (tester) async {
     MediaKit.ensureInitialized();
     final sources = <SourceKind, MusicSource>{
-      SourceKind.youtube: YouTubeSource(),
+      SourceKind.youtube: _yt(),
       SourceKind.soundcloud: SoundCloudSource(),
     };
     final player = SegueAudioHandler(sources);
@@ -83,7 +87,7 @@ void main() {
 
   testWidgets('switching tracks is fast', (tester) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     await player.setVolume(0); // silent
     final tracks = await yt.search('miyagi andy panda', limit: 4);
@@ -121,7 +125,7 @@ void main() {
     tester,
   ) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     await player.setVolume(0); // silent
     final tracks = await yt.search('zivert life', limit: 3);
@@ -166,7 +170,7 @@ void main() {
 
   testWidgets('gapless: the next song follows with no reload', (tester) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     await player.setVolume(0);
     final tracks = await yt.search('miyagi andy panda', limit: 3);
@@ -203,7 +207,7 @@ void main() {
 
   testWidgets('loudness: loud songs are turned down', (tester) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     double? seen;
     player.saveLoudness = (_, db) => seen = db;
@@ -235,7 +239,7 @@ void main() {
     tester,
   ) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final sources = <SourceKind, MusicSource>{SourceKind.youtube: yt};
     final library = LibraryStore.memory();
     final tmp = Directory.systemTemp.createTempSync('cache_test');
@@ -280,7 +284,7 @@ void main() {
     tester,
   ) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final match = MatchSource(yt);
     final player = SegueAudioHandler({
       SourceKind.youtube: yt,
@@ -324,7 +328,7 @@ void main() {
 
   testWidgets('tapping the playing song pauses and resumes it', (tester) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     await player.setVolume(0);
     final list = await yt.search('zivert life audio', limit: 2);
@@ -351,7 +355,7 @@ void main() {
 
   testWidgets('one-tap radios: a genre and a mood', (tester) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final match = MatchSource(yt);
     final player = SegueAudioHandler({
       SourceKind.youtube: yt,
@@ -378,7 +382,7 @@ void main() {
 
   testWidgets('trimmed track starts and ends at its trim', (tester) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     await player.setVolume(0); // silent
     final tracks = await yt.search('miyagi kosandra', limit: 2);
@@ -407,7 +411,7 @@ void main() {
     tester,
   ) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     await player.setVolume(0); // silent
     final sb = SponsorBlock();
@@ -496,7 +500,7 @@ void main() {
     tester,
   ) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     await player.setVolume(0); // silent
     final sb = SponsorBlock();
@@ -554,7 +558,7 @@ void main() {
 
   testWidgets('DJ mix lines up the beats of the two songs', (tester) async {
     MediaKit.ensureInitialized();
-    final yt = YouTubeSource();
+    final yt = _yt();
     final player = SegueAudioHandler({SourceKind.youtube: yt});
     await player.setVolume(0); // silent
     player

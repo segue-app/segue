@@ -54,6 +54,7 @@ class AppSettings {
     this.notchIsland = true,
     this.skipIntros = true,
     this.normalizeVolume = true,
+    this.highQuality = true,
     this.offlineCache = true,
     this.matchTempo = true,
     this.desktopWidget = false,
@@ -114,6 +115,10 @@ class AppSettings {
   /// Even out loudness between tracks.
   final bool normalizeVolume;
 
+  /// YouTube in Opus (~130–160 kbps, sounds like AAC ~180) instead of
+  /// AAC 128. About the same traffic.
+  final bool highQuality;
+
   /// Keep recently played tracks on the device: instant start, offline.
   final bool offlineCache;
 
@@ -168,6 +173,7 @@ class AppSettings {
     bool? notchIsland,
     bool? skipIntros,
     bool? normalizeVolume,
+    bool? highQuality,
     bool? offlineCache,
     bool? matchTempo,
     bool? desktopWidget,
@@ -197,6 +203,7 @@ class AppSettings {
     notchIsland: notchIsland ?? this.notchIsland,
     skipIntros: skipIntros ?? this.skipIntros,
     normalizeVolume: normalizeVolume ?? this.normalizeVolume,
+    highQuality: highQuality ?? this.highQuality,
     offlineCache: offlineCache ?? this.offlineCache,
     matchTempo: matchTempo ?? this.matchTempo,
     desktopWidget: desktopWidget ?? this.desktopWidget,
@@ -228,6 +235,7 @@ class AppSettings {
     'notchIsland': notchIsland,
     'skipIntros': skipIntros,
     'normalizeVolume': normalizeVolume,
+    'highQuality': highQuality,
     'offlineCache': offlineCache,
     'matchTempo': matchTempo,
     'desktopWidget': desktopWidget,
@@ -268,6 +276,7 @@ class AppSettings {
       notchIsland: pick('notchIsland', d.notchIsland),
       skipIntros: pick('skipIntros', d.skipIntros),
       normalizeVolume: pick('normalizeVolume', d.normalizeVolume),
+      highQuality: pick('highQuality', d.highQuality),
       offlineCache: pick('offlineCache', d.offlineCache),
       matchTempo: pick('matchTempo', d.matchTempo),
       desktopWidget: pick('desktopWidget', d.desktopWidget),
