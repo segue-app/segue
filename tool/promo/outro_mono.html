@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<style>
+  /* One colour: white on near-black, for the computer video (3840 × 2160). */
+  @font-face { font-family: Manrope; font-weight: 800; src: url(../../assets/google_fonts/Manrope-ExtraBold.ttf); }
+  @font-face { font-family: Manrope; font-weight: 600; src: url(../../assets/google_fonts/Manrope-SemiBold.ttf); }
+  html, body { margin: 0; width: 3840px; height: 2160px; overflow: hidden; }
+  body {
+    background: radial-gradient(60% 70% at 50% 45%, #1b1b1f, #0b0b0d 70%);
+    color: #f4f1ec;
+    font-family: Manrope, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .row { display: flex; align-items: center; gap: 70px; }
+  .mark { width: 640px; height: 640px; margin: -120px -110px -120px -170px;
+    filter: brightness(0) invert(1); opacity: .96; }
+  .name { font-size: 400px; font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
+  .sub { margin-top: 70px; font-size: 104px; font-weight: 600; color: #9a979f; }
+  .pill { margin-top: 110px; padding: 40px 90px; border-radius: 999px;
+    border: 3px solid rgba(244, 241, 236, .22);
+    font-size: 76px; font-weight: 600; color: rgba(244, 241, 236, .8); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <img class="mark" src="../../assets/brand/segue_mark.svg" alt="">
+    <div class="name">segue</div>
+  </div>
+  <div class="sub">Бесплатный музыкальный плеер для телефона и компьютера</div>
+  <div class="pill">Без рекламы · без подписки · открытый код</div>
+</body>
+</html>

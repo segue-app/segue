@@ -8,6 +8,8 @@
 //        --dart-define=PROMO_ID=<youtube id> --dart-define=PROMO_END_MS=…
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -186,34 +188,53 @@ void main() {
         .update(
           (s) => s.copyWith(language: 'ru', playerStyle: PlayerStyle.classic),
         );
-    NowPlayingScreen.debugDesktop = false; // the phone's controls
+    // A computer (16:9) or a phone (9:16) screen.
+    const desktop = bool.fromEnvironment('PROMO_DESKTOP');
+    const fps = int.fromEnvironment('PROMO_FPS', defaultValue: 30);
+    // Real time spent on each frame; animations are slowed to match.
+    const slotMs = int.fromEnvironment('PROMO_SLOT_MS', defaultValue: 200);
+    // A port where ffmpeg listens for raw frames (4K would not fit on disk
+    // as pictures); 0: PNG files in the temp folder.
+    const sinkPort = int.fromEnvironment('PROMO_SINK_PORT');
+    NowPlayingScreen.debugDesktop = desktop ? null : false;
     // Keeps animating if this window goes behind another one meanwhile.
     AppVisibility.debugAlwaysActive = true;
     AppVisibility.visibleNotifier.value = true;
-    // A phone screen, 9:16, drawn at 1080 × 1920.
-    tester.view.physicalSize = const Size(1080, 1920);
-    tester.view.devicePixelRatio = 2.7;
+    // 3840 × 2160 or 1080 × 1920.
+    const ratio = desktop ? 2.0 : 2.7;
+    tester.view.physicalSize = desktop
+        ? const Size(3840, 2160)
+        : const Size(1080, 1920);
+    tester.view.devicePixelRatio = ratio;
     await settle(tester, 2);
 
     // Loaded (title, cover, length) but silent and still: the picture
     // runs on the clock below, not on playback.
     await handler.playList([track], 0);
     await handler.debugSetProperty('mute', 'yes');
+    // A normal volume on screen (the shared setup started at 0, which
+    // shows a crossed-out speaker); mpv stays muted.
+    await handler.setVolume(0.8);
+    await handler.debugSetProperty('mute', 'yes');
     await handler.positionStream
         .firstWhere((p) => p > Duration.zero)
         .timeout(const Duration(seconds: 60));
     await handler.pause();
     clock.add(Duration(milliseconds: fromMs - 3000));
-    await tester.tap(find.byType(PressScale).last); // the mini player
-    await tester.tap(find.byType(Hero).first, warnIfMissed: false);
+    if (desktop) {
+      await tester.tap(find.byIcon(Icons.open_in_full_rounded));
+    } else {
+      await tester.tap(find.byType(PressScale).last); // the mini player
+      await tester.tap(find.byType(Hero).first, warnIfMissed: false);
+    }
     await settle(tester, 2);
     await tester.tap(find.byIcon(Icons.lyrics_rounded).last);
     await settle(tester, 4);
 
     // Every animation runs [slow] times slower and each frame takes
-    // [slow] × 1/30 s to draw: in the video it all moves at true speed.
-    const slow = 6.0;
-    const frameMs = 1000 / 30;
+    // [slotMs] to draw: in the video it all moves at true speed.
+    const frameMs = 1000 / fps;
+    const slow = slotMs / frameMs;
     timeDilation = slow;
     final settings = container.read(settingsProvider);
     container
@@ -225,14 +246,15 @@ void main() {
     for (var t = fromMs - 3000.0; t < fromMs; t += frameMs) {
       clock.add(Duration(milliseconds: t.round()));
       await tester.pump();
-      await Future<void>.delayed(
-        Duration(milliseconds: (frameMs * slow).round()),
-      );
+      await Future<void>.delayed(const Duration(milliseconds: slotMs));
     }
 
     final out = Directory('${Directory.systemTemp.path}/segue_promo');
     if (out.existsSync()) out.deleteSync(recursive: true);
     out.createSync(recursive: true);
+    final sink = sinkPort == 0
+        ? null
+        : await Socket.connect(InternetAddress.loopbackIPv4, sinkPort);
     final ro =
         boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final writes = <Future<void>>[];
@@ -242,16 +264,30 @@ void main() {
       final started = sw.elapsedMilliseconds;
       clock.add(Duration(milliseconds: t.round()));
       await tester.pump();
-      final image = await ro.toImage(pixelRatio: 2.7);
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      image.dispose();
-      writes.add(
-        File('${out.path}/f${n.toString().padLeft(5, '0')}.png')
-            .writeAsBytes(bytes!.buffer.asUint8List()),
-      );
+      final image = await ro.toImage(pixelRatio: ratio);
+      if (sink != null) {
+        final bytes = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        image.dispose();
+        // In 1 MB pieces: 33 MB at once overflows the socket's buffer.
+        final all = bytes!.buffer.asUint8List();
+        for (var o = 0; o < all.length; o += 1 << 20) {
+          sink.add(
+            Uint8List.sublistView(all, o, min(o + (1 << 20), all.length)),
+          );
+          await sink.flush();
+        }
+      } else {
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        image.dispose();
+        writes.add(
+          File('${out.path}/f${n.toString().padLeft(5, '0')}.png')
+              .writeAsBytes(bytes!.buffer.asUint8List()),
+        );
+      }
       n++;
-      final left =
-          (frameMs * slow).round() - (sw.elapsedMilliseconds - started);
+      final left = slotMs - (sw.elapsedMilliseconds - started);
       if (left > 0) {
         await Future<void>.delayed(Duration(milliseconds: left));
       } else {
@@ -259,11 +295,12 @@ void main() {
       }
     }
     await Future.wait(writes);
+    await sink?.close();
     timeDilation = 1;
     // The song itself, the same recording, for the soundtrack.
     final audio = await downloads.fetchTo(track, out);
     // ignore: avoid_print
     print('PROMO $n frames (late $late) -> ${out.path}, audio ${audio.path}');
     await handler.stop();
-  }, timeout: const Timeout(Duration(minutes: 10)));
+  }, timeout: const Timeout(Duration(minutes: 90)));
 }
