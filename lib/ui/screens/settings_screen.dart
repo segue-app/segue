@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../widgets/net_check_sheet.dart';
+import '../widgets/support_sheet.dart';
 import '../widgets/content_width.dart';
 
 import 'package:flutter/material.dart';
@@ -730,10 +731,7 @@ class _CatBody extends ConsumerWidget {
                 .tr,
             style: const TextStyle(color: SegueColors.textDim),
           ),
-          onTap: () => launchUrl(
-            Uri.parse('https://segue-app.github.io/segue/donate/'),
-            mode: LaunchMode.externalApplication,
-          ),
+          onTap: () => showSupportSheet(context),
         ),
         const _About(),
       ],

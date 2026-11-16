@@ -576,6 +576,15 @@ const en = <String, String>{
   'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети, и поможет отправить отчёт': 'If songs won\'t play or import fails: shows what your network can\'t reach and helps send a report',
   'Сообщить о проблеме': 'Report a problem',
   'Поддержать автора': 'Support the author',
+  'Поддержать Segue': 'Support Segue',
+  'Segue бесплатный, без рекламы и подписок. Если он тебе нравится, можно поддержать автора — это помогает делать его дальше.': 'Segue is free, with no ads and no subscriptions. If you like it, you can support its author — it helps keep it going.',
+  'Кыргызстан: сделай снимок экрана и открой его в приложении банка (QR из галереи)': 'Kyrgyzstan: take a screenshot and open it in your bank app (QR from gallery)',
+  'Кыргызстан: отсканируй телефоном в приложении банка (ELQR)':
+      'Kyrgyzstan: scan with your bank app on a phone (ELQR)',
+  'Поддержать на Boosty (из любой страны)': 'Support on Boosty (from anywhere)',
+  'Поставить звезду на GitHub': 'Star on GitHub',
+  'Спасибо! Даже звезда на GitHub помогает другим найти Segue.':
+      'Thank you! Even a GitHub star helps others find Segue.',
   'Segue бесплатный и без рекламы: если он нравится, можно помочь делать его дальше': 'Segue is free and has no ads: if you like it, you can help keep it going',
   'Альбомы': 'Albums',
   'Здесь будут твои альбомы': 'Your albums will be here',

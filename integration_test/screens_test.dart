@@ -365,6 +365,16 @@ void main() {
     await settle(tester, 1);
     expect(find.text('Сбросить'), findsOneWidget);
     expect(find.byType(SettingsScreen), findsOneWidget);
+    // Support the author: the bank codes and Boosty, inside the app.
+    await tester.tap(find.text('О приложении'));
+    await settle(tester, 1);
+    await tester.tap(find.text('Поддержать автора'));
+    await settle(tester, 2);
+    expect(find.byKey(const ValueKey('support-boosty')), findsOneWidget);
+    expect(find.text('Mbank'), findsOneWidget);
+    await shot(tester, '06g3_support');
+    await tester.tapAt(const Offset(10, 10));
+    await settle(tester, 1);
 
     // Home must show Home even after visiting other sections.
     await tester.tap(find.text('Главная').first);
