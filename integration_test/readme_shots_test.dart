@@ -39,6 +39,8 @@ import 'package:segue/core/sync/jam.dart';
 import 'package:segue/core/sync/relay.dart';
 import 'package:segue/core/sync/sync.dart';
 import 'package:segue/core/sync/sync_service.dart';
+import 'package:segue/core/lyrics/lyrics.dart';
+import 'package:segue/ui/screens/now_playing_screen.dart';
 import 'package:segue/main.dart';
 import 'package:segue/ui/widgets/motion.dart';
 import 'package:segue/core/sync/shared_playlists.dart';
@@ -79,13 +81,9 @@ void main() {
     final soundcloud = SoundCloudSource();
     final youtube = YouTubeSource();
     final match = MatchSource(youtube);
-    final matches =
-        jsonDecode(library.getMeta('matches2') ?? '{}') as Map<String, dynamic>;
     match.recall = (key) {
-      final j = matches[key];
-      return j == null
-          ? null
-          : Track.fromJson((j as Map).cast<String, dynamic>());
+      final j = library.kvGet('match', key);
+      return j is Map ? Track.fromJson(j.cast<String, dynamic>()) : null;
     };
     final Map<SourceKind, MusicSource> sources = {
       SourceKind.soundcloud: soundcloud,
@@ -161,6 +159,9 @@ void main() {
             ),
           ),
           importerProvider.overrideWithValue(PlaylistImporter()),
+          // Words written for these pictures: a real song's lyrics don't
+          // belong in the README.
+          lyricsProvider.overrideWith((ref, track) async => _lyrics),
         ],
         child: RepaintBoundary(key: boundary, child: const SegueApp()),
       ),
@@ -215,6 +216,20 @@ void main() {
       await shot(tester, '$lang/phone-lyrics', 1.5);
       await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
       await settle(tester, 2);
+      // The other look: the cover over the whole screen.
+      container
+          .read(settingsProvider.notifier)
+          .update((s) => s.copyWith(playerStyle: PlayerStyle.cover));
+      await tester.tap(find.byType(PressScale).last);
+      await tester.tap(find.byType(Hero).first, warnIfMissed: false);
+      await settle(tester, 4);
+      await shot(tester, '$lang/phone-cover', 1.5);
+      Navigator.of(tester.element(find.byType(NowPlayingScreen))).pop();
+      await settle(tester, 2);
+      container
+          .read(settingsProvider.notifier)
+          .update((s) => s.copyWith(playerStyle: PlayerStyle.classic));
+      await settle(tester, 1);
     }
 
     await desktop('en');
@@ -226,3 +241,29 @@ void main() {
     binding.reportData = shots;
   }, timeout: const Timeout(Duration(minutes: 8)));
 }
+
+/// Made-up words, timed every few seconds from the start.
+final _lyrics = Lyrics.parseLrc(
+  [
+        'Morning comes in colours on the wall',
+        'Every song we loved is in this room',
+        'Turn the record over, let it fall',
+        'Into the quiet after the tune',
+        'We were dancing slowly in the hall',
+        'Counting every heartbeat on the drum',
+        'Hold the chorus, never let it stall',
+        'There is always one more song to come',
+        'Lights are low and voices start to call',
+        'Pick the next one, put your hands up high',
+        'Every verse remembers you at all',
+        'Play it loud and let the night go by',
+        'Morning comes in colours on the wall',
+        'Every song we loved is in this room',
+      ].indexed
+      .map((e) {
+        final s = 30 + e.$1 * 4;
+        return '[${(s ~/ 60).toString().padLeft(2, '0')}:'
+            '${(s % 60).toString().padLeft(2, '0')}.00]${e.$2}';
+      })
+      .join('\n'),
+);

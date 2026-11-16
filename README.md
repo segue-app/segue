@@ -53,7 +53,8 @@
 ## Why Segue
 
 - **Everything in one place.** One search across YouTube and SoundCloud, and
-  your playlists and likes from Spotify and Yandex Music.
+  your playlists and likes from Spotify and Yandex Music. A song YouTube
+  won't play here comes from SoundCloud instead.
 - **Yours, not a service's.** No account, no subscription, no Segue server.
   Your library is a file on your device.
 - **All your devices as one player.** Start on the laptop, continue on the
@@ -65,7 +66,8 @@
   on the car screen, with voice search.
 - **In your language.** English and Russian, switched in Settings.
 - **Light.** About 0.3% CPU when paused and no drawing at all while its window is
-  hidden (measured on an Apple Silicon MacBook).
+  hidden (measured on an Apple Silicon MacBook). On a phone with no other
+  devices paired, sync sleeps and keeps no connection open.
 
 ## Download
 
@@ -89,9 +91,10 @@ iOS has no prebuilt app (it needs Apple signing); you can
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/en/phone-home.jpg" width="32%" alt="Home on a phone">
-  <img src="docs/screenshots/en/phone-player.jpg" width="32%" alt="Now playing on a phone">
-  <img src="docs/screenshots/en/phone-lyrics.jpg" width="32%" alt="Synced lyrics on a phone">
+  <img src="docs/screenshots/en/phone-home.jpg" width="24%" alt="Home on a phone">
+  <img src="docs/screenshots/en/phone-player.jpg" width="24%" alt="Now playing on a phone">
+  <img src="docs/screenshots/en/phone-cover.jpg" width="24%" alt="The full-screen cover look of the player">
+  <img src="docs/screenshots/en/phone-lyrics.jpg" width="24%" alt="Synced lyrics on a phone">
 </p>
 
 ## All features
@@ -99,8 +102,13 @@ iOS has no prebuilt app (it needs Apple signing); you can
 <details open>
 <summary><b>Listen</b></summary>
 
-- **One search** across YouTube and SoundCloud, with source filters
-- Artist and album pages, charts by genre, similar artists
+- **One search** across YouTube and SoundCloud, with source filters. An
+  empty search shows what you searched and opened before
+- Artist and album pages, charts by genre, similar artists, and
+  **collections** for a workout, an evening, the road, studying, sleep…
+- **Your library**: liked songs, playlists, **albums** (♥ on an album
+  page), downloads, your own files and a **listening history** by day,
+  with search inside every list
 - **My wave**: an endless mix that learns from you. Songs you play to the
   end bring more of that artist, songs you skip bring less, and 👎 removes
   a song for good. Tune it by activity, mood, character and language
@@ -116,6 +124,10 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - Your own music folders
 - **Share a song** as a short link: it opens in Segue, or on a web page
   with the cover and a YouTube player for anyone without the app
+- **When a service is blocked** on your network: a song YouTube won't play
+  comes from SoundCloud, search falls back to public YouTube mirrors, and
+  **Settings → About → Connection check** shows what your network reaches
+  and sends a problem report in one tap
 
 </details>
 
@@ -133,6 +145,8 @@ iOS has no prebuilt app (it needs Apple signing); you can
   next songs ahead, so a set keeps going without internet
 - **Lights in time**: LED strips (WLED), Govee lamps and PC/keyboard RGB
   (OpenRGB) flash on the beat
+- **High quality**: YouTube in Opus (~130–160 kbps, the best it serves)
+  instead of AAC 128, about the same data; downloads are always Opus
 - **Even loudness**: quiet and loud tracks play at the same level
 - 10-band equalizer with presets, speed and pitch
 - Trim any track to the part you want
@@ -148,6 +162,8 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - Line-by-line translation
 - A 3D side-by-side layout on wide screens; animation, size and glow are
   adjustable
+- Two player looks: Segue's own, or the cover over the whole screen with
+  the lyrics inside it
 
 </details>
 
@@ -163,7 +179,9 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - **Listen together**: share a code and friends hear the same song at the
   same second on their own devices, and add to the shared queue
 - **Shared playlists**: invite friends to a playlist and everyone's edits
-  appear for all
+  appear for all. Invites are ordinary links that work in any messenger
+- **Settings follow you** to your other devices; switch that off on any
+  device that should keep its own
 - **Backup**: save your whole library (likes, playlists, history,
   settings and what My wave learnt) to a file and restore it on any device
 
@@ -174,6 +192,8 @@ iOS has no prebuilt app (it needs Apple signing); you can
 
 - MacBook **living notch**: now playing around the camera; hover for
   controls, scroll for volume, swipe to skip
+- Made for a mouse too: rows of albums and artists scroll with ‹ › arrows
+  or by dragging, the volume pops up on hover
 - Desktop now-playing card on macOS, home-screen widget on Android
 - Keyboard shortcuts:
 
@@ -230,15 +250,15 @@ Android Auto's settings on the phone, tap **Version** 10 times, then
 
 | Part | How |
 | --- | --- |
-| **Playback** | [media_kit](https://github.com/media-kit/media-kit) (libmpv) on every platform, so the equalizer and effects are the same FFmpeg filters everywhere. A loopback proxy keeps HLS streams on one connection and preloads the next track; the next song is queued inside mpv for gapless playback |
-| **Sources** | YouTube through its player API, SoundCloud through its public web API. The catalogue, charts, waves and album covers come from Deezer's public API; those songs are matched on YouTube when they play |
+| **Playback** | [media_kit](https://github.com/media-kit/media-kit) (libmpv) on every platform, so the equalizer and effects are the same FFmpeg filters everywhere. A loopback proxy keeps HLS streams on one connection and preloads the next track; the next song is queued inside mpv for gapless playback. Opus files are read in ranges and written to disk as they play, so the offline cache takes them without a second download |
+| **Sources** | YouTube through its player API, SoundCloud through its public web API. The catalogue, charts, collections, waves and album covers come from Deezer's public API; those songs are matched on YouTube when they play. If YouTube doesn't answer, search goes through public Invidious/Piped mirrors and the song plays from SoundCloud when the same recording is there |
 | **Matching** | An imported song is found by title, artist and length, preferring the artist's own channel and rejecting covers, live versions and remixes. The chosen version travels with the song when playback moves to another device |
 | **Lyrics** | Word timing from NetEase Cloud Music when it has the song, line timing from [LRCLIB](https://lrclib.net) otherwise; both are checked against title, artist and length |
 | **Library** | SQLite on the device. Sync merges per item; the newest change wins |
-| **Sync** | Bonjour/mDNS on the local network; across networks, two public MQTT brokers at once (HiveMQ and EMQX), so either can be down. Invite codes are stretched with PBKDF2 and expire after 10 minutes |
+| **Sync** | Bonjour/mDNS on the local network; across networks, two public MQTT brokers at once (HiveMQ and EMQX), so either can be down. Nothing connects until a second device is paired; edits go out within seconds, plays every few minutes, encoded off the UI thread. Invite codes are stretched with PBKDF2 and expire after 10 minutes |
 | **Beats** | Segue analyses songs itself: a short stretch is decoded by a silent second libmpv, then spectral flux, autocorrelation for the tempo and a comb search for the bar give a beat grid (in a background isolate, kept between sessions). A mix starts the next song on a bar at the old song's tempo and nudges its speed by up to 2.5% to keep the beats within a few milliseconds |
 | **Lights** | The beat grid is known ahead, so the lights are sent a little early and land with the beat: WLED over its UDP realtime protocol, Govee over LAN, OpenRGB over its SDK. 30 small packets a second, only while music plays |
-| **Performance** | Decorative motion runs on one shared 30 fps beat and stops when paused or out of sight; covers are cached on disk and fetched at the size shown |
+| **Performance** | Decorative motion runs on one shared 30 fps beat and stops when paused or out of sight; the full player hides the screens behind it; big blurs are drawn once per song on a small copy; covers are cached on disk and fetched at the size shown; each library list refreshes only on its own kind of change |
 
 ```
 lib/
