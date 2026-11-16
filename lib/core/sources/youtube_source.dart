@@ -6,6 +6,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
 import '../models/track.dart';
 import 'music_source.dart';
+import 'yt_mirrors.dart';
 
 /// YouTube search and audio streams.
 ///
@@ -18,6 +19,9 @@ class YouTubeSource implements MusicSource, FileSource {
 
   final yt.YoutubeExplode _client;
   final _http = http.Client();
+
+  /// Public mirrors, for networks where YouTube itself doesn't answer.
+  final mirrors = YtMirrors();
 
   @override
   SourceKind get kind => SourceKind.youtube;
@@ -44,10 +48,26 @@ class YouTubeSource implements MusicSource, FileSource {
     }
     final yt.VideoSearchList results;
     try {
-      results = await _client.search.search(query);
-    } on Error catch (e) {
-      // The library's page parser throws Errors when YouTube changes its
-      // markup; surface them as a normal failure instead of a crash.
+      results = await _client.search
+          .search(query)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      // YouTube itself is unreachable (blocked, throttled) or its page
+      // changed: ask the public mirrors instead.
+      try {
+        return [
+          for (final v in (await mirrors.search(query)).take(limit))
+            (
+              track: _track(
+                v.id,
+                v.title,
+                v.author,
+                v.seconds > 0 ? Duration(seconds: v.seconds) : null,
+              ),
+              official: v.author.endsWith(' - Topic') || v.verified,
+            ),
+        ];
+      } catch (_) {}
       throw StateError('YouTube search is temporarily unavailable ($e)');
     }
     return results
@@ -159,28 +179,103 @@ class YouTubeSource implements MusicSource, FileSource {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
+  /// Plays a song from elsewhere when YouTube won't (see StandIn).
+  Future<StreamInfo> Function(Track wanted)? standIn;
+
+  /// YouTube didn't answer at all lately (blocked or throttled here):
+  /// until then, other ways go first instead of waiting for timeouts.
+  DateTime _downUntil = DateTime(0);
+  bool get unreachable => DateTime.now().isBefore(_downUntil);
+
   @override
-  Future<StreamInfo> resolveStream(Track track) => _resolve(track, hls: true);
+  Future<StreamInfo> resolveStream(Track track) =>
+      _withStandIn(track, () => resolveDirect(track));
 
   /// A whole .m4a file for downloading (HLS is for streaming only).
   @override
-  Future<StreamInfo> resolveFile(Track track) => _resolve(track, hls: false);
+  Future<StreamInfo> resolveFile(Track track) =>
+      _withStandIn(track, () => resolveDirect(track, file: true));
 
-  Future<StreamInfo> _resolve(Track track, {required bool hls}) async {
+  Future<StreamInfo> _withStandIn(
+    Track track,
+    Future<StreamInfo> Function() own,
+  ) async {
+    final other = standIn;
+    if (other == null) return own();
+    final wanted = songOf(track);
+    if (unreachable) {
+      try {
+        return await other(wanted);
+      } catch (_) {
+        return own();
+      }
+    }
+    try {
+      return await own();
+    } catch (e) {
+      try {
+        return await other(wanted);
+      } catch (_) {
+        Error.throwWithStackTrace(e, StackTrace.current);
+      }
+    }
+  }
+
+  /// "Artist - Song (Official Video)" by "ArtistVEVO" → Song by Artist,
+  /// to look the song up elsewhere.
+  static Track songOf(Track t) {
+    final dash = RegExp(r'\s[-–—]\s').firstMatch(t.title);
+    if (dash == null) return t;
+    return Track(
+      id: t.id,
+      source: t.source,
+      title: t.title.substring(dash.end).trim(),
+      artist: t.title.substring(0, dash.start).trim(),
+      duration: t.duration,
+    );
+  }
+
+  /// Only YouTube's own servers and its mirrors, never a stand-in.
+  Future<StreamInfo> resolveDirect(Track track, {bool file = false}) async {
+    final hls = !file;
     final errors = <String>[];
-    for (final resolver in [
+    var offline = 0;
+    final resolvers = [
       (String id) => _visionOs(id, hls: hls),
       _explodeFallback,
-    ]) {
+      _mirror,
+    ];
+    // Known to be blocked: the mirrors first.
+    if (unreachable) resolvers.insert(0, resolvers.removeLast());
+    for (final resolver in resolvers) {
       try {
         final info = await resolver(track.id);
-        if (await _servesWholeFile(info)) return info;
+        if (await _servesWholeFile(info)) {
+          if (resolver != _mirror) _downUntil = DateTime(0);
+          return info;
+        }
         errors.add('stream rejected');
       } catch (e) {
+        if (_isNetwork(e)) offline++;
         errors.add('$e'.split('\n').first);
       }
     }
+    // Neither of YouTube's own ways got through to it.
+    if (offline >= 2) {
+      _downUntil = DateTime.now().add(const Duration(minutes: 10));
+    }
     throw StateError('No playable YouTube stream for ${track.title}: $errors');
+  }
+
+  static bool _isNetwork(Object e) {
+    final s = '$e';
+    return e is TimeoutException ||
+        e is http.ClientException ||
+        s.contains('SocketException') ||
+        s.contains('HandshakeException') ||
+        s.contains('Connection') ||
+        s.contains('timed out') ||
+        s.contains('exhausted');
   }
 
   // --- visionOS player API --------------------------------------------------
@@ -354,6 +449,24 @@ class YouTubeSource implements MusicSource, FileSource {
     } catch (_) {
       return null;
     }
+  }
+
+  // --- public mirrors -------------------------------------------------------
+
+  /// The audio through a mirror, when YouTube's own servers don't answer.
+  Future<StreamInfo> _mirror(String id) async {
+    final a = await mirrors.audio(
+      id,
+      (a) => _servesWholeFile(
+        StreamInfo(a.url, contentLength: a.length, chunked: true),
+      ),
+    );
+    return StreamInfo(
+      a.url,
+      contentLength: a.length,
+      mimeType: a.mimeType,
+      chunked: a.length != null,
+    );
   }
 
   // --- youtube_explode fallback ---------------------------------------------

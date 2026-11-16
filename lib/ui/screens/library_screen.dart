@@ -25,6 +25,7 @@ import 'settings_screen.dart';
 import 'package:segue/core/l10n/l10n.dart';
 
 import '../widgets/shared_playlist_sheet.dart';
+import '../widgets/h_scroll.dart';
 
 enum LibrarySection { liked, playlists, downloaded, local, history }
 
@@ -87,32 +88,35 @@ class LibraryScreen extends ConsumerWidget {
                     ),
                     SizedBox(
                       height: 38,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        children: [
-                          for (final (s, label) in [
-                            (LibrarySection.liked, 'Любимые'.tr),
-                            (LibrarySection.playlists, 'Плейлисты'.tr),
-                            (LibrarySection.downloaded, 'Скачанные'.tr),
-                            (LibrarySection.local, 'Мои файлы'.tr),
-                            (LibrarySection.history, 'История'.tr),
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: _Tab(
-                                label: label,
-                                selected: s == section,
-                                onTap: () =>
-                                    ref
-                                            .read(
-                                              librarySectionProvider.notifier,
-                                            )
-                                            .state =
-                                        s,
+                      child: HScroll(
+                        builder: (context, c) => ListView(
+                          scrollDirection: Axis.horizontal,
+                          controller: c,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          children: [
+                            for (final (s, label) in [
+                              (LibrarySection.liked, 'Любимые'.tr),
+                              (LibrarySection.playlists, 'Плейлисты'.tr),
+                              (LibrarySection.downloaded, 'Скачанные'.tr),
+                              (LibrarySection.local, 'Мои файлы'.tr),
+                              (LibrarySection.history, 'История'.tr),
+                            ])
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: _Tab(
+                                  label: label,
+                                  selected: s == section,
+                                  onTap: () =>
+                                      ref
+                                              .read(
+                                                librarySectionProvider.notifier,
+                                              )
+                                              .state =
+                                          s,
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],

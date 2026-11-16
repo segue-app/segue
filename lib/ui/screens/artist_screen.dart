@@ -19,6 +19,7 @@ import 'package:segue/core/l10n/l10n.dart';
 
 import '../widgets/collection.dart';
 import '../widgets/track_actions.dart';
+import '../widgets/h_scroll.dart';
 
 /// Artist: photo, play / wave, popular tracks, releases, similar artists.
 class ArtistScreen extends ConsumerWidget {
@@ -184,46 +185,51 @@ class _Body extends ConsumerWidget {
           SliverToBoxAdapter(
             child: SizedBox(
               height: 214,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: page.albums.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 14),
-                itemBuilder: (context, i) {
-                  final al = page.albums[i];
-                  return PressScale(
-                    onTap: () => pushUnique(
-                      Navigator.of(context),
-                      AlbumScreen.route(al.id),
-                    ),
-                    child: SizedBox(
-                      width: 150,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Artwork(url: al.cover, size: 150, radius: 18),
-                          const SizedBox(height: 8),
-                          Text(
-                            al.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          Text(
-                            [
-                              if (al.year != null) '${al.year}',
-                              _type(al.type),
-                            ].join(' · '),
-                            style: const TextStyle(
-                              color: SegueColors.textDim,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+              child: HScroll(
+                builder: (context, c) => ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  controller: c,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: page.albums.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
+                  itemBuilder: (context, i) {
+                    final al = page.albums[i];
+                    return PressScale(
+                      onTap: () => pushUnique(
+                        Navigator.of(context),
+                        AlbumScreen.route(al.id),
                       ),
-                    ),
-                  );
-                },
+                      child: SizedBox(
+                        width: 150,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Artwork(url: al.cover, size: 150, radius: 18),
+                            const SizedBox(height: 8),
+                            Text(
+                              al.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              [
+                                if (al.year != null) '${al.year}',
+                                _type(al.type),
+                              ].join(' · '),
+                              style: const TextStyle(
+                                color: SegueColors.textDim,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -233,42 +239,47 @@ class _Body extends ConsumerWidget {
           SliverToBoxAdapter(
             child: SizedBox(
               height: 170,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: page.related.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 16),
-                itemBuilder: (context, i) {
-                  final r = page.related[i];
-                  return PressScale(
-                    onTap: () => pushUnique(
-                      Navigator.of(context),
-                      ArtistScreen.route(r.id),
-                    ),
-                    child: SizedBox(
-                      width: 120,
-                      child: Column(
-                        children: [
-                          ClipOval(
-                            child: Artwork(
-                              url: r.picture,
-                              size: 120,
-                              radius: 0,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            r.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ],
+              child: HScroll(
+                builder: (context, c) => ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  controller: c,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: page.related.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 16),
+                  itemBuilder: (context, i) {
+                    final r = page.related[i];
+                    return PressScale(
+                      onTap: () => pushUnique(
+                        Navigator.of(context),
+                        ArtistScreen.route(r.id),
                       ),
-                    ),
-                  );
-                },
+                      child: SizedBox(
+                        width: 120,
+                        child: Column(
+                          children: [
+                            ClipOval(
+                              child: Artwork(
+                                url: r.picture,
+                                size: 120,
+                                radius: 0,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              r.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),

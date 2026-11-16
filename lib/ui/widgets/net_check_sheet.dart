@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../core/diag/app_log.dart';
 import '../../core/diag/net_check.dart';
 import '../../core/integrations/updates.dart';
 import '../../core/l10n/l10n.dart';
@@ -72,7 +75,46 @@ class _NetCheckSheetState extends ConsumerState<_NetCheckSheet> {
   String _report() => [
     'Segue $appVersion · ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
     for (final n in NetCheck.names) '${_results[n] ?? '…  $n'}',
+    if (_log.isNotEmpty) ...['', 'Player log:', ..._log],
   ].join('\n');
+
+  /// The player's last notes (what loaded, what failed), shortened.
+  List<String> get _log {
+    final path = AppLog.path;
+    if (path == null) return const [];
+    try {
+      final lines = File(path).readAsLinesSync();
+      return [
+        for (final l in lines.skip(lines.length > 25 ? lines.length - 25 : 0))
+          l.length > 160 ? '${l.substring(0, 160)}…' : l,
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// A new GitHub issue with the report filled in, to look over and send.
+  Future<void> _reportProblem() async {
+    final body = [
+      'Что случилось:'.tr,
+      '',
+      '',
+      '```',
+      _report(),
+      '```',
+    ].join('\n');
+    final uri = Uri.https('github.com', '/segue-app/segue/issues/new', {
+      'title': 'Проблема: '.tr,
+      'body': body,
+    });
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      await Clipboard.setData(ClipboardData(text: _report()));
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)
+            ?.showSnackBar(SnackBar(content: Text('Отчёт скопирован'.tr)));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,8 +157,16 @@ class _NetCheckSheetState extends ConsumerState<_NetCheckSheet> {
                 ),
             ],
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.bug_report_outlined, size: 18),
+                  label: Text('Сообщить о проблеме'.tr),
+                  onPressed: _running ? null : _reportProblem,
+                ),
                 TextButton.icon(
                   icon: const Icon(Icons.copy_rounded, size: 18),
                   label: Text('Скопировать отчёт'.tr),
@@ -129,7 +179,6 @@ class _NetCheckSheetState extends ConsumerState<_NetCheckSheet> {
                           );
                         },
                 ),
-                const Spacer(),
                 FilledButton(
                   onPressed: _running ? null : _run,
                   child: Text('Проверить снова'.tr),

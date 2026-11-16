@@ -11,6 +11,8 @@ import 'motion.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import 'h_scroll.dart';
+
 /// Equalizer (10 bands + presets), speed and pitch.
 class SoundPanel extends ConsumerWidget {
   const SoundPanel({super.key});
@@ -52,46 +54,50 @@ class SoundPanel extends ConsumerWidget {
               children: [
                 SizedBox(
                   height: 36,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      for (final e in AudioFx.presets.entries)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: PressScale(
-                            onTap: () => n.update(
-                              (x) => x.copyWith(gains: e.value, preset: e.key),
-                            ),
-                            child: AnimatedContainer(
-                              duration: SegueMotion.medium,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
+                  child: HScroll(
+                    builder: (context, c) => ListView(
+                      scrollDirection: Axis.horizontal,
+                      controller: c,
+                      children: [
+                        for (final e in AudioFx.presets.entries)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: PressScale(
+                              onTap: () => n.update(
+                                (x) =>
+                                    x.copyWith(gains: e.value, preset: e.key),
                               ),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: fx.preset == e.key
-                                    ? accent.withValues(alpha: 0.2)
-                                    : Colors.white.withValues(alpha: 0.06),
-                                border: Border.all(
-                                  color: fx.preset == e.key
-                                      ? accent
-                                      : Colors.transparent,
+                              child: AnimatedContainer(
+                                duration: SegueMotion.medium,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
                                 ),
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              child: Text(
-                                e.key.tr,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
                                   color: fx.preset == e.key
-                                      ? accent
-                                      : SegueColors.text,
+                                      ? accent.withValues(alpha: 0.2)
+                                      : Colors.white.withValues(alpha: 0.06),
+                                  border: Border.all(
+                                    color: fx.preset == e.key
+                                        ? accent
+                                        : Colors.transparent,
+                                  ),
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Text(
+                                  e.key.tr,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: fx.preset == e.key
+                                        ? accent
+                                        : SegueColors.text,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),

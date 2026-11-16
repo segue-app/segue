@@ -513,9 +513,9 @@ class SettingsScreen extends ConsumerWidget {
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 6),
               leading: const Icon(Icons.network_check_rounded),
-              title: Text('Проверка связи'.tr),
+              title: Text('Проверка связи и сообщить о проблеме'.tr),
               subtitle: Text(
-                'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети'
+                'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети, и поможет отправить отчёт'
                     .tr,
                 style: const TextStyle(color: SegueColors.textDim),
               ),

@@ -29,6 +29,8 @@ import '../widgets/track_tile.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../widgets/h_scroll.dart';
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -271,31 +273,34 @@ class _FilterBar extends ConsumerWidget {
     final r = ref.watch(searchAllProvider(query)).value;
     return SizedBox(
       height: 38,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          _SourceChip(
-            label: 'Все'.tr,
-            selected: filter == null,
-            accent: accent,
-            loading: r == null || !r.done,
-            count: r?.merged().length,
-            onTap: () => onSelect(null),
-          ),
-          for (final e in labels.entries)
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: _SourceChip(
-                label: e.value,
-                selected: filter == e.key,
-                accent: accent,
-                loading: r == null || r.pending.contains(e.key),
-                count: r?.bySource[e.key]?.length,
-                onTap: () => onSelect(e.key),
-              ),
+      child: HScroll(
+        builder: (context, c) => ListView(
+          scrollDirection: Axis.horizontal,
+          controller: c,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: [
+            _SourceChip(
+              label: 'Все'.tr,
+              selected: filter == null,
+              accent: accent,
+              loading: r == null || !r.done,
+              count: r?.merged().length,
+              onTap: () => onSelect(null),
             ),
-        ],
+            for (final e in labels.entries)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: _SourceChip(
+                  label: e.value,
+                  selected: filter == e.key,
+                  accent: accent,
+                  loading: r == null || r.pending.contains(e.key),
+                  count: r?.bySource[e.key]?.length,
+                  onTap: () => onSelect(e.key),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -426,48 +431,55 @@ class _ArtistRow extends ConsumerWidget {
           ? const SizedBox(width: double.infinity)
           : SizedBox(
               height: 162,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
-                itemCount: top.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 14),
-                itemBuilder: (context, i) {
-                  final a = top[i];
-                  return PressScale(
-                    onTap: () => pushUnique(
-                      Navigator.of(context),
-                      ArtistScreen.route(a.id),
-                    ),
-                    child: SizedBox(
-                      width: 96,
-                      child: Column(
-                        children: [
-                          ClipOval(
-                            child: Artwork(url: a.picture, size: 96, radius: 0),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            a.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            'Артист'.tr,
-                            style: TextStyle(
-                              color: SegueColors.textDim,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
+              child: HScroll(
+                builder: (context, c) => ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  controller: c,
+                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
+                  itemCount: top.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
+                  itemBuilder: (context, i) {
+                    final a = top[i];
+                    return PressScale(
+                      onTap: () => pushUnique(
+                        Navigator.of(context),
+                        ArtistScreen.route(a.id),
                       ),
-                    ),
-                  );
-                },
+                      child: SizedBox(
+                        width: 96,
+                        child: Column(
+                          children: [
+                            ClipOval(
+                              child: Artwork(
+                                url: a.picture,
+                                size: 96,
+                                radius: 0,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              a.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              'Артист'.tr,
+                              style: TextStyle(
+                                color: SegueColors.textDim,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
     );

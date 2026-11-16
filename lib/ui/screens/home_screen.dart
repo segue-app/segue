@@ -34,6 +34,7 @@ import 'package:segue/core/l10n/l10n.dart';
 
 import 'smart_playlist_screen.dart';
 import 'mix_screen.dart';
+import '../widgets/h_scroll.dart';
 
 /// Start page: quick access to liked songs and playlists, and what you
 /// listened to recently.
@@ -367,53 +368,56 @@ class _RadiosState extends ConsumerState<_Radios> {
       valueListenable: player.waveTitle,
       builder: (context, playingWave, _) => SizedBox(
         height: 40,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: items.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (context, i) {
-            final (id, label, icon, run) = items[i];
-            final on = playingWave == 'Радио: {0}'.trArgs([label]);
-            final busy = _starting == id;
-            return PressScale(
-              onTap: () => _start(id, run),
-              child: AnimatedContainer(
-                duration: SegueMotion.fast,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: on
-                      ? accent.withValues(alpha: 0.22)
-                      : Colors.white.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    busy
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            icon,
-                            size: 16,
-                            color: on ? accent : SegueColors.textDim,
-                          ),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: on ? accent : null,
+        child: HScroll(
+          builder: (context, c) => ListView.separated(
+            scrollDirection: Axis.horizontal,
+            controller: c,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final (id, label, icon, run) = items[i];
+              final on = playingWave == 'Радио: {0}'.trArgs([label]);
+              final busy = _starting == id;
+              return PressScale(
+                onTap: () => _start(id, run),
+                child: AnimatedContainer(
+                  duration: SegueMotion.fast,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: on
+                        ? accent.withValues(alpha: 0.22)
+                        : Colors.white.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      busy
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              icon,
+                              size: 16,
+                              color: on ? accent : SegueColors.textDim,
+                            ),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: on ? accent : null,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -599,46 +603,49 @@ class _Shelf extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return SizedBox(
       height: 206,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: tracks.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 14),
-        itemBuilder: (context, i) {
-          final t = tracks[i];
-          return StaggeredEntrance(
-            index: i % 8,
-            child: PressScale(
-              onTap: () => ref.read(playerProvider).tapTrack(tracks, i),
-              onLongPress: () => showTrackActions(context, ref, t),
-              child: SizedBox(
-                width: 148,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Artwork(url: t.artworkUrl, size: 148, radius: 20),
-                    const SizedBox(height: 10),
-                    Text(
-                      t.displayTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      t.artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: SegueColors.textDim,
-                        fontSize: 13,
+      child: HScroll(
+        builder: (context, c) => ListView.separated(
+          scrollDirection: Axis.horizontal,
+          controller: c,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: tracks.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 14),
+          itemBuilder: (context, i) {
+            final t = tracks[i];
+            return StaggeredEntrance(
+              index: i % 8,
+              child: PressScale(
+                onTap: () => ref.read(playerProvider).tapTrack(tracks, i),
+                onLongPress: () => showTrackActions(context, ref, t),
+                child: SizedBox(
+                  width: 148,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Artwork(url: t.artworkUrl, size: 148, radius: 20),
+                      const SizedBox(height: 10),
+                      Text(
+                        t.displayTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                    ),
-                  ],
+                      Text(
+                        t.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SegueColors.textDim,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -1181,36 +1188,39 @@ class _MixesState extends ConsumerState<_Mixes> {
       children: [
         SizedBox(
           height: 36,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              for (var i = 0; i < themes.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: PressScale(
-                    onTap: () => setState(() => _theme = i),
-                    child: AnimatedContainer(
-                      duration: SegueMotion.medium,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: i == _theme
-                            ? accent.withValues(alpha: 0.2)
-                            : Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Text(
-                        themes[i].tr,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: i == _theme ? accent : SegueColors.textDim,
+          child: HScroll(
+            builder: (context, c) => ListView(
+              scrollDirection: Axis.horizontal,
+              controller: c,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                for (var i = 0; i < themes.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: PressScale(
+                      onTap: () => setState(() => _theme = i),
+                      child: AnimatedContainer(
+                        duration: SegueMotion.medium,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: i == _theme
+                              ? accent.withValues(alpha: 0.2)
+                              : Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          themes[i].tr,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: i == _theme ? accent : SegueColors.textDim,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -1224,47 +1234,52 @@ class _MixesState extends ConsumerState<_Mixes> {
                 style: const TextStyle(color: SegueColors.textDim),
               ),
             ),
-            data: (list) => ListView.separated(
-              key: ValueKey(_theme),
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: list.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 14),
-              itemBuilder: (context, i) {
-                final m = list[i];
-                return StaggeredEntrance(
-                  index: i % 8,
-                  child: PressScale(
-                    key: ValueKey('mix-${m.id}'),
-                    onTap: () =>
-                        Navigator.of(context).push(MixScreen.route(m.id)),
-                    child: SizedBox(
-                      width: 148,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Artwork(url: m.cover, size: 148, radius: 20),
-                          const SizedBox(height: 10),
-                          Text(
-                            m.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          Text(
-                            tracksLabel(m.count),
-                            maxLines: 1,
-                            style: const TextStyle(
-                              color: SegueColors.textDim,
-                              fontSize: 13,
+            data: (list) => HScroll(
+              builder: (context, c) => ListView.separated(
+                key: ValueKey(_theme),
+                scrollDirection: Axis.horizontal,
+                controller: c,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: list.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 14),
+                itemBuilder: (context, i) {
+                  final m = list[i];
+                  return StaggeredEntrance(
+                    index: i % 8,
+                    child: PressScale(
+                      key: ValueKey('mix-${m.id}'),
+                      onTap: () =>
+                          Navigator.of(context).push(MixScreen.route(m.id)),
+                      child: SizedBox(
+                        width: 148,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Artwork(url: m.cover, size: 148, radius: 20),
+                            const SizedBox(height: 10),
+                            Text(
+                              m.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                        ],
+                            Text(
+                              tracksLabel(m.count),
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: SegueColors.textDim,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -1294,39 +1309,44 @@ class _ChartsState extends ConsumerState<_Charts> {
       children: [
         SizedBox(
           height: 36,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              for (final g in Catalog.genres.entries)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: PressScale(
-                    onTap: () => setState(() {
-                      _genre = g.key;
-                      _all = false;
-                    }),
-                    child: AnimatedContainer(
-                      duration: SegueMotion.medium,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: g.key == _genre
-                            ? accent.withValues(alpha: 0.2)
-                            : Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Text(
-                        g.value.tr,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: g.key == _genre ? accent : SegueColors.textDim,
+          child: HScroll(
+            builder: (context, c) => ListView(
+              scrollDirection: Axis.horizontal,
+              controller: c,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                for (final g in Catalog.genres.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: PressScale(
+                      onTap: () => setState(() {
+                        _genre = g.key;
+                        _all = false;
+                      }),
+                      child: AnimatedContainer(
+                        duration: SegueMotion.medium,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: g.key == _genre
+                              ? accent.withValues(alpha: 0.2)
+                              : Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          g.value.tr,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: g.key == _genre
+                                ? accent
+                                : SegueColors.textDim,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 6),

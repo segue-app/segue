@@ -12,6 +12,8 @@ import '../../core/models/track.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../../core/share/invite_link.dart';
+
 /// "Слушать вместе": start a session, join one, see who listens and what's
 /// next.
 Future<void> showJamSheet(BuildContext context) => showModalBottomSheet<void>(
@@ -201,7 +203,7 @@ class _JamSheetState extends ConsumerState<_JamSheet> {
                       Clipboard.setData(
                         ClipboardData(
                           text: 'Послушай со мной в Segue: {0} (или код {1})'
-                              .trArgs([jamLink(code), pretty]),
+                              .trArgs([InviteLink.jam(code), pretty]),
                         ),
                       );
                       ScaffoldMessenger.maybeOf(context)?.showSnackBar(

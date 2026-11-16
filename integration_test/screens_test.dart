@@ -42,6 +42,7 @@ import 'package:segue/core/settings/settings.dart';
 import 'package:segue/ui/screens/now_playing_screen.dart';
 import 'package:segue/ui/screens/cover_player.dart';
 import 'package:segue/ui/widgets/volume_slider.dart';
+import 'package:segue/ui/widgets/h_scroll.dart';
 import 'package:flutter/gestures.dart';
 import 'package:segue/ui/widgets/track_actions.dart';
 import 'package:segue/ui/widgets/track_tile.dart';
@@ -410,6 +411,55 @@ void main() {
     await tester.tap(find.text('Артист').first);
     await settle(tester, 4);
     await shot(tester, '07b_artist');
+    // A mouse moves the releases row: ‹ › on hover, and dragging.
+    {
+      final page = find
+          .descendant(
+            of: find.byType(ArtistScreen),
+            matching: find.byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            ),
+          )
+          .first;
+      final title = find.text('Релизы');
+      await tester.scrollUntilVisible(title, 300, scrollable: page);
+      await settle(tester, 1);
+      final row = find
+          .descendant(
+            of: find.byType(ArtistScreen),
+            matching: find.byType(HScroll),
+          )
+          .first;
+      final list = find.descendant(of: row, matching: find.byType(Scrollable));
+      double offset() =>
+          tester.state<ScrollableState>(list.first).position.pixels;
+      final m = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await m.addPointer(location: Offset.zero);
+      await m.moveTo(tester.getCenter(row));
+      await settle(tester, 0.5);
+      await shot(tester, '07b0_artist_row_hover');
+      await tester.tap(find.byKey(const ValueKey('hscroll-forward')).first);
+      await settle(tester, 1);
+      final paged = offset();
+      expect(paged, greaterThan(0));
+      // Dragging with the mouse button held, as on a PC without a trackpad.
+      await m.moveTo(tester.getCenter(row) - const Offset(0, 40));
+      await m.down(tester.getCenter(row) - const Offset(0, 40));
+      for (var i = 0; i < 10; i++) {
+        await m.moveBy(const Offset(20, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await m.up();
+      await settle(tester, 1);
+      expect(offset(), lessThan(paged));
+      await m.removePointer();
+      await tester.scrollUntilVisible(
+        find.text('Волна артиста'),
+        -300,
+        scrollable: page,
+      );
+      await settle(tester, 1);
+    }
     await tester.tap(find.text('Волна артиста'));
     await settle(tester, 6);
     await tester.tap(find.byIcon(Icons.open_in_full_rounded));

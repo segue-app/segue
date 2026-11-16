@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Segue</title>
+<meta name="description" content="An invitation to Segue">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #0e0d10;
+    --card: #1a181d;
+    --text: #f4f1f6;
+    --dim: #a9a3ae;
+    --accent: #ff9a76;
+    --ink: #1b1214;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .glow {
+    position: fixed; inset: -20%;
+    background: radial-gradient(40% 40% at 30% 30%, rgba(255,154,118,.25), transparent 70%),
+                radial-gradient(40% 40% at 75% 70%, rgba(123,92,255,.22), transparent 70%);
+    filter: blur(40px); z-index: -1;
+  }
+  .card {
+    width: 100%; max-width: 380px;
+    background: rgba(26,24,29,.82);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 28px;
+    padding: 22px;
+    text-align: center;
+    backdrop-filter: blur(20px);
+  }
+  .cover {
+    width: 100%; aspect-ratio: 1; border-radius: 20px;
+    object-fit: cover; background: #26232a; display: block;
+    box-shadow: 0 18px 40px rgba(0,0,0,.45);
+  }
+  h1 { font-size: 22px; margin: 18px 0 4px; line-height: 1.25; word-break: break-word; }
+  .artist { color: var(--dim); margin: 0 0 20px; font-size: 16px; }
+  a.btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 14px 16px; margin-top: 10px;
+    border-radius: 16px; text-decoration: none; font-weight: 700; font-size: 16px;
+  }
+  .primary { background: var(--accent); color: var(--ink); }
+  .secondary { background: rgba(255,255,255,.08); color: var(--text); }
+  .foot { margin-top: 18px; font-size: 13px; color: var(--dim); }
+  .foot a { color: var(--dim); }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; font-weight: 800; }
+  .brand img { width: 24px; height: 24px; border-radius: 6px; }
+  .error { color: var(--dim); }
+  .code { font-size: 30px; font-weight: 800; letter-spacing: 3px; margin: 4px 0 18px; }
+  #invite h1 { margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<main class="card">
+  <div class="brand"><img src="icon.png" alt=""> Segue</div>
+  <p class="error" id="error" hidden></p>
+  <div id="invite" hidden>
+    <h1 id="title"></h1>
+    <p class="artist" id="what"></p>
+    <p class="code" id="code"></p>
+    <a class="btn primary" id="open" href="#"></a>
+    <a class="btn secondary" id="get" href="https://github.com/segue-app/segue/releases/latest" target="_blank" rel="noopener"></a>
+    <p class="foot" id="hint"></p>
+  </div>
+  <p class="foot" id="foot"></p>
+</main>
+<script>
+(function () {
+  var ru = (navigator.language || '').toLowerCase().indexOf('ru') === 0;
+  var T = ru ? {
+    p: 'Совместный плейлист', pWhat: 'Тебя зовут добавлять песни в общий плейлист.',
+    j: 'Слушаем вместе', jWhat: 'Тебя зовут слушать музыку одновременно.',
+    open: 'Открыть в Segue', get: 'Скачать Segue',
+    hint: 'Если кнопка не сработала, открой Segue и введи код вручную.',
+    foot: 'Segue — бесплатный плеер: YouTube, SoundCloud, Spotify и Яндекс Музыка в одном месте.',
+    bad: 'Ссылка повреждена.'
+  } : {
+    p: 'Shared playlist', pWhat: "You're invited to add songs to a shared playlist.",
+    j: 'Listen together', jWhat: "You're invited to listen to music at the same time.",
+    open: 'Open in Segue', get: 'Get Segue',
+    hint: "If the button doesn't work, open Segue and type the code.",
+    foot: 'Segue is a free player: YouTube, SoundCloud, Spotify and Yandex Music in one place.',
+    bad: 'This link is broken.'
+  };
+  document.documentElement.lang = ru ? 'ru' : 'en';
+  document.getElementById('foot').textContent = T.foot;
+
+  // #p<code> is a shared playlist, #j<code> a listening session.
+  var m = /^([pj])([A-Za-z0-9]{8})$/.exec(location.hash.slice(1));
+  if (!m) {
+    var err = document.getElementById('error');
+    err.textContent = T.bad;
+    err.hidden = false;
+    return;
+  }
+  var kind = m[1], code = m[2].toUpperCase();
+  var link = 'segue://' + (kind === 'p' ? 'playlist' : 'jam') + '?c=' + code;
+  document.title = T[kind] + ' · Segue';
+  document.getElementById('title').textContent = T[kind];
+  document.getElementById('what').textContent = T[kind + 'What'];
+  document.getElementById('code').textContent = code.slice(0, 4) + '-' + code.slice(4);
+  var open = document.getElementById('open');
+  open.textContent = T.open;
+  open.href = link;
+  document.getElementById('get').textContent = T.get;
+  document.getElementById('hint').textContent = T.hint;
+  document.getElementById('invite').hidden = false;
+  // Phones with Segue open it right away.
+  if (/Android|iPhone|iPad/i.test(navigator.userAgent)) location.href = link;
+})();
+</script>
+</body>
+</html>

@@ -14,6 +14,7 @@ import '../l10n/l10n.dart';
 import '../library/library_store.dart';
 import '../models/track.dart';
 import 'relay.dart';
+import '../share/invite_link.dart';
 
 /// Playlists shared with friends: everyone who has the code adds,
 /// removes and reorders songs, and everyone sees the same list.
@@ -110,10 +111,7 @@ class SharedPlaylists {
   /// Joins a friend's playlist by code or segue://playlist link. Returns
   /// the id of the playlist created here.
   Future<String> join(String input) async {
-    final uri = Uri.tryParse(input.trim());
-    final raw = uri != null && uri.scheme == 'segue'
-        ? uri.queryParameters['c'] ?? ''
-        : input;
+    final raw = InviteLink.code(input) ?? input;
     final code = Relay.normalizeCode(raw);
     if (code == null) throw FormatException('Код из 8 букв и цифр'.tr);
     final already = codes.value.entries
@@ -164,7 +162,7 @@ class SharedPlaylists {
   static String invite(String name, String code) {
     final pretty = '${code.substring(0, 4)}-${code.substring(4)}';
     return 'Добавляй песни в мой плейлист «{0}» в Segue: {1} (или код {2})'
-        .trArgs([name, 'segue://playlist?c=$code', pretty]);
+        .trArgs([name, InviteLink.playlist(code), pretty]);
   }
 
   // --- connection -------------------------------------------------------------

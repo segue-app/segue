@@ -16,6 +16,8 @@ import 'relay.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../share/invite_link.dart';
+
 /// Someone in the session.
 @immutable
 class JamMember {
@@ -87,10 +89,7 @@ class JamService {
   /// Joins a friend's session by code or segue://jam link. Returns the
   /// host's name once the first state arrived.
   Future<String> join(String input) async {
-    final uri = Uri.tryParse(input.trim());
-    final raw = uri != null && uri.scheme == 'segue'
-        ? uri.queryParameters['c'] ?? ''
-        : input;
+    final raw = InviteLink.code(input) ?? input;
     final c = Relay.normalizeCode(raw);
     if (c == null) throw FormatException('Код из 8 букв и цифр'.tr);
     await leave();

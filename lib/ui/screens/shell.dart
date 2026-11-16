@@ -46,6 +46,7 @@ import '../widgets/slow_ticker.dart';
 import 'package:segue/core/l10n/l10n.dart';
 
 import '../../core/share/track_link.dart';
+import '../../core/sources/stand_in.dart';
 import '../../core/models/track.dart';
 import '../../core/sync/shared_playlists.dart';
 
@@ -79,6 +80,7 @@ class _ShellState extends ConsumerState<Shell> {
   StreamSubscription<String>? _relayHandoffs;
   StreamSubscription<String>? _jamEvents;
   StreamSubscription<String>? _downloadErrors;
+  StreamSubscription<String>? _standIns;
 
   @override
   void initState() {
@@ -207,6 +209,28 @@ class _ShellState extends ConsumerState<Shell> {
       // A song that won't play is most often a blocked source.
       _toast(
         msg,
+        action: SnackBarAction(
+          label: 'Проверить связь'.tr,
+          onPressed: () {
+            final c = _navigators[_tab].currentContext;
+            if (c != null) showNetCheckSheet(c);
+          },
+        ),
+      );
+    });
+    // A song played from SoundCloud because YouTube wouldn't: said once
+    // in a while, not for every song of a blocked network.
+    DateTime? toldStandIn;
+    _standIns = StandIn.used.stream.listen((title) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      if (toldStandIn != null &&
+          now.difference(toldStandIn!) < const Duration(minutes: 10)) {
+        return;
+      }
+      toldStandIn = now;
+      _toast(
+        'YouTube не открылся: «{0}» играет с SoundCloud'.trArgs([title]),
         action: SnackBarAction(
           label: 'Проверить связь'.tr,
           onPressed: () {
@@ -393,6 +417,7 @@ class _ShellState extends ConsumerState<Shell> {
     _links?.cancel();
     _notch?.dispose();
     _downloadErrors?.cancel();
+    _standIns?.cancel();
     super.dispose();
   }
 

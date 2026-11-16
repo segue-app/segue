@@ -572,6 +572,14 @@ const en = <String, String>{
   'Что открывается из твоей сети прямо сейчас':
       'What your network can reach right now',
   'Скопировать отчёт': 'Copy report',
+  'Проверка связи и сообщить о проблеме': 'Connection check and problem report',
+  'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети, и поможет отправить отчёт': 'If songs won\'t play or import fails: shows what your network can\'t reach and helps send a report',
+  'Сообщить о проблеме': 'Report a problem',
+  'Что случилось:': 'What happened:',
+  'Проблема: ': 'Problem: ',
+  'Отчёт скопирован': 'Report copied',
+  'YouTube не открылся: «{0}» играет с SoundCloud':
+      'YouTube didn\'t open: “{0}” plays from SoundCloud',
   'Скопировано': 'Copied',
   'Проверить снова': 'Check again',
   'YouTube: поиск': 'YouTube: search',
@@ -611,5 +619,6 @@ const en = <String, String>{
   'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря': 'January|February|March|April|May|June|July|August|September|October|November|December',
   'Поиск в истории': 'Search history',
   'Очистить историю?': 'Clear the history?',
-  'Все прослушанные треки пропадут из истории на этом устройстве.': 'All played songs will disappear from the history on this device.',
+  'Все прослушанные треки пропадут из истории на этом устройстве.':
+      'All played songs will disappear from the history on this device.',
 };

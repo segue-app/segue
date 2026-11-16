@@ -42,6 +42,7 @@ import 'ui/theme/theme.dart';
 import 'core/sync/shared_playlists.dart';
 import 'core/player/car_browser.dart';
 import 'core/dj/auto_dj.dart';
+import 'core/sources/stand_in.dart';
 import 'core/lights/light_sync.dart';
 import 'core/dj/beat_service.dart';
 import 'core/catalog/wave_settings.dart';
@@ -55,6 +56,9 @@ Future<void> main() async {
   final youtube = YouTubeSource();
   unawaited(youtube.warmUp());
   final match = MatchSource(youtube);
+  // Songs YouTube won't play here come from SoundCloud instead.
+  final standIn = StandIn(soundcloud);
+  youtube.standIn = standIn.resolve;
   final Map<SourceKind, MusicSource> sources = {
     SourceKind.soundcloud: soundcloud,
     SourceKind.youtube: youtube,

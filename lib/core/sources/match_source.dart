@@ -37,11 +37,39 @@ class MatchSource implements MusicSource, FileSource {
 
   @override
   Future<StreamInfo> resolveStream(Track track) =>
-      _resolve(track, _youtube.resolveStream);
+      _withStandIn(track, () => _resolve(track, _youtube.resolveDirect));
 
   @override
-  Future<StreamInfo> resolveFile(Track track) =>
-      _resolve(track, _youtube.resolveFile);
+  Future<StreamInfo> resolveFile(Track track) => _withStandIn(
+    track,
+    () => _resolve(track, (t) => _youtube.resolveDirect(t, file: true)),
+  );
+
+  /// SoundCloud's version when YouTube can't play the song (this one
+  /// knows the real title and artist, so it looks up itself).
+  Future<StreamInfo> _withStandIn(
+    Track track,
+    Future<StreamInfo> Function() own,
+  ) async {
+    final other = _youtube.standIn;
+    if (other == null) return own();
+    if (_youtube.unreachable) {
+      try {
+        return await other(track);
+      } catch (_) {
+        return own();
+      }
+    }
+    try {
+      return await own();
+    } catch (e) {
+      try {
+        return await other(track);
+      } catch (_) {
+        Error.throwWithStackTrace(e, StackTrace.current);
+      }
+    }
+  }
 
   /// The match, or when YouTube won't play it (removed, age or region
   /// locked) the next best versions.
@@ -253,6 +281,15 @@ class MatchSource implements MusicSource, FileSource {
 
   static final _variantsNorm = {for (final v in _variants) norm(v)};
   static final _noiseNorm = {for (final w in _noise) norm(w)};
+
+  /// Words of [title] that are neither the wanted song's nor packaging
+  /// ("official", "audio", a year…): another song, a medley, an edit.
+  static Iterable<String> extraWords(Track wanted, String title) {
+    final known = {..._words(wanted.title), ..._words(wanted.artist)};
+    return _words(coreTitle(title)).where(
+      (w) => !known.contains(w) && !_noiseNorm.contains(w) && !_isYear(w),
+    );
+  }
 
   /// Higher is better: same words in the title, the artist, the length,
   /// the artist's own channel; covers, live versions etc. lose.
