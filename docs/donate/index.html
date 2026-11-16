@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Поддержать Segue</title>
+<meta name="description" content="Segue — бесплатный плеер без рекламы. Его можно поддержать.">
+<link rel="icon" href="icon.png">
+<style>
+  :root { --bg: #0e0d10; --card: #1a181d; --text: #f4f1f6; --dim: #a9a3ae; --accent: #ff9a76; --ink: #1b1214; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body { background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+  .glow { position: fixed; inset: -20%; z-index: -1; filter: blur(40px);
+    background: radial-gradient(40% 40% at 30% 30%, rgba(255,154,118,.22), transparent 70%),
+                radial-gradient(40% 40% at 75% 70%, rgba(123,92,255,.2), transparent 70%); }
+  .card { width: 100%; max-width: 420px; min-width: 0; background: rgba(26,24,29,.85); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 28px; padding: 26px 24px; text-align: center; backdrop-filter: blur(20px); }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; margin-bottom: 14px; }
+  .brand img { width: 24px; height: 24px; border-radius: 6px; }
+  h1 { font-size: 24px; margin: 4px 0 8px; }
+  p { color: var(--dim); line-height: 1.45; margin: 0 0 18px; }
+  .qrs { display: flex; gap: 12px; justify-content: center; margin: 4px 0 10px; }
+  .qr { background: #fff; border-radius: 18px; padding: 8px; flex: 1 1 0; min-width: 0; max-width: 170px; }
+  .qr img { width: 100%; display: block; }
+  .qr span { display: block; color: #1b1214; font-size: 13px; font-weight: 700; padding: 4px 0 2px; }
+  .hint { font-size: 13px; color: var(--dim); margin-bottom: 20px; }
+  a.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+    padding: 14px 16px; margin-top: 10px; border-radius: 16px; text-decoration: none; font-weight: 700; font-size: 16px; }
+  .primary { background: var(--accent); color: var(--ink); }
+  .secondary { background: rgba(255,255,255,.08); color: var(--text); }
+  .foot { margin-top: 18px; font-size: 13px; color: var(--dim); }
+  .foot a { color: var(--dim); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<main class="card">
+  <div class="brand"><img src="icon.png" alt=""> Segue</div>
+  <h1 id="h"></h1>
+  <p id="p"></p>
+  <!-- QR for a transfer from a bank app (Kyrgyzstan). -->
+  <div id="qrBox" hidden>
+    <div class="qrs">
+      <div class="qr"><img src="mbank.png" alt="QR Mbank"><span>Mbank</span></div>
+      <div class="qr"><img src="optima.png" alt="QR Optima"><span>Optima</span></div>
+    </div>
+    <div class="hint" id="qrHint"></div>
+  </div>
+  <a class="btn primary" id="boosty" href="#" target="_blank" rel="noopener" hidden></a>
+  <a class="btn secondary" id="star" href="https://github.com/segue-app/segue" target="_blank" rel="noopener"></a>
+  <p class="foot" id="foot"></p>
+</main>
+<script>
+(function () {
+  // Filled in when the links exist (empty: that way is hidden).
+  var BOOSTY = 'https://boosty.to/akjol_kan/donate';
+  var QR = true;
+
+  var ru = (navigator.language || '').toLowerCase().indexOf('ru') === 0;
+  var T = ru ? {
+    h: 'Поддержать Segue',
+    p: 'Segue бесплатный, без рекламы и подписок. Если он тебе нравится, можно поддержать автора — это помогает делать его дальше.',
+    qr: 'Кыргызстан: отсканируй в приложении банка (ELQR)',
+    boosty: 'Поддержать на Boosty (из любой страны)',
+    star: '★ Поставить звезду на GitHub',
+    foot: 'Спасибо! Даже звезда на GitHub помогает другим найти Segue.'
+  } : {
+    h: 'Support Segue',
+    p: 'Segue is free, with no ads and no subscriptions. If you like it, you can support its author — it helps keep it going.',
+    qr: 'Kyrgyzstan: scan in your bank app (ELQR)',
+    boosty: 'Support on Boosty (from anywhere)',
+    star: '★ Star on GitHub',
+    foot: 'Thank you! Even a GitHub star helps others find Segue.'
+  };
+  document.documentElement.lang = ru ? 'ru' : 'en';
+  document.getElementById('h').textContent = T.h;
+  document.getElementById('p').textContent = T.p;
+  document.getElementById('qrHint').textContent = T.qr;
+  document.getElementById('star').textContent = T.star;
+  document.getElementById('foot').textContent = T.foot;
+  if (QR) document.getElementById('qrBox').hidden = false;
+  var b = document.getElementById('boosty');
+  if (BOOSTY) { b.href = BOOSTY; b.textContent = T.boosty; b.hidden = false; }
+})();
+</script>
+</body>
+</html>

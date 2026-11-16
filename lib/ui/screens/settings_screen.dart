@@ -721,6 +721,20 @@ class _CatBody extends ConsumerWidget {
           ),
           onTap: () => showNetCheckSheet(context),
         ),
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+          leading: const Icon(Icons.favorite_rounded, color: Color(0xFFFF5E8A)),
+          title: Text('Поддержать автора'.tr),
+          subtitle: Text(
+            'Segue бесплатный и без рекламы: если он нравится, можно помочь делать его дальше'
+                .tr,
+            style: const TextStyle(color: SegueColors.textDim),
+          ),
+          onTap: () => launchUrl(
+            Uri.parse('https://segue-app.github.io/segue/donate/'),
+            mode: LaunchMode.externalApplication,
+          ),
+        ),
         const _About(),
       ],
     };

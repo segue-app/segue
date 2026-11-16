@@ -575,6 +575,8 @@ const en = <String, String>{
   'Проверка связи и сообщить о проблеме': 'Connection check and problem report',
   'Если треки не играют или импорт не работает: покажет, что недоступно из твоей сети, и поможет отправить отчёт': 'If songs won\'t play or import fails: shows what your network can\'t reach and helps send a report',
   'Сообщить о проблеме': 'Report a problem',
+  'Поддержать автора': 'Support the author',
+  'Segue бесплатный и без рекламы: если он нравится, можно помочь делать его дальше': 'Segue is free and has no ads: if you like it, you can help keep it going',
   'Альбомы': 'Albums',
   'Здесь будут твои альбомы': 'Your albums will be here',
   'Открой альбом и нажми ♥ рядом с «Слушать»':

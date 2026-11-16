@@ -319,6 +319,13 @@ flutter test --tags live                    # talks to the real services
 flutter test integration_test/playback_test.dart -d macos   # real playback, muted
 ```
 
+## Support Segue
+
+Segue is free, with no ads and no subscriptions. If you like it, you can
+support its author: **[Support Segue](https://segue-app.github.io/segue/donate/)**
+(bank QR for Kyrgyzstan, or [Boosty](https://boosty.to/akjol_kan/donate) from
+anywhere). A ⭐ on GitHub helps too: it lets others find the app.
+
 ## Contributing
 
 Issues and pull requests are welcome. Before opening a pull request, please

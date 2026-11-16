@@ -321,6 +321,13 @@ flutter test --tags live                    # с настоящими серви
 flutter test integration_test/playback_test.dart -d macos   # настоящее воспроизведение, без звука
 ```
 
+## Поддержать Segue
+
+Segue бесплатный, без рекламы и подписок. Если он нравится, автора можно
+поддержать: **[Поддержать Segue](https://segue-app.github.io/segue/donate/)**
+(QR банка для Кыргызстана или [Boosty](https://boosty.to/akjol_kan/donate) из
+любой страны). Звезда ⭐ на GitHub тоже помогает: так приложение находят другие.
+
 ## Участие
 
 Сообщения об ошибках и pull request'ы приветствуются. Перед pull request'ом
