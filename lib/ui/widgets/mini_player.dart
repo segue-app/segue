@@ -65,11 +65,9 @@ class _Bar extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           child: PressScale(
             scale: wide ? 1 : 0.98,
-            // On a computer only the cover and title open the player: a
-            // click on the wave or the volume must not.
-            onTap: wide
-                ? null
-                : () => Navigator.of(context).push(NowPlayingScreen.route()),
+            // A tap anywhere on the bar opens the player; the buttons, the
+            // wave and the volume keep their own taps (they're nearer).
+            onTap: () => Navigator.of(context).push(NowPlayingScreen.route()),
             child: DecoratedBox(
               // A soft glow in the cover's colour lifts the bar off the page.
               decoration: BoxDecoration(
@@ -210,20 +208,6 @@ class _Compact extends ConsumerWidget {
           child: Row(
             children: [
               Expanded(child: _TrackInfo(item: item)),
-              PressScale(
-                onTap: () =>
-                    Navigator.of(context)
-                        .push(NowPlayingScreen.route(lyrics: true)),
-                scale: 0.85,
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(
-                    Icons.lyrics_rounded,
-                    size: 22,
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-                ),
-              ),
               PressScale(
                 onTap: player.skipToPrevious,
                 scale: 0.85,

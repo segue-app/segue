@@ -132,6 +132,9 @@ class _WavyProgressState extends State<WavyProgress>
             // A tap: seek where it landed.
             if (_drag != null) _seek(_drag!);
           },
+          // Claims the tap (the seek happens above), so a click on the wave
+          // never reaches the bar around it, which opens the full player.
+          onTapUp: (_) {},
           child: SizedBox(
             height: 32,
             width: width,

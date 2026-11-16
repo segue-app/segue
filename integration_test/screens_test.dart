@@ -43,6 +43,8 @@ import 'package:segue/ui/screens/now_playing_screen.dart';
 import 'package:segue/ui/screens/cover_player.dart';
 import 'package:segue/ui/widgets/volume_slider.dart';
 import 'package:segue/ui/widgets/h_scroll.dart';
+import 'package:segue/ui/widgets/wavy_progress.dart';
+import 'package:segue/ui/widgets/mini_player.dart';
 import 'package:segue/core/downloads/audio_cache.dart';
 import 'package:segue/ui/screens/settings_screen.dart';
 import 'package:segue/ui/screens/album_screen.dart';
@@ -379,6 +381,26 @@ void main() {
     await shot(tester, '06h0_lyrics_opening');
     await settle(tester, 4);
     await shot(tester, '06h_desktop_lyrics');
+    // Left alone while music plays, the top buttons fade; a move brings
+    // them back.
+    double topOpacity() => tester
+        .widgetList<AnimatedOpacity>(
+          find.ancestor(
+            of: find.byIcon(Icons.lyrics_rounded).last,
+            matching: find.byType(AnimatedOpacity),
+          ),
+        )
+        .map((w) => w.opacity)
+        .reduce((a, b) => a < b ? a : b);
+    await settle(tester, 4);
+    await shot(tester, '06h00_buttons_faded');
+    expect(topOpacity(), lessThan(0.5));
+    final idleMouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await idleMouse.addPointer(location: const Offset(400, 300));
+    await idleMouse.moveTo(const Offset(420, 320));
+    await settle(tester, 0.5);
+    expect(topOpacity(), 1);
+    await idleMouse.removePointer();
     // The few top buttons; the rest is in "⋯".
     await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
     await settle(tester, 1);
@@ -441,6 +463,27 @@ void main() {
     await mouse.removePointer();
     await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
     await settle(tester, 1);
+
+    // The bar at the bottom: a click on the wave seeks and stays; a click
+    // on the bar's empty space opens the full player.
+    {
+      final bar = find.byType(MiniPlayer);
+      final wave = find.descendant(
+        of: bar,
+        matching: find.byType(WavyProgress),
+      );
+      final w = tester.getRect(wave);
+      await tester.tapAt(Offset(w.left + w.width * 0.8, w.center.dy));
+      await settle(tester, 1);
+      expect(find.byType(NowPlayingScreen), findsNothing);
+      final b = tester.getRect(bar);
+      // Between the transport and the queue button: nothing but the bar.
+      await tester.tapAt(Offset(b.left + b.width * 0.72, b.top + 22));
+      await settle(tester, 2);
+      expect(find.byType(NowPlayingScreen), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+      await settle(tester, 1);
+    }
 
     // Catalogue: artist from search, their page, an album, their wave.
     await tester.tap(find.text('Поиск').first);
