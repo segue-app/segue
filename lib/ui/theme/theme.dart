@@ -50,6 +50,11 @@ ThemeData buildTheme({String font = 'Manrope'}) {
       surface: SegueColors.surface,
       onSurface: SegueColors.text,
       onPrimary: SegueColors.ink,
+      // Left unset, the inverse colors fall back to onPrimary / onSurface /
+      // surface: snack bar actions came out black on the dark bar.
+      inversePrimary: SegueColors.accent,
+      inverseSurface: SegueColors.surfaceHigh,
+      onInverseSurface: SegueColors.text,
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
@@ -83,6 +88,8 @@ ThemeData buildTheme({String font = 'Manrope'}) {
       behavior: SnackBarBehavior.floating,
       backgroundColor: SegueColors.surfaceHigh,
       contentTextStyle: text.bodyMedium,
+      actionTextColor: SegueColors.accent,
+      closeIconColor: SegueColors.textDim,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
     inputDecorationTheme: InputDecorationTheme(
