@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:segue/ui/theme/theme.dart';
 
 /// WCAG contrast ratio of two opaque colors.
@@ -14,6 +15,9 @@ void main() {
   // bar: Material's default for it, inversePrimary, fell back to onPrimary.
   testWidgets('snack bar action is readable on the bar', (tester) async {
     final theme = buildTheme();
+    // Let the bundled Manrope finish loading inside the test: loaded
+    // later, it relayouts after the tree is gone and fails the test.
+    await tester.runAsync(GoogleFonts.pendingFonts);
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
@@ -54,8 +58,9 @@ void main() {
     expect(_contrast(content.text.style!.color!, bar), greaterThan(4.5));
   });
 
-  testWidgets('inverse colors stay readable on each other', (_) async {
+  testWidgets('inverse colors stay readable on each other', (tester) async {
     final s = buildTheme().colorScheme;
+    await tester.runAsync(GoogleFonts.pendingFonts);
     expect(_contrast(s.onInverseSurface, s.inverseSurface), greaterThan(4.5));
     expect(_contrast(s.inversePrimary, s.inverseSurface), greaterThan(4.5));
   });
