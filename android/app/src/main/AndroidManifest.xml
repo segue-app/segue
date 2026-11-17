@@ -35,6 +35,11 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- "Ok Google, play … on Segue", also with the app closed. -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <!-- segue://pair?… links from QR codes scanned with the camera app -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

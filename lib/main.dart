@@ -46,6 +46,7 @@ import 'core/sources/stand_in.dart';
 import 'core/lights/light_sync.dart';
 import 'core/dj/beat_service.dart';
 import 'core/catalog/wave_settings.dart';
+import 'core/player/voice_intent.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -256,6 +257,8 @@ Future<void> main() async {
     startWave: () => wave.myWave(WaveSettingsNotifier.load(library)),
     search: (q) => youtube.search(q, limit: 25),
   );
+  // Not awaited: a search by voice shouldn't hold up the first frame.
+  unawaited(VoiceIntent.listen((q) => handler.playFromSearch(q)));
 
   runApp(
     ProviderScope(

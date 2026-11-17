@@ -1816,6 +1816,20 @@ class SegueAudioHandler extends BaseAudioHandler
     Map<String, dynamic>? extras,
   ]) async => car?.playSearch(query);
 
+  // The assistant may prepare while it is still speaking, then call play:
+  // starting right away is what the listener asked for either way.
+  @override
+  Future<void> prepareFromSearch(
+    String query, [
+    Map<String, dynamic>? extras,
+  ]) => playFromSearch(query, extras);
+
+  @override
+  Future<void> prepareFromMediaId(
+    String mediaId, [
+    Map<String, dynamic>? extras,
+  ]) => playFromMediaId(mediaId, extras);
+
   @override
   Future<void> play() {
     if (_out != null) return _remoteSend('play', playing: true);
@@ -1910,7 +1924,15 @@ class SegueAudioHandler extends BaseAudioHandler
           playing ? MediaControl.pause : MediaControl.play,
           MediaControl.skipToNext,
         ],
-        systemActions: const {MediaAction.seek},
+        // Search and media-id actions: without them Google Assistant (and
+        // the voice of cars built on it) says Segue can't play by voice.
+        systemActions: const {
+          MediaAction.seek,
+          MediaAction.playFromSearch,
+          MediaAction.prepareFromSearch,
+          MediaAction.playFromMediaId,
+          MediaAction.prepareFromMediaId,
+        },
         androidCompactActionIndices: const [0, 1, 2],
         processingState: _loading || st.buffering
             ? AudioProcessingState.buffering
