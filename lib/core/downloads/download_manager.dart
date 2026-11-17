@@ -155,8 +155,11 @@ class DownloadManager {
   /// the system temp folder, not in the library; one per track per session.
   Future<String> seekableCopy(StreamInfo info, Track t) => _seekCache[t.key] ??=
       () async {
+        // One folder per run, so TempCleanup can clear earlier ones
+        // without racing this one.
         final dir = Directory(
-          '${Directory.systemTemp.path}${Platform.pathSeparator}segue_seek',
+          '${Directory.systemTemp.path}${Platform.pathSeparator}segue_seek'
+          '${Platform.pathSeparator}$pid',
         )..createSync(recursive: true);
         final name = sha1.convert(utf8.encode(t.key)).toString();
         final tmp = File('${dir.path}${Platform.pathSeparator}$name.part');

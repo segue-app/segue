@@ -47,9 +47,12 @@ import 'core/lights/light_sync.dart';
 import 'core/dj/beat_service.dart';
 import 'core/catalog/wave_settings.dart';
 import 'core/player/voice_intent.dart';
+import 'core/downloads/temp_cleanup.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Seek copies and installed updates left by earlier runs.
+  unawaited(TempCleanup.run());
   AppVisibility.attach();
   unawaited(AppLog.start());
 
