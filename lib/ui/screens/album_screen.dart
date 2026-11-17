@@ -11,6 +11,8 @@ import '../widgets/track_actions.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../widgets/segue_loader.dart';
+
 class AlbumScreen extends ConsumerWidget {
   const AlbumScreen({super.key, required this.albumId});
 
@@ -32,7 +34,7 @@ class AlbumScreen extends ConsumerWidget {
         scrolledUnderElevation: 0,
       ),
       body: page.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: SegueLoader(size: 48)),
         error: (_, _) => Center(
           child: Text(
             'Не удалось загрузить альбом'.tr,

@@ -10,6 +10,8 @@ import 'artwork.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import 'segue_loader.dart';
+
 /// An imported song plays a YouTube version found automatically; here the
 /// user sees the versions found and picks the right one.
 Future<void> showMatchSheet(BuildContext context, Track track) =>
@@ -90,7 +92,7 @@ class _MatchSheetState extends ConsumerState<_MatchSheet> {
                   }
                   final list = snap.data;
                   if (list == null) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(child: SegueLoader(size: 40));
                   }
                   if (list.isEmpty) {
                     return Center(child: Text('Ничего не нашлось'.tr));

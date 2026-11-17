@@ -16,6 +16,8 @@ import 'slow_ticker.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import 'segue_loader.dart';
+
 /// Karaoke lyrics in the style of Spotify / Apple Music / Riff:
 /// the sung line fills with light word by word, the word being sung lifts
 /// and glows, nearby lines are softly blurred by distance, and the list
@@ -39,15 +41,8 @@ class LyricsView extends ConsumerWidget {
       child: DefaultTextStyle.merge(
         style: TextStyle(fontSize: size),
         child: lyrics.when(
-          loading: () => const Center(
-            child: SizedBox.square(
-              dimension: 26,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.4,
-                color: Colors.white70,
-              ),
-            ),
-          ),
+          loading: () =>
+              const Center(child: SegueLoader(size: 40, color: Colors.white70)),
           error: (_, _) => _Message('Не получилось загрузить текст'.tr),
           data: (l) => l == null || l.lines.isEmpty
               ? _Message('Текст для этого трека не найден'.tr)

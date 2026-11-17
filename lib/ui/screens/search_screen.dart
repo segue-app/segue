@@ -30,6 +30,7 @@ import '../widgets/track_tile.dart';
 import 'package:segue/core/l10n/l10n.dart';
 
 import '../widgets/h_scroll.dart';
+import '../widgets/segue_loader.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -330,29 +331,13 @@ class _Results extends ConsumerWidget {
     final async = ref.watch(searchAllProvider(query));
     final r = async.value;
     if (r == null) {
-      return const Center(
-        child: SizedBox.square(
-          dimension: 28,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            strokeCap: StrokeCap.round,
-          ),
-        ),
-      );
+      return const Center(child: SegueLoader(size: 40));
     }
     final tracks = r.merged(filter);
     if (tracks.isEmpty) {
       final waiting = filter == null ? !r.done : r.pending.contains(filter);
       if (waiting) {
-        return const Center(
-          child: SizedBox.square(
-            dimension: 28,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-        );
+        return const Center(child: SegueLoader(size: 40));
       }
       final failedHere = filter == null
           ? r.failed.length == labels.length

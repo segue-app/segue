@@ -35,6 +35,7 @@ import 'package:segue/core/l10n/l10n.dart';
 import 'smart_playlist_screen.dart';
 import 'mix_screen.dart';
 import '../widgets/h_scroll.dart';
+import '../widgets/segue_loader.dart';
 
 /// Start page: quick access to liked songs and playlists, and what you
 /// listened to recently.
@@ -1227,7 +1228,7 @@ class _MixesState extends ConsumerState<_Mixes> {
         SizedBox(
           height: 206,
           child: mixes.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: SegueLoader(size: 40)),
             error: (_, _) => Center(
               child: Text(
                 'Подборки сейчас недоступны'.tr,
@@ -1353,7 +1354,7 @@ class _ChartsState extends ConsumerState<_Charts> {
         chart.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(32),
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: SegueLoader(size: 40)),
           ),
           error: (_, _) => Padding(
             padding: EdgeInsets.all(24),

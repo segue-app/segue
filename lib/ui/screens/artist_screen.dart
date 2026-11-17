@@ -20,6 +20,7 @@ import 'package:segue/core/l10n/l10n.dart';
 import '../widgets/collection.dart';
 import '../widgets/track_actions.dart';
 import '../widgets/h_scroll.dart';
+import '../widgets/segue_loader.dart';
 
 /// Artist: photo, play / wave, popular tracks, releases, similar artists.
 class ArtistScreen extends ConsumerWidget {
@@ -42,7 +43,7 @@ class ArtistScreen extends ConsumerWidget {
         scrolledUnderElevation: 0,
       ),
       body: page.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: SegueLoader(size: 48)),
         error: (_, _) => Center(
           child: Text(
             'Не удалось загрузить артиста'.tr,
@@ -406,7 +407,7 @@ class ArtistTracksScreen extends ConsumerWidget {
         scrolledUnderElevation: 0,
       ),
       body: all.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: SegueLoader(size: 48)),
         error: (_, _) => Center(
           child: Text(
             'Не удалось загрузить артиста'.tr,

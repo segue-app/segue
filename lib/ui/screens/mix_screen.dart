@@ -11,6 +11,8 @@ import '../widgets/track_actions.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
+import '../widgets/segue_loader.dart';
+
 /// A ready-made playlist from the catalogue: listen, or keep a copy.
 class MixScreen extends ConsumerWidget {
   const MixScreen({super.key, required this.mixId});
@@ -33,7 +35,7 @@ class MixScreen extends ConsumerWidget {
         scrolledUnderElevation: 0,
       ),
       body: page.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: SegueLoader(size: 48)),
         error: (_, _) => Center(
           child: Text(
             'Не удалось загрузить подборку'.tr,
