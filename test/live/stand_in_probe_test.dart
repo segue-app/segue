@@ -1,5 +1,8 @@
 // ignore_for_file: avoid_print
 // Finds real songs on SoundCloud as YouTube stand-ins (network required).
+@Tags(['live'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:segue/core/models/track.dart';
 import 'package:segue/core/sources/soundcloud_source.dart';

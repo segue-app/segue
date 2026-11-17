@@ -54,7 +54,7 @@ void main() {
     expect(_contrast(content.text.style!.color!, bar), greaterThan(4.5));
   });
 
-  test('inverse colors stay readable on each other', () {
+  testWidgets('inverse colors stay readable on each other', (_) async {
     final s = buildTheme().colorScheme;
     expect(_contrast(s.onInverseSurface, s.inverseSurface), greaterThan(4.5));
     expect(_contrast(s.inversePrimary, s.inverseSurface), greaterThan(4.5));

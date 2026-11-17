@@ -1,4 +1,7 @@
 // Runs the in-app network check from this machine (network required).
+@Tags(['live'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:segue/core/diag/net_check.dart';
 import 'package:segue/core/models/track.dart';

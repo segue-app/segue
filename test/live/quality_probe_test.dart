@@ -1,5 +1,8 @@
 // ignore_for_file: avoid_print
 // Normal vs high quality YouTube audio, from this machine (network required).
+@Tags(['live'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:segue/core/models/track.dart';

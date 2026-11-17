@@ -1,5 +1,8 @@
 // ignore_for_file: avoid_print
 // Asks the public YouTube mirrors from this machine (network required).
+@Tags(['live'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:segue/core/sources/yt_mirrors.dart';
 
