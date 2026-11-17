@@ -461,7 +461,8 @@ class _Playlists extends ConsumerWidget {
               child: const Icon(Icons.download_rounded, size: 26),
             ),
             title: 'Импорт по ссылке'.tr,
-            subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud'.tr,
+            subtitle: 'Spotify, Яндекс Музыка, Apple Music, Deezer, YouTube, SoundCloud'
+                .tr,
             onTap: () async {
               final id = await showImportDialog(context);
               if (id != null && context.mounted) {

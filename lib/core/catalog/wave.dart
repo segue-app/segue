@@ -71,13 +71,46 @@ class Wave {
     );
   }
 
-  /// Radio from the artist of [track].
+  /// Radio from one song: the song itself first, then its artist and
+  /// artists like them. The similar artists are picked anew for each batch,
+  /// so the radio keeps moving instead of circling one artist.
   Future<void> trackWave(Track track) async {
     final artist = await catalog.findArtist(track.artist);
     if (artist == null) {
       throw StateError('Не нашёл исполнителя «{0}»'.trArgs([track.artist]));
     }
-    await artistWave(artist);
+    final related = await catalog
+        .related(artist.id)
+        .catchError((Object _) => <Artist>[]);
+    Future<List<Track>> batch() {
+      final pick = [...related]..shuffle(_rnd);
+      return _mix([artist.id, ...pick.take(3).map((a) => a.id)]);
+    }
+
+    final same = _sameSong(track);
+    final rest = [
+      for (final t in await batch())
+        if (!same(t)) t,
+    ];
+    if (rest.isEmpty) {
+      throw StateError('Для «{0}» волна пустая'.trArgs([track.title]));
+    }
+    await player!.playEndless(
+      [track, ...rest],
+      () async => [
+        for (final t in await batch())
+          if (!same(t)) t,
+      ],
+      title: 'Радио: {0}'.trArgs([track.title]),
+    );
+  }
+
+  /// Whether a catalog track is [track] (ids differ between sources).
+  static bool Function(Track) _sameSong(Track track) {
+    String k(Track t) =>
+        '${_norm(t.artist)}|${_norm(t.title).replaceAll(RegExp(r'\s*[(\[].*$'), '')}';
+    final key = k(track);
+    return (t) => t.key == track.key || k(t) == key;
   }
 
   /// Seeds: artists you like and play most, a few at random each time.

@@ -295,7 +295,9 @@ class _CatBody extends ConsumerWidget {
         _NavTile(
           icon: Icons.link_rounded,
           title: 'Импорт плейлиста по ссылке'.tr,
-          subtitle: 'Spotify, Яндекс Музыка, YouTube, SoundCloud'.tr,
+          subtitle:
+              'Spotify, Яндекс Музыка, Apple Music, Deezer, YouTube, SoundCloud'
+                  .tr,
           onTap: () async {
             final id = await showImportDialog(context);
             if (id != null && context.mounted) {

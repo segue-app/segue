@@ -60,4 +60,31 @@ void main() {
       throwsA(isA<ImportException>()),
     );
   });
+
+  test('Apple Music playlist and album from the web page', () async {
+    final p = await importer.import(
+      'https://music.apple.com/us/playlist/todays-hits/pl.f4d106fed2bd41149aaacabb233eb5eb',
+    );
+    expect(p.name, isNot(contains('Apple Music')));
+    expect(p.tracks.length, greaterThan(10));
+    expect(p.tracks.first.artist, isNotEmpty);
+    expect(p.tracks.first.artworkUrl, startsWith('https://'));
+    final a = await importer.import(
+      'https://music.apple.com/ru/album/abbey-road-remastered/1441164426',
+    );
+    expect(a.tracks.first.title, 'Come Together');
+    expect(a.tracks.first.artist, 'The Beatles');
+  });
+
+  test('Deezer playlist and album via the open API', () async {
+    final p = await importer.import(
+      'https://www.deezer.com/en/playlist/908622995',
+    );
+    expect(p.tracks.length, greaterThan(10));
+    expect(p.tracks.first.source, SourceKind.match);
+    expect(p.tracks.first.duration, isNotNull);
+    final a = await importer.import('https://www.deezer.com/album/302127');
+    expect(a.tracks, isNotEmpty);
+    expect(a.tracks.first.artworkUrl, isNotNull);
+  });
 }

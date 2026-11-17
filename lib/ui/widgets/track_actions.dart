@@ -17,6 +17,7 @@ import 'artwork.dart';
 import 'motion.dart';
 import 'match_sheet.dart';
 import 'trim_sheet.dart';
+import 'story_card.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
@@ -163,6 +164,14 @@ Future<void> showTrackActions(
               onTap: () {
                 Navigator.pop(sheet);
                 shareTrack(context, ref, track);
+              },
+            ),
+            _Action(
+              icon: Icons.auto_awesome_rounded,
+              label: 'Карточка для сторис'.tr,
+              onTap: () {
+                Navigator.pop(sheet);
+                showStoryCard(context, track);
               },
             ),
             _Action(

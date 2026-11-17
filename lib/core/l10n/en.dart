@@ -14,8 +14,17 @@ const en = <String, String>{
   'Плейлисты: {0} из {1}': 'Playlists: {0} of {1}',
   'В файлах не нашлось треков. Нужны CSV из Exportify или файлы YourLibrary.json / Playlist1.json из данных Spotify': 'No tracks found in the files. They should be CSVs from Exportify, or YourLibrary.json / Playlist1.json from your Spotify data',
   'Плейлист': 'Playlist',
-  'Поддерживаются ссылки Spotify, Яндекс Музыки, YouTube и SoundCloud':
-      'Spotify, Yandex Music, YouTube and SoundCloud links are supported',
+  'Поддерживаются ссылки Spotify, Яндекс Музыки, Apple Music, Deezer, YouTube и SoundCloud': 'Spotify, Yandex Music, Apple Music, Deezer, YouTube and SoundCloud links are supported',
+  'Не похоже на ссылку на плейлист или альбом Apple Music':
+      'That doesn\'t look like a link to an Apple Music playlist or album',
+  'Apple Music не отдал плейлист. Он публичный?':
+      'Apple Music didn\'t return the playlist. Is it public?',
+  'В плейлисте Apple Music нет доступных треков':
+      'The Apple Music playlist has no available tracks',
+  'Плейлист Apple Music': 'Apple Music playlist',
+  'Не похоже на ссылку на плейлист или альбом Deezer':
+      'That doesn\'t look like a link to a Deezer playlist or album',
+  'Плейлист Deezer': 'Deezer playlist',
   'Не похоже на ссылку на плейлист или альбом Spotify':
       'That doesn\'t look like a link to a Spotify playlist or album',
   'Spotify не отдал плейлист. Он публичный?':
@@ -190,8 +199,8 @@ const en = <String, String>{
   'Нажми ♡ у трека, и он появится здесь':
       'Tap ♡ on a track and it will appear here',
   'Импорт по ссылке': 'Import by link',
-  'Spotify, Яндекс Музыка, YouTube, SoundCloud':
-      'Spotify, Yandex Music, YouTube, SoundCloud',
+  'Spotify, Яндекс Музыка, Apple Music, Deezer, YouTube, SoundCloud':
+      'Spotify, Yandex Music, Apple Music, Deezer, YouTube, SoundCloud',
   'Здесь появится то, что ты слушал': 'What you listen to will appear here',
   'Очистить историю': 'Clear history',
   'Сейчас играет': 'Now playing',
@@ -656,4 +665,12 @@ const en = <String, String>{
   'Очистить историю?': 'Clear the history?',
   'Все прослушанные треки пропадут из истории на этом устройстве.':
       'All played songs will disappear from the history on this device.',
+  'Карточка для сторис': 'Story card',
+  'Сохранить карточку': 'Save the card',
+  'Карточка сохранена': 'Card saved',
+  'Предыдущая строчка': 'Previous line',
+  'Следующая строчка': 'Next line',
+  'Убрать строчку': 'Remove the line',
+  'Без строчки из песни': 'No lyric line',
+  'Строчка {0} из {1}': 'Line {0} of {1}',
 };

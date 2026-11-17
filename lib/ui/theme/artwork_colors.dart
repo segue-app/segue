@@ -39,7 +39,7 @@ class ArtworkColors {
   );
 }
 
-final _colorsForUrl = FutureProvider.family<ArtworkColors, String>((
+final colorsForUrlProvider = FutureProvider.family<ArtworkColors, String>((
   ref,
   url,
 ) async {
@@ -161,7 +161,7 @@ final currentColorsProvider = Provider<ArtworkColors>((ref) {
   final url = ref.watch(currentTrackProvider).value?.artUri?.toString();
   final cover = url == null
       ? ArtworkColors.fallback
-      : ref.watch(_colorsForUrl(url)).value ?? ArtworkColors.fallback;
+      : ref.watch(colorsForUrlProvider(url)).value ?? ArtworkColors.fallback;
   if (settings.accentFromCover) return cover;
   // Fixed accent from settings; the backdrop keeps the cover's colours.
   return ArtworkColors(

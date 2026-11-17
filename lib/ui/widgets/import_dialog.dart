@@ -14,8 +14,8 @@ import 'track_actions.dart';
 
 import 'package:segue/core/l10n/l10n.dart';
 
-/// Paste a playlist link from Spotify, Yandex Music, YouTube or SoundCloud;
-/// creates a Segue playlist and returns its id (null if cancelled).
+/// Paste a playlist link from Spotify, Yandex Music, Apple Music, Deezer,
+/// YouTube or SoundCloud; creates a Segue playlist and returns its id (null if cancelled).
 Future<String?> showImportDialog(BuildContext context) => showDialog<String>(
   context: context,
   useRootNavigator: true,
@@ -125,6 +125,8 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                 for (final s in [
                   'Spotify',
                   'Яндекс Музыка'.tr,
+                  'Apple Music',
+                  'Deezer',
                   'YouTube',
                   'SoundCloud',
                 ])
