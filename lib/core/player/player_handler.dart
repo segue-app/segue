@@ -525,6 +525,8 @@ class SegueAudioHandler extends BaseAudioHandler
     } catch (e) {
       if (token != _loadToken) return;
       _openedToken = token; // nothing is coming: report what really is
+      // Moving past it isn't the listener skipping it (see _leaving).
+      _leftToken = token;
       _playingCtl.add(false);
       debugPrint('play ${track.title}: $e');
       errors.add('Не удалось воспроизвести «{0}»'.trArgs([track.title]));
@@ -1041,6 +1043,11 @@ class SegueAudioHandler extends BaseAudioHandler
   /// how long it is, and whether it was skipped (not played to its end).
   void Function(Track track, Duration played, Duration? length, bool skipped)?
   onTrackLeft;
+
+  /// The load the last "left" was reported for. A song that failed to
+  /// load is marked left at once: going past it says nothing about taste,
+  /// and counted as a skip it lowered its artist until the wave dropped
+  /// them (a few unplayable songs in a row did that).
   int _leftToken = -1;
 
   void _leaving({required bool skipped}) {
