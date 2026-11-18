@@ -121,7 +121,8 @@ class Taste {
   List<Track> order(List<Track> tracks, Random rnd) {
     final keys = {
       for (final t in tracks)
-        t.key: artist(t.artist) * 0.6 + rnd.nextDouble() * 4,
+        // A nudge, not a ranking: favourites a bit sooner, not always first.
+        t.key: artist(t.artist).clamp(-5.0, 5.0) * 0.4 + rnd.nextDouble() * 4,
     };
     return [
       for (final t in tracks)

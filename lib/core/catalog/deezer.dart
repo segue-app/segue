@@ -165,7 +165,11 @@ class Catalog {
   ];
 
   /// The Deezer artist best matching a name (first artist of "A, B" or "A & B").
-  Future<Artist?> findArtist(String name) async {
+  ///
+  /// [strict]: only one with that very name (spaces, case and punctuation
+  /// aside), else null. For small artists the search's best guess is often
+  /// someone else entirely ("TOGANAKO" → "To Van Kao").
+  Future<Artist?> findArtist(String name, {bool strict = false}) async {
     final main = name
         .split(
           RegExp(r'\s*(,|&| feat\.? | ft\.? | x )\s*', caseSensitive: false),
@@ -177,11 +181,18 @@ class Catalog {
     if (found.isEmpty) return null;
     // Several artists share common names: among exact matches take the one
     // most people follow.
-    final exact =
-        found.where((a) => a.name.toLowerCase() == main.toLowerCase()).toList()
-          ..sort((a, b) => b.fans.compareTo(a.fans));
-    return exact.isNotEmpty ? exact.first : found.first;
+    final want = sameName(main);
+    final exact = found.where((a) => sameName(a.name) == want).toList()
+      ..sort((a, b) => b.fans.compareTo(a.fans));
+    if (exact.isNotEmpty) return exact.first;
+    return strict ? null : found.first;
   }
+
+  /// A name reduced to its letters and digits, lower case.
+  static String sameName(String name) => name.toLowerCase().replaceAll(
+    RegExp(r'[^\p{L}\p{N}]', unicode: true),
+    '',
+  );
 
   Future<Artist> artist(int id) async =>
       Artist.fromJson(await _get('artist/$id') as Map);

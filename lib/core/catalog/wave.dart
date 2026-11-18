@@ -30,52 +30,115 @@ class Wave {
   final SegueAudioHandler? player;
   final _rnd = Random();
 
+  /// Songs in one portion of a wave: small, so what you skip or like
+  /// shapes the next portion soon, not hours later.
+  static const batchSize = 30;
+
+  /// Songs this wave has already offered: later portions don't repeat
+  /// them, even ones skipped before they were recorded as played.
+  final _offered = <String>{};
+
+  /// The artists the last few portions were built around.
+  final _centres = <String>[];
+
+  /// Recently played songs and the ones this wave has already offered.
   Set<String> _recent() => {
-    for (final t in library.recentlyPlayed(limit: 200)) t.key,
+    for (final t in library.recentlyPlayed(limit: 250)) t.key,
+    ..._offered,
   };
 
   /// Mixes several radios, interleaved, minus recently played tracks.
-  Future<List<Track>> _mix(List<int> artistIds) async {
+  /// [weights]: how many songs each radio gives per turn (1 each).
+  Future<List<Track>> _mix(List<int> artistIds, [List<int>? weights]) async {
     final radios = await Future.wait(
       artistIds.map(
         (id) => catalog.artistRadio(id).catchError((Object _) => <Track>[]),
       ),
     );
+    final recent = _recent();
     for (final r in radios) {
       r.shuffle(_rnd);
+      r.removeWhere((t) => recent.contains(t.key));
     }
-    final recent = _recent();
     final seen = <String>{};
+    return [
+      for (final t in _interleave(radios, weights))
+        if (seen.add(t.key)) t,
+    ];
+  }
+
+  /// The portion as it will play: your taste orders it, then no artist
+  /// more than [perArtist] times and never twice within a few songs.
+  /// What it keeps counts as offered.
+  List<Track> _finish(List<Track> tracks, {int perArtist = 3}) {
+    final ordered = taste.order(tracks, _rnd);
     final out = <Track>[];
-    final longest = radios.fold(0, (m, r) => max(m, r.length));
-    for (var i = 0; i < longest; i++) {
-      for (final r in radios) {
-        if (i < r.length && !recent.contains(r[i].key) && seen.add(r[i].key)) {
-          out.add(r[i]);
-        }
+    final count = <String, int>{};
+    final waiting = <Track>[];
+    bool fits(Track t) {
+      final a = _norm(t.artist);
+      if ((count[a] ?? 0) >= perArtist) return false;
+      final near = out.length < 3 ? out : out.sublist(out.length - 3);
+      return !near.any((n) => _norm(n.artist) == a);
+    }
+
+    void place(Track t) {
+      out.add(t);
+      final a = _norm(t.artist);
+      count[a] = (count[a] ?? 0) + 1;
+    }
+
+    for (final t in ordered) {
+      if (out.length >= batchSize) break;
+      // A song held back for spacing goes in as soon as it fits.
+      final ready = waiting.indexWhere(fits);
+      if (ready >= 0) place(waiting.removeAt(ready));
+      if (out.length >= batchSize) break;
+      if (fits(t)) {
+        place(t);
+      } else if ((count[_norm(t.artist)] ?? 0) < perArtist) {
+        waiting.add(t);
       }
     }
+    // Few artists to go round: better a little closer than too short.
+    for (final t in waiting) {
+      if (out.length >= batchSize) break;
+      if ((count[_norm(t.artist)] ?? 0) < perArtist) place(t);
+    }
+    _offered.addAll(out.map((t) => t.key));
     return out;
+  }
+
+  /// Starts an endless wave: [batch] makes each portion.
+  Future<void> _play(
+    Future<List<Track>> Function() batch,
+    String title, {
+    List<Track> lead = const [],
+  }) async {
+    _offered
+      ..clear()
+      ..addAll(lead.map((t) => t.key));
+    final first = await batch();
+    if (first.isEmpty) throw StateError('Волна пустая'.tr);
+    await player!.playEndless([...lead, ...first], batch, title: title);
   }
 
   /// Radio around one artist (from a track, the artist page…).
   Future<void> artistWave(Artist artist) async {
-    final first = await _mix([artist.id]);
-    if (first.isEmpty) {
+    Future<List<Track>> batch() async =>
+        _finish(await _mix([artist.id]), perArtist: 8);
+    try {
+      await _play(batch, 'Волна: {0}'.trArgs([artist.name]));
+    } on StateError {
       throw StateError('Для «{0}» волна пустая'.trArgs([artist.name]));
     }
-    await player!.playEndless(
-      first,
-      () => _mix([artist.id]),
-      title: 'Волна: {0}'.trArgs([artist.name]),
-    );
   }
 
   /// Radio from one song: the song itself first, then its artist and
   /// artists like them. The similar artists are picked anew for each batch,
   /// so the radio keeps moving instead of circling one artist.
   Future<void> trackWave(Track track) async {
-    final artist = await catalog.findArtist(track.artist);
+    final artist = await catalog.findArtist(track.artist, strict: true);
     if (artist == null) {
       throw StateError('Не нашёл исполнителя «{0}»'.trArgs([track.artist]));
     }
@@ -88,21 +151,15 @@ class Wave {
     }
 
     final same = _sameSong(track);
-    final rest = [
+    Future<List<Track>> next() async => _finish([
       for (final t in await batch())
         if (!same(t)) t,
-    ];
-    if (rest.isEmpty) {
+    ], perArtist: 5);
+    try {
+      await _play(next, 'Радио: {0}'.trArgs([track.title]), lead: [track]);
+    } on StateError {
       throw StateError('Для «{0}» волна пустая'.trArgs([track.title]));
     }
-    await player!.playEndless(
-      [track, ...rest],
-      () async => [
-        for (final t in await batch())
-          if (!same(t)) t,
-      ],
-      title: 'Радио: {0}'.trArgs([track.title]),
-    );
   }
 
   /// Whether a catalog track is [track] (ids differ between sources).
@@ -113,52 +170,107 @@ class Wave {
     return (t) => t.key == track.key || k(t) == key;
   }
 
-  /// Seeds: artists you like and play most, a few at random each time.
+  /// Seeds for a portion: artists drawn at random, more likely the more
+  /// you've been playing and liking them lately. The first is the
+  /// portion's centre; the others are kept only if they sound like it
+  /// (Deezer counts them as similar), so film scores don't land between
+  /// rap songs. Artists Deezer doesn't know by that exact name are left
+  /// out: their own songs come in through [_familiar].
   Future<List<int>> _mySeeds({bool likedOnly = false}) async {
     final names = <String, double>{};
-    for (final t in library.likedTracks().take(200)) {
-      names[t.artist] = (names[t.artist] ?? 0) + 3;
+    void add(String artist, double w) {
+      final k = artist.trim();
+      if (k.isNotEmpty) names[k] = (names[k] ?? 0) + w;
+    }
+
+    final liked = library.likedTracks();
+    for (var i = 0; i < liked.length && i < 200; i++) {
+      add(liked[i].artist, 2 + 3 * exp(-i / 40)); // newer likes count more
     }
     if (!likedOnly) {
-      for (final t in library.recentlyPlayed(limit: 100)) {
-        names[t.artist] = (names[t.artist] ?? 0) + 1;
+      // Songs you came back to, not everything a radio once started.
+      final played = library.playedAtLeast(2, limit: 300);
+      for (var i = 0; i < played.length; i++) {
+        add(played[i].artist, 2 * exp(-i / 80));
       }
-      // Artists you listen to through: more; ones you keep skipping: out.
       for (final a in taste.favourites()) {
-        names[a] = (names[a] ?? 0) + 4;
+        add(a, 3);
       }
     }
-    for (final k in names.keys.toList()) {
-      final feel = taste.artist(k);
-      if (feel <= -3) {
-        names.remove(k);
-      } else {
-        names[k] = names[k]! + feel;
-      }
-    }
-    final ranked = names.entries.where((e) => e.key.trim().isNotEmpty).toList()
+    final weights = <String, double>{};
+    names.forEach((name, w) {
+      final feel = taste.artist(name);
+      if (feel <= -3) return;
+      // The last portions' centres step aside, so each portion has a new one.
+      final rest = _centres.contains(_norm(name)) ? 0.15 : 1.0;
+      weights[name] = max(0.2, w + feel.clamp(-3, 6)) * rest;
+    });
+
+    // Weighted draw, without putting anyone back, among the artists you
+    // listen to most: one song played twice doesn't make a centre.
+    final top = weights.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final pool = ranked.take(12).map((e) => e.key).toList()..shuffle(_rnd);
+    final order = <String>[];
+    final pool = {for (final e in top.take(15)) e.key: e.value};
+    while (pool.isNotEmpty && order.length < 10) {
+      final total = pool.values.fold(0.0, (a, b) => a + b);
+      var r = _rnd.nextDouble() * total;
+      final pick = pool.keys.firstWhere(
+        (k) => (r -= pool[k]!) <= 0,
+        orElse: () => pool.keys.last,
+      );
+      order.add(pick);
+      pool.remove(pick);
+    }
+
     final ids = <int>[];
-    for (final name in pool) {
+    Set<int>? around; // the centre and the artists like it
+    for (final name in order) {
       if (ids.length >= 4) break;
-      final a = await catalog.findArtist(name).catchError((Object _) => null);
-      if (a != null && !ids.contains(a.id)) ids.add(a.id);
+      final a = await catalog
+          .findArtist(name, strict: true)
+          .catchError((Object _) => null);
+      if (a == null || ids.contains(a.id)) continue;
+      final rel = await catalog
+          .related(a.id)
+          .catchError((Object _) => <Artist>[]);
+      final mine = {a.id, ...rel.map((r) => r.id)};
+      if (around == null) {
+        around = mine;
+        ids.add(a.id);
+        _centres
+          ..add(_norm(name))
+          ..removeRange(0, max(0, _centres.length - 3));
+      } else if (mine.any(around.contains)) {
+        ids.add(a.id);
+      }
     }
     return ids;
   }
 
+  /// Your own songs you haven't heard for a while, from artists you
+  /// don't skip: what the catalog can't offer for artists it doesn't know.
+  List<Track> _familiar() {
+    final recent = _recent();
+    final seen = <String>{};
+    final out = [
+      for (final t in [
+        ...library.likedTracks(),
+        ...library.playedAtLeast(2, limit: 1500),
+      ])
+        if (!recent.contains(t.key) &&
+            t.source != SourceKind.local &&
+            taste.artist(t.artist) >= 0 &&
+            seen.add(t.key))
+          t,
+    ];
+    return out..shuffle(_rnd);
+  }
+
   /// Personal endless mix, shaped by [settings] ("Настроить волну").
   /// With an empty library it starts from the charts.
-  Future<void> myWave([WaveSettings settings = const WaveSettings()]) async {
-    final first = await myWaveBatch(settings);
-    if (first.isEmpty) throw StateError('Волна пустая'.tr);
-    await player!.playEndless(
-      first,
-      () => myWaveBatch(settings),
-      title: myWaveTitle,
-    );
-  }
+  Future<void> myWave([WaveSettings settings = const WaveSettings()]) =>
+      _play(() => myWaveBatch(settings), myWaveTitle);
 
   static const myWaveTitle = 'Моя волна';
 
@@ -184,27 +296,19 @@ class Wave {
       chart.shuffle(_rnd);
       final recent = _recent();
       final seen = <String>{};
-      return taste.order([
+      return _finish([
         for (final t in _interleave([radio, chart], [2, 1]))
           if (!recent.contains(t.key) && seen.add(t.key)) t,
-      ], _rnd);
+      ]);
     }
 
-    final first = await batch();
-    if (first.isEmpty) throw StateError('Волна пустая'.tr);
-    await player!.playEndless(first, batch, title: 'Радио: {0}'.trArgs([name]));
+    await _play(batch, 'Радио: {0}'.trArgs([name]));
   }
 
   /// Radio of a mood (Бодрое, Спокойное…), shaped by your taste.
   Future<void> moodWave(String mood) async {
     final settings = WaveSettings(mood: mood);
-    final first = await myWaveBatch(settings);
-    if (first.isEmpty) throw StateError('Волна пустая'.tr);
-    await player!.playEndless(
-      first,
-      () => myWaveBatch(settings),
-      title: 'Радио: {0}'.trArgs([mood.tr]),
-    );
+    await _play(() => myWaveBatch(settings), 'Радио: {0}'.trArgs([mood.tr]));
   }
 
   /// One portion of My wave. Exposed for tests.
@@ -212,31 +316,52 @@ class Wave {
     final instrumental = settings.language == 'Без слов';
     final themed = settings.activity != null || settings.mood != null;
 
-    // Mood and activity come from public themed playlists; songs by
-    // artists you already know go first so it still feels like yours.
+    // Your seeds, also used to tell which themed songs are near your taste.
+    final likedOnly = settings.character == 'Любимое';
+    final seeds = instrumental ? <int>[] : await _mySeeds(likedOnly: likedOnly);
+
+    // Mood and activity come from public themed playlists. Songs by
+    // artists you know go first, then by artists like yours; few of each
+    // artist, so one playlist's favourite doesn't take over.
     var mood = <Track>[];
     if (themed || instrumental) {
       mood = await _themed(settings);
       final known = _knownArtists();
+      final near = <String>{};
+      for (final id in seeds) {
+        for (final a
+            in await catalog.related(id).catchError((Object _) => <Artist>[])) {
+          near.add(_norm(a.name));
+        }
+      }
+      int rank(Track t) {
+        final a = _norm(t.artist);
+        return known.contains(a)
+            ? 0
+            : near.contains(a)
+            ? 1
+            : 2;
+      }
+
       mood.shuffle(_rnd);
-      mood.sort(
-        (a, b) => (known.contains(_norm(b.artist)) ? 1 : 0).compareTo(
-          known.contains(_norm(a.artist)) ? 1 : 0,
-        ),
-      );
+      mood.sort((a, b) => rank(a).compareTo(rank(b)));
     }
     // Instrumental music isn't in anyone's artist radio: themed only.
-    final personal = instrumental ? <Track>[] : await _personal(settings);
+    final personal = instrumental
+        ? <Track>[]
+        : await _personal(settings, seeds);
 
     final mixed = mood.isEmpty
         ? personal
         : personal.isEmpty
         ? mood
-        // Two themed tracks for every personal one.
-        : _interleave([mood, personal], [2, 1]);
+        : _interleave([mood, personal], [1, 1]);
 
-    final recent = settings.character == 'Любимое'
-        ? {for (final t in library.recentlyPlayed(limit: 30)) t.key}
+    final recent = likedOnly
+        ? {
+            for (final t in library.recentlyPlayed(limit: 30)) t.key,
+            ..._offered,
+          }
         : _recent();
     final seen = <String>{};
     final out = [
@@ -246,9 +371,8 @@ class Wave {
             _languageOk(t, settings.language))
           t,
     ];
-    // Your taste orders it (and drops what you keep skipping).
-    final ordered = taste.order(out, _rnd);
-    if (ordered.isNotEmpty) return ordered;
+    final portion = _finish(out, perArtist: themed ? 2 : 3);
+    if (portion.isNotEmpty) return portion;
     // Filters too narrow for what we found: better something than nothing.
     final chart = await catalog.chart(limit: 50)
       ..shuffle(_rnd);
@@ -256,13 +380,11 @@ class Wave {
       for (final t in chart)
         if (_languageOk(t, settings.language)) t,
     ];
-    return fallback.isNotEmpty ? fallback : chart;
+    return _finish(fallback.isNotEmpty ? fallback : chart);
   }
 
   /// The personal part: artist radios, adjusted by "Характер".
-  Future<List<Track>> _personal(WaveSettings settings) async {
-    final likedOnly = settings.character == 'Любимое';
-    final seeds = await _mySeeds(likedOnly: likedOnly);
+  Future<List<Track>> _personal(WaveSettings settings, List<int> seeds) async {
     switch (settings.character) {
       case 'Любимое':
         // Your liked songs themselves, mixed with radios of their artists.
@@ -305,7 +427,12 @@ class Wave {
         }
         return _interleave([...tops, await _chart()], null);
       default:
-        return seeds.isEmpty ? _chart() : _mix(seeds);
+        // Around the centre artist (twice as much of its radio), with a
+        // quarter of your own songs you haven't heard for a while.
+        final radio = seeds.isEmpty
+            ? await _chart()
+            : await _mix(seeds, [2, for (var i = 1; i < seeds.length; i++) 1]);
+        return _interleave([radio, _familiar()], [3, 1]);
     }
   }
 

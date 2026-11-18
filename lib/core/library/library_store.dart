@@ -772,6 +772,15 @@ class LibraryStore {
     );
   }
 
+  /// Songs played at least [times] times (not just started once by a
+  /// radio), the most recently played first.
+  List<Track> playedAtLeast(int times, {int limit = 500}) => _tracks(
+    'SELECT t.json FROM (SELECT track_key, COUNT(*) AS n, MAX(played_at) AS last '
+    'FROM history GROUP BY track_key HAVING n >= ? ORDER BY last DESC LIMIT ?) h '
+    'JOIN tracks t ON t.key = h.track_key ORDER BY h.last DESC',
+    [times, limit],
+  );
+
   /// "Лайки за месяц": liked in the last 30 days, newest first.
   List<Track> smartNewLikes({int limit = 100}) => _tracks(
     'SELECT t.json FROM likes l JOIN tracks t ON t.key = l.track_key '
