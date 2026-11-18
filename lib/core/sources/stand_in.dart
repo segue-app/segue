@@ -3,31 +3,46 @@ import 'dart:async';
 import '../models/track.dart';
 import 'match_source.dart';
 import 'music_source.dart';
-import 'soundcloud_source.dart';
 
-/// Plays a song from SoundCloud when YouTube won't (blocked on this
-/// network, removed, region-locked): the same song, found by title,
-/// artist and length, so the queue goes on instead of skipping it.
+/// Plays a song from SoundCloud or Audius when YouTube won't (blocked on
+/// this network, removed, region-locked, never uploaded): the same song,
+/// found by title, artist and length, so the queue goes on instead of
+/// skipping it.
 class StandIn {
-  StandIn(this._soundcloud);
+  StandIn(this._sources);
 
-  final SoundCloudSource _soundcloud;
+  /// Asked in turn, first one with a convincing version wins.
+  final List<MusicSource> _sources;
 
   /// Found versions by the wanted song's key (null: none good enough).
   final _found = <String, Track?>{};
 
-  /// Titles of songs that played from SoundCloud instead, for a notice.
+  /// Titles of songs that played from elsewhere instead, for a notice.
   static final used = StreamController<String>.broadcast();
 
   /// Lowest score that is still the same song: title and artist match
   /// (60 + 25), minus a little for packaging words.
   static const _minScore = 70.0;
 
-  /// The SoundCloud version of [wanted], if there's a convincing one.
+  /// Another source's version of [wanted], if there's a convincing one.
   Future<Track?> find(Track wanted) async {
     if (_found.containsKey(wanted.key)) return _found[wanted.key];
+    Track? best;
+    for (final source in _sources) {
+      try {
+        best = await _findIn(source, wanted);
+      } catch (_) {
+        best = null; // that source is down: try the next
+      }
+      if (best != null) break;
+    }
+    if (_found.length > 200) _found.remove(_found.keys.first);
+    return _found[wanted.key] = best;
+  }
+
+  Future<Track?> _findIn(MusicSource source, Track wanted) async {
     final title = MatchSource.coreTitle(wanted.title);
-    final found = await _soundcloud.search(
+    final found = await source.search(
       '${wanted.artist} $title'.trim(),
       limit: 15,
     );
@@ -57,8 +72,7 @@ class StandIn {
         bestScore = s;
       }
     }
-    if (_found.length > 200) _found.remove(_found.keys.first);
-    return _found[wanted.key] = best;
+    return best;
   }
 
   static Track _split(Track t) {
@@ -76,9 +90,10 @@ class StandIn {
   Future<StreamInfo> resolve(Track wanted) async {
     final t = await find(wanted);
     if (t == null) {
-      throw StateError('Нет замены на SoundCloud для ${wanted.title}');
+      throw StateError('Нет замены для ${wanted.title}');
     }
-    final info = await _soundcloud.resolveStream(t);
+    final source = _sources.firstWhere((s) => s.kind == t.source);
+    final info = await source.resolveStream(t);
     used.add(wanted.title);
     return info;
   }

@@ -11,7 +11,14 @@ enum SourceKind {
 
   /// A file on this device (the user's own music folder). [Track.id] is the
   /// absolute path.
-  local;
+  local,
+
+  /// Audius (an open music platform). [Track.id] is the Audius track id.
+  audius;
+
+  /// Kinds Segue 0.3.28 and older know. Newer ones are written so those
+  /// versions still read them (see [Track.toJson]).
+  static const _known = {youtube, soundcloud, match, local};
 
   /// Sources the user can search directly.
   bool get searchable => this != match && this != local;
@@ -39,18 +46,34 @@ class Track {
   /// Unique across sources; used for queue, likes and sync.
   String get key => '${source.name}:$id';
 
+  /// Synced devices and friends may run an older Segue that doesn't know
+  /// a newer source: one unknown name made it fail on the whole library.
+  /// So a newer kind goes in `kind`, and `source` says "match": older
+  /// versions see a song by title and artist and find it on YouTube.
   Map<String, dynamic> toJson() => {
     'id': id,
-    'source': source.name,
+    'source': SourceKind._known.contains(source)
+        ? source.name
+        : SourceKind.match.name,
+    if (!SourceKind._known.contains(source)) 'kind': source.name,
     'title': title,
     'artist': artist,
     'artworkUrl': artworkUrl,
     'durationMs': duration?.inMilliseconds,
   };
 
+  /// A kind by name; one from a newer Segue becomes a song matched by
+  /// title and artist instead of breaking the library.
+  static SourceKind _kindOf(String name) {
+    for (final k in SourceKind.values) {
+      if (k.name == name) return k;
+    }
+    return SourceKind.match;
+  }
+
   factory Track.fromJson(Map<String, dynamic> j) => Track(
     id: j['id'] as String,
-    source: SourceKind.values.byName(j['source'] as String),
+    source: _kindOf((j['kind'] ?? j['source']) as String),
     title: j['title'] as String,
     artist: j['artist'] as String,
     artworkUrl: j['artworkUrl'] as String?,

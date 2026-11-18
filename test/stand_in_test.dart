@@ -41,7 +41,7 @@ void main() {
       _sc('2', 'Blinding Lights', 'The Weeknd', 201),
       _sc('3', 'Save Your Tears', 'The Weeknd', 215),
     ]);
-    final found = await StandIn(sc).find(wanted);
+    final found = await StandIn([sc]).find(wanted);
     expect(found?.id, '2');
     expect(sc.queries.single, 'The Weeknd Blinding Lights');
   });
@@ -51,7 +51,7 @@ void main() {
       _sc('1', 'Blinding Lights cover', 'someone', 190),
       _sc('2', 'Blinding Lights', 'The Weeknd', 30), // a preview
     ]);
-    expect(await StandIn(sc).find(wanted), isNull);
+    expect(await StandIn([sc]).find(wanted), isNull);
   });
 
   test('a YouTube title becomes song and artist', () {

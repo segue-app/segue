@@ -10,7 +10,7 @@ import 'package:segue/core/sources/stand_in.dart';
 
 void main() {
   test('stand-ins for well-known songs', () async {
-    final s = StandIn(SoundCloudSource());
+    final s = StandIn([SoundCloudSource()]);
     var hits = 0;
     for (final (title, artist, secs) in [
       ('Blinding Lights', 'The Weeknd', 200),

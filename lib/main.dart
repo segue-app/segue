@@ -32,6 +32,7 @@ import 'core/sync/sync.dart';
 import 'core/sync/sync_service.dart';
 import 'core/sources/music_source.dart';
 import 'core/sources/soundcloud_source.dart';
+import 'core/sources/audius_source.dart';
 import 'core/sources/sponsorblock.dart';
 import 'core/sources/sources.dart';
 import 'core/sources/youtube_source.dart';
@@ -57,15 +58,17 @@ Future<void> main() async {
   unawaited(AppLog.start());
 
   final soundcloud = SoundCloudSource();
+  final audius = AudiusSource();
   final youtube = YouTubeSource();
   unawaited(youtube.warmUp());
   final match = MatchSource(youtube);
-  // Songs YouTube won't play here come from SoundCloud instead.
-  final standIn = StandIn(soundcloud);
+  // Songs YouTube won't play here come from SoundCloud or Audius instead.
+  final standIn = StandIn([soundcloud, audius]);
   youtube.standIn = standIn.resolve;
   final Map<SourceKind, MusicSource> sources = {
     SourceKind.soundcloud: soundcloud,
     SourceKind.youtube: youtube,
+    SourceKind.audius: audius,
     SourceKind.match: match,
     SourceKind.local: LocalSource(),
   };
