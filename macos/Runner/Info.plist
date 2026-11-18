@@ -37,6 +37,8 @@
 	<array>
 		<string>_segue._tcp</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Чтобы узнать песню, которая играет рядом. Отправляется только отпечаток звука, не сама запись.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Чтобы отсканировать QR-код с другого устройства и связать их.</string>
 	<key>NSHumanReadableCopyright</key>

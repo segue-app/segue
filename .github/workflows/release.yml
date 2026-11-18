@@ -109,8 +109,9 @@ jobs:
 
   release:
     needs: [android, windows, linux, macos]
-    # Publish whatever was built, even if one platform failed.
-    if: ${{ !cancelled() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.macos.result == 'success') }}
+    # Publish whatever was built, even if one platform failed. Only for a
+    # version tag: a manual run just builds (to check a platform).
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.macos.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v5

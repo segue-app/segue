@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links_linux
   media_kit_libs_linux
+  record_linux
   url_launcher_linux
 )
 

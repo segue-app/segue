@@ -64,6 +64,10 @@ dependencies:
   archive: ^4.6.0
   home_widget: ^0.10.0
   share_plus: ^13.3.1
+  # Listening for "Что играет?" (Shazam). Pinned: 7.2.0 was a week old.
+  record: 7.1.2
+  # The Windows media overlay and media keys (System Media Transport Controls).
+  smtc_windows: ^1.1.0
 
 dev_dependencies:
   flutter_test:

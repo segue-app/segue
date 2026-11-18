@@ -673,4 +673,25 @@ const en = <String, String>{
   'Убрать строчку': 'Remove the line',
   'Без строчки из песни': 'No lyric line',
   'Строчка {0} из {1}': 'Line {0} of {1}',
+  'Что играет?': 'What\'s playing?',
+  'Не узнал песню': 'Couldn\'t recognise the song',
+  'Поднеси устройство ближе к звуку и попробуй ещё раз':
+      'Bring the device closer to the sound and try again',
+  'Не получилось': 'Didn\'t work',
+  'Слушать ещё раз': 'Listen again',
+  'Узнанные раньше': 'Recognised before',
+  'только что': 'just now',
+  '{0} мин назад': '{0} min ago',
+  '{0} ч назад': '{0} h ago',
+  'Слушаю…': 'Listening…',
+  'Поднеси устройство к источнику звука': 'Hold the device near the sound',
+  'Играть': 'Play',
+  'В любимых': 'Liked',
+  'Нет доступа к микрофону. Разреши его Segue в настройках системы':
+      'No access to the microphone. Allow it for Segue in the system settings',
+  'Микрофон не отвечает': 'The microphone isn\'t responding',
+  'Нет связи с Shazam': 'Can\'t reach Shazam',
+  'Shazam просит подождать. Попробуй через минуту':
+      'Shazam asks to wait. Try again in a minute',
+  'Shazam ответил ошибкой {0}': 'Shazam answered with error {0}',
 };

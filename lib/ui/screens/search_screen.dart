@@ -31,6 +31,7 @@ import 'package:segue/core/l10n/l10n.dart';
 
 import '../widgets/h_scroll.dart';
 import '../widgets/segue_loader.dart';
+import '../widgets/recognize_sheet.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -112,8 +113,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 ),
                               ),
                               // Clear: back to the history at once.
+                              // Empty: "Что играет?" (Shazam) instead.
                               suffixIcon: _query.isEmpty
-                                  ? null
+                                  ? IconButton(
+                                      tooltip: 'Что играет?'.tr,
+                                      icon: const Icon(Icons.mic_rounded),
+                                      onPressed: () =>
+                                          showRecognizeSheet(context),
+                                    )
                                   : IconButton(
                                       tooltip: 'Очистить'.tr,
                                       icon: const Icon(Icons.close_rounded),

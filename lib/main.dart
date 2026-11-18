@@ -33,6 +33,7 @@ import 'core/sync/sync_service.dart';
 import 'core/sources/music_source.dart';
 import 'core/sources/soundcloud_source.dart';
 import 'core/sources/audius_source.dart';
+import 'core/integrations/windows_media.dart';
 import 'core/sources/sponsorblock.dart';
 import 'core/sources/sources.dart';
 import 'core/sources/youtube_source.dart';
@@ -56,6 +57,7 @@ Future<void> main() async {
   unawaited(TempCleanup.run());
   AppVisibility.attach();
   unawaited(AppLog.start());
+  await WindowsMedia.init();
 
   final soundcloud = SoundCloudSource();
   final audius = AudiusSource();
@@ -176,6 +178,7 @@ Future<void> main() async {
     }
   };
   DiscordPresence().attach(handler);
+  WindowsMedia().attach(handler);
   final trims = TrimStore(library);
   handler.trimFor = (t) {
     final trim = trims.of(t);

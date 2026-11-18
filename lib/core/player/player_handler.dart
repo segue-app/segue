@@ -2102,9 +2102,12 @@ class SegueAudioHandler extends BaseAudioHandler
     duration: t.duration,
     artUri: t.artworkUrl == null
         ? null
-        : (t.artworkUrl!.startsWith('/')
-              ? Uri.file(t.artworkUrl!)
-              : Uri.parse(t.artworkUrl!)),
+        : t.artworkUrl!.startsWith('/')
+        ? Uri.file(t.artworkUrl!)
+        // A Windows cover file (C:\…) isn't a web address.
+        : RegExp(r'^[A-Za-z]:\\').hasMatch(t.artworkUrl!)
+        ? Uri.file(t.artworkUrl!, windows: true)
+        : Uri.parse(t.artworkUrl!),
   );
 }
 
