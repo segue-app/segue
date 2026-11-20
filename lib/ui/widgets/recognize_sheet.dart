@@ -42,6 +42,9 @@ class _RecognizeSheet extends ConsumerStatefulWidget {
 class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
   _Stage _stage = _Stage.listening;
   double _heard = 0;
+
+  /// Recent loudness, oldest first: the bars while listening.
+  final _levels = List<double>.filled(_LevelBars.count, 0);
   RecognizedSong? _song;
   String? _error;
   bool _permission = false;
@@ -78,6 +81,7 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
     setState(() {
       _stage = _Stage.listening;
       _heard = 0;
+      _levels.fillRange(0, _levels.length, 0);
       _error = null;
       _permission = false;
     });
@@ -89,6 +93,11 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
       final song = await _listener.listen(
         heard: (s) {
           if (mounted) setState(() => _heard = s);
+        },
+        level: (l) {
+          _levels
+            ..removeAt(0)
+            ..add(l);
         },
       );
       if (!mounted || _listener.cancelled) return;
@@ -228,12 +237,10 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
           style: TextStyle(color: SegueColors.textDim),
         ),
         const SizedBox(height: 18),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: (_heard / total).clamp(0.0, 1.0),
-            minHeight: 4,
-          ),
+        _LevelBars(
+          levels: _levels,
+          progress: (_heard / total).clamp(0.0, 1.0),
+          color: Theme.of(context).colorScheme.primary,
         ),
         const SizedBox(height: 14),
         TextButton(
@@ -327,4 +334,70 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
       ),
     ],
   );
+}
+
+/// What the microphone hears, as bars that jump with the sound: the
+/// newest on the right. The part already heard is lit, the rest waits dim,
+/// so the bars are also the progress.
+class _LevelBars extends StatelessWidget {
+  const _LevelBars({
+    required this.levels,
+    required this.progress,
+    required this.color,
+  });
+
+  static const count = 36;
+
+  final List<double> levels;
+  final double progress;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _BarsPainter(List.of(levels), progress, color),
+      ),
+    );
+  }
+}
+
+class _BarsPainter extends CustomPainter {
+  _BarsPainter(this.levels, this.progress, this.color);
+
+  final List<double> levels;
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final n = levels.length;
+    final gap = size.width / n;
+    final w = gap * 0.55;
+    final lit = (progress * n).round();
+    final mid = size.height / 2;
+    for (var i = 0; i < n; i++) {
+      // A little of the neighbours: one loud piece doesn't make a spike.
+      final a = levels[i];
+      final b = i > 0 ? levels[i - 1] : a;
+      final c = i < n - 1 ? levels[i + 1] : a;
+      final v = (a * 0.6 + (b + c) * 0.2).clamp(0.0, 1.0);
+      final h = 4 + v * (size.height - 4);
+      final x = i * gap + (gap - w) / 2;
+      final paint = Paint()
+        ..color = i < lit ? color : color.withValues(alpha: 0.22);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, mid - h / 2, w, h),
+          Radius.circular(w / 2),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BarsPainter old) => true;
 }

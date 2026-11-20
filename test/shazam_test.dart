@@ -6,6 +6,7 @@ import 'package:archive/archive.dart' show getCrc32;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:segue/core/recognize/shazam.dart';
 import 'package:segue/core/recognize/shazam_signature.dart';
+import 'package:segue/core/recognize/song_listener.dart';
 
 /// [seconds] of a tone at [hz], 16 kHz mono.
 Int16List tone(double hz, double seconds) {
@@ -97,5 +98,21 @@ void main() {
 
     expect(Shazam.parse({'matches': [], 'tagid': 'x'}), isNull);
     expect(Shazam.parse('nonsense'), isNull);
+  });
+
+  test('loudness: silence 0, full scale 1, quiet in between', () {
+    Uint8List pcm(int amp) {
+      final b = ByteData(3200);
+      for (var i = 0; i < 1600; i++) {
+        b.setInt16(i * 2, i.isEven ? amp : -amp, Endian.little);
+      }
+      return b.buffer.asUint8List();
+    }
+
+    expect(SongListener.loudness(pcm(0)), 0);
+    expect(SongListener.loudness(pcm(32767)), closeTo(1, 0.01));
+    final quiet = SongListener.loudness(pcm(330)); // about -40 dBFS
+    expect(quiet, closeTo(1 / 3, 0.05));
+    expect(SongListener.loudness(Uint8List(0)), 0);
   });
 }

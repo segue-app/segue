@@ -110,7 +110,19 @@ class HomeScreen extends ConsumerWidget {
                 const _ForYou(),
                 if (recent.isNotEmpty) ...[
                   _SectionTitle('Недавно слушали'.tr),
-                  _Shelf(tracks: recent.take(20).toList()),
+                  _Shelf(
+                    tracks: recent.take(20).toList(),
+                    // At the end of the row: the whole history.
+                    more: (
+                      label: 'Вся история'.tr,
+                      icon: Icons.history_rounded,
+                      onTap: () {
+                        ref.read(librarySectionProvider.notifier).state =
+                            LibrarySection.history;
+                        onOpenLibrary();
+                      },
+                    ),
+                  ),
                 ],
                 if (liked.isNotEmpty) ...[
                   _SectionTitle('Из любимого'.tr),
@@ -596,9 +608,12 @@ class _SectionTitle extends StatelessWidget {
 
 /// Horizontal row of big cover cards; tapping plays the row from there.
 class _Shelf extends ConsumerWidget {
-  const _Shelf({required this.tracks});
+  const _Shelf({required this.tracks, this.more});
 
   final List<Track> tracks;
+
+  /// A last card after the songs, leading to all of them.
+  final ({String label, IconData icon, VoidCallback onTap})? more;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -609,9 +624,10 @@ class _Shelf extends ConsumerWidget {
           scrollDirection: Axis.horizontal,
           controller: c,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: tracks.length,
+          itemCount: tracks.length + (more == null ? 0 : 1),
           separatorBuilder: (_, _) => const SizedBox(width: 14),
           itemBuilder: (context, i) {
+            if (i == tracks.length) return _MoreCard(more!);
             final t = tracks[i];
             return StaggeredEntrance(
               index: i % 8,
@@ -646,6 +662,54 @@ class _Shelf extends ConsumerWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// The card at the end of a shelf: a round button where a cover would be.
+class _MoreCard extends StatelessWidget {
+  const _MoreCard(this.more);
+
+  final ({String label, IconData icon, VoidCallback onTap}) more;
+
+  @override
+  Widget build(BuildContext context) {
+    return PressScale(
+      onTap: more.onTap,
+      child: SizedBox(
+        width: 148,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 148,
+              height: 148,
+              decoration: BoxDecoration(
+                color: SegueColors.surfaceHigh,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: SegueColors.line),
+              ),
+              alignment: Alignment.center,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: const BoxDecoration(
+                  color: SegueColors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(more.icon, size: 28, color: SegueColors.text),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              more.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
       ),
     );

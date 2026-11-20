@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,7 +45,11 @@ class SongListener {
 
   /// Listens until the song is known or 12 seconds have gone by. [heard]
   /// reports seconds of sound so far. Null: Shazam doesn't know it.
-  Future<RecognizedSong?> listen({void Function(double seconds)? heard}) async {
+  /// [level]: how loud each piece of sound is, 0 (silence) to 1.
+  Future<RecognizedSong?> listen({
+    void Function(double seconds)? heard,
+    void Function(double level)? level,
+  }) async {
     _cancelled = false;
     final rec = _rec = AudioRecorder();
     try {
@@ -75,6 +80,7 @@ class SongListener {
       sub = stream.listen(
         (chunk) {
           bytes.add(chunk);
+          level?.call(loudness(chunk));
           final seconds = bytes.length / 2 / _rate;
           heard?.call(seconds);
           if (next >= tries.length ||
@@ -131,6 +137,22 @@ class SongListener {
   }
 
   bool get cancelled => _cancelled;
+
+  /// Loudness of 16-bit samples: 0 at -60 dBFS or quieter, 1 at full scale.
+  static double loudness(Uint8List pcm) {
+    final view = ByteData.sublistView(pcm);
+    final n = pcm.length ~/ 2;
+    if (n == 0) return 0;
+    var sum = 0.0;
+    for (var i = 0; i < n; i++) {
+      final v = view.getInt16(i * 2, Endian.little) / 32768;
+      sum += v * v;
+    }
+    final rms = math.sqrt(sum / n);
+    if (rms <= 0) return 0;
+    final db = 20 * math.log(rms) / math.ln10;
+    return ((db + 60) / 60).clamp(0.0, 1.0);
+  }
 
   /// The last 12 seconds as samples.
   static Int16List _samples(Uint8List b) {

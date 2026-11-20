@@ -694,4 +694,5 @@ const en = <String, String>{
   'Shazam просит подождать. Попробуй через минуту':
       'Shazam asks to wait. Try again in a minute',
   'Shazam ответил ошибкой {0}': 'Shazam answered with error {0}',
+  'Вся история': 'All history',
 };

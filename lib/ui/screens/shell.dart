@@ -192,6 +192,7 @@ class _ShellState extends ConsumerState<Shell> {
           SnackBar(
             content: Text('Вышла версия {0}'.trArgs([u.version])),
             duration: const Duration(seconds: 10),
+            persist: false,
             action: SnackBarAction(
               label: 'Обновить'.tr,
               onPressed: () {
@@ -292,6 +293,9 @@ class _ShellState extends ConsumerState<Shell> {
         content: Text(msg, maxLines: 2, overflow: TextOverflow.ellipsis),
         action: action,
         actionOverflowThreshold: 1,
+        // With a button Flutter keeps a note until it's closed by hand:
+        // these go by themselves.
+        persist: false,
         padding: const EdgeInsetsDirectional.only(start: 16, end: 6),
         duration: const Duration(seconds: 3),
       ),

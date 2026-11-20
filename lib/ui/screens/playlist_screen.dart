@@ -150,6 +150,7 @@ class _LikeAllButton extends ConsumerWidget {
             content: Text(
               'В любимых: +{0}'.trArgs([tracksLabel(fresh.length)]),
             ),
+            persist: false,
             action: SnackBarAction(
               label: 'Отменить'.tr,
               onPressed: () {
