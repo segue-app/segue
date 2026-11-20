@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
 
@@ -26,6 +29,15 @@ class ListenException implements Exception {
   String toString() => message;
 }
 
+/// Where the sound to recognise comes from.
+enum ListenSource {
+  /// The microphone: music in the room.
+  microphone,
+
+  /// What this device itself plays (another app, a browser tab).
+  device,
+}
+
 /// "Что играет?": listens through the microphone and asks Shazam, first
 /// after a few seconds and again with more, so a clear song is named
 /// quickly and a hard one still gets the full 12 seconds.
@@ -43,34 +55,62 @@ class SongListener {
   AudioRecorder? _rec;
   bool _cancelled = false;
 
+  static const _sysMethods = MethodChannel('fm.segue/sysaudio');
+  static const _sysEvents = EventChannel('fm.segue/sysaudio/pcm');
+
+  /// Whether [ListenSource.device] works here: macOS 13 and newer for now.
+  static Future<bool> deviceSupported() async {
+    if (!Platform.isMacOS) return false;
+    try {
+      return await _sysMethods.invokeMethod<bool>('supported') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool _onDevice = false;
+
   /// Listens until the song is known or 12 seconds have gone by. [heard]
-  /// reports seconds of sound so far. Null: Shazam doesn't know it.
-  /// [level]: how loud each piece of sound is, 0 (silence) to 1.
+  /// reports seconds of sound so far (0 until the sound starts coming).
+  /// [level]: how loud each piece of sound is, 0 (silence) to 1. Null:
+  /// Shazam doesn't know it.
   Future<RecognizedSong?> listen({
+    ListenSource source = ListenSource.microphone,
     void Function(double seconds)? heard,
     void Function(double level)? level,
   }) async {
     _cancelled = false;
-    final rec = _rec = AudioRecorder();
+    final rec = source == ListenSource.microphone
+        ? (_rec = AudioRecorder())
+        : null;
     try {
-      if (!await rec.hasPermission()) {
-        throw ListenException(
-          'Нет доступа к микрофону. Разреши его Segue в настройках системы'.tr,
-          permission: true,
+      final Stream<Uint8List> stream;
+      if (rec == null) {
+        stream = await _deviceStream();
+      } else {
+        if (!await rec.hasPermission()) {
+          throw ListenException(
+            'Нет доступа к микрофону. Разреши его Segue в настройках системы'
+                .tr,
+            permission: true,
+          );
+        }
+        stream = await rec.startStream(
+          RecordConfig(
+            encoder: AudioEncoder.pcm16bits,
+            sampleRate: _rate,
+            numChannels: 1,
+            // What's in the room, not a voice call: no cleanup that would
+            // take the music for noise.
+            echoCancel: false,
+            noiseSuppress: false,
+            // On macOS the system's gain control is voice processing, and
+            // with it the stream stays silent or never starts (macOS 27).
+            autoGain: !Platform.isMacOS,
+            device: await _microphone(rec),
+          ),
         );
       }
-      final stream = await rec.startStream(
-        const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: _rate,
-          numChannels: 1,
-          // What's in the room, not a voice call: no cleanup that would
-          // take the music for noise.
-          echoCancel: false,
-          noiseSuppress: false,
-          autoGain: true,
-        ),
-      );
       final bytes = BytesBuilder(copy: false);
       var next = 0;
       final done = Completer<RecognizedSong?>();
@@ -125,15 +165,63 @@ class SongListener {
       }
     } finally {
       _rec = null;
-      await rec.stop().catchError((Object _) => null);
-      await rec.dispose().catchError((Object _) {});
+      if (rec != null) {
+        await rec.stop().catchError((Object _) => null);
+        await rec.dispose().catchError((Object _) {});
+      }
+      if (_onDevice) {
+        _onDevice = false;
+        await _sysMethods.invokeMethod<void>('stop').catchError((Object _) {});
+      }
     }
+  }
+
+  /// The sound this Mac plays, from the window's native side.
+  Future<Stream<Uint8List>> _deviceStream() async {
+    final stream = _sysEvents.receiveBroadcastStream().map(
+      (e) => e is Uint8List ? e : Uint8List.fromList((e as List).cast<int>()),
+    );
+    final String? error;
+    try {
+      error = await _sysMethods.invokeMethod<String>('start');
+    } catch (_) {
+      throw ListenException('Звук устройства недоступен'.tr);
+    }
+    if (error == 'permission') {
+      throw ListenException(
+        'Разреши Segue «Запись экрана и системного звука»: Системные настройки → Конфиденциальность и безопасность. Потом перезапусти Segue'
+            .tr,
+        permission: true,
+      );
+    }
+    if (error != null) {
+      throw ListenException('Звук устройства недоступен: {0}'.trArgs([error]));
+    }
+    _onDevice = true;
+    return stream;
+  }
+
+  /// A Mac's own microphone rather than the system's default: that is
+  /// often Bluetooth headphones, which then switch to call quality (the
+  /// music in them gets worse) and hear little of the room.
+  static Future<InputDevice?> _microphone(AudioRecorder rec) async {
+    if (!Platform.isMacOS) return null;
+    try {
+      final all = await rec.listInputDevices();
+      for (final d in all) {
+        if (d.id.contains('BuiltInMicrophone')) return d;
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Stops listening early (the sheet was closed).
   Future<void> cancel() async {
     _cancelled = true;
     await _rec?.stop().catchError((Object _) => null);
+    if (_onDevice) {
+      await _sysMethods.invokeMethod<void>('stop').catchError((Object _) {});
+    }
   }
 
   bool get cancelled => _cancelled;

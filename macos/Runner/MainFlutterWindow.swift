@@ -2,11 +2,14 @@ import Cocoa
 import FlutterMacOS
 import Combine
 import SwiftUI
+import ScreenCaptureKit
+import AVFoundation
 
 class MainFlutterWindow: NSWindow {
   private var notch: NotchController?
   private var windowChannel: FlutterMethodChannel?
   private var updateChannel: FlutterMethodChannel?
+  private let systemAudio = SystemAudio()
   private var lastForeground: [String: Bool]?
 
   override func awakeFromNib() {
@@ -56,6 +59,30 @@ class MainFlutterWindow: NSWindow {
       cfg.createsNewApplicationInstance = true
       NSWorkspace.shared.open([job], withApplicationAt: helper, configuration: cfg) { _, error in
         DispatchQueue.main.async { result(error == nil ? "ok" : "\(error!.localizedDescription)") }
+      }
+    }
+
+    // "Что играет?" on this Mac: the sound every app plays, not the
+    // microphone (see SystemAudio).
+    let audioMethods = FlutterMethodChannel(
+      name: "fm.segue/sysaudio",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    let audioEvents = FlutterEventChannel(
+      name: "fm.segue/sysaudio/pcm",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    audioEvents.setStreamHandler(systemAudio)
+    audioMethods.setMethodCallHandler { [weak self] call, result in
+      guard let audio = self?.systemAudio else { return result(nil) }
+      switch call.method {
+      case "supported":
+        if #available(macOS 13.0, *) { result(true) } else { result(false) }
+      case "start":
+        audio.start { error in DispatchQueue.main.async { result(error) } }
+      case "stop":
+        audio.stop()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
       }
     }
 
@@ -833,5 +860,117 @@ struct DesktopCard: View {
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+  }
+}
+
+
+// MARK: - System audio
+
+/// The sound this Mac plays (all apps but Segue), for recognising a song:
+/// ScreenCaptureKit with audio only — no picture is kept. Sent to Dart as
+/// 16 kHz mono 16-bit PCM, like the microphone. macOS asks once for
+/// "Screen & System Audio Recording".
+final class SystemAudio: NSObject, FlutterStreamHandler {
+  private var sink: FlutterEventSink?
+  private var stream: AnyObject?  // SCStream (macOS 13+)
+  private var output: AnyObject?
+  private let queue = DispatchQueue(label: "fm.segue.sysaudio")
+
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    sink = events
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    sink = nil
+    return nil
+  }
+
+  /// Calls [done] with nil once sound is coming, or with why it isn't.
+  func start(done: @escaping (String?) -> Void) {
+    guard #available(macOS 13.0, *) else { return done("unsupported") }
+    stop()
+    SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: true) { content, error in
+      guard let content = content, let display = content.displays.first else {
+        // No permission: macOS shows its own prompt and returns an error.
+        return done("permission")
+      }
+      let mine = content.applications.filter {
+        $0.bundleIdentifier == Bundle.main.bundleIdentifier
+      }
+      let filter = SCContentFilter(
+        display: display, excludingApplications: mine, exceptingWindows: [])
+      let config = SCStreamConfiguration()
+      config.capturesAudio = true
+      config.excludesCurrentProcessAudio = true
+      config.sampleRate = 16000
+      config.channelCount = 1
+      // The picture isn't used: as small and rare as allowed.
+      config.width = 2
+      config.height = 2
+      config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
+      config.queueDepth = 3
+      let out = SystemAudioOutput { [weak self] data in
+        guard let self = self else { return }
+        DispatchQueue.main.async { self.sink?(FlutterStandardTypedData(bytes: data)) }
+      }
+      let stream = SCStream(filter: filter, configuration: config, delegate: nil)
+      do {
+        try stream.addStreamOutput(out, type: .audio, sampleHandlerQueue: self.queue)
+      } catch {
+        return done("\(error.localizedDescription)")
+      }
+      stream.startCapture { error in
+        if let error = error {
+          done("\(error.localizedDescription)")
+        } else {
+          self.stream = stream
+          self.output = out
+          done(nil)
+        }
+      }
+    }
+  }
+
+  func stop() {
+    if #available(macOS 13.0, *), let s = stream as? SCStream {
+      s.stopCapture { _ in }
+    }
+    stream = nil
+    output = nil
+  }
+}
+
+@available(macOS 13.0, *)
+private final class SystemAudioOutput: NSObject, SCStreamOutput {
+  init(onPcm: @escaping (Data) -> Void) {
+    self.onPcm = onPcm
+  }
+
+  private let onPcm: (Data) -> Void
+
+  func stream(_ stream: SCStream, didOutputSampleBuffer sample: CMSampleBuffer, of type: SCStreamOutputType) {
+    guard type == .audio, sample.isValid else { return }
+    var list = AudioBufferList()
+    var block: CMBlockBuffer?
+    let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+      sample,
+      bufferListSizeNeededOut: nil,
+      bufferListOut: &list,
+      bufferListSize: MemoryLayout<AudioBufferList>.size,
+      blockBufferAllocator: nil,
+      blockBufferMemoryAllocator: nil,
+      flags: 0,
+      blockBufferOut: &block)
+    guard status == noErr, let raw = list.mBuffers.mData else { return }
+    // ScreenCaptureKit gives 32-bit float samples; Shazam's fingerprint
+    // wants 16-bit integers.
+    let count = Int(list.mBuffers.mDataByteSize) / MemoryLayout<Float>.size
+    let floats = raw.bindMemory(to: Float.self, capacity: count)
+    var ints = [Int16](repeating: 0, count: count)
+    for i in 0..<count {
+      ints[i] = Int16(max(-1, min(1, floats[i])) * 32767)
+    }
+    onPcm(ints.withUnsafeBufferPointer { Data(buffer: $0) })
   }
 }

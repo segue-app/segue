@@ -695,4 +695,12 @@ const en = <String, String>{
       'Shazam asks to wait. Try again in a minute',
   'Shazam ответил ошибкой {0}': 'Shazam answered with error {0}',
   'Вся история': 'All history',
+  'Подключаюсь…': 'Connecting…',
+  'Включи песню в любом приложении на этом устройстве':
+      'Play the song in any app on this device',
+  'Вокруг': 'Around',
+  'На этом Mac': 'On this Mac',
+  'Звук устройства недоступен': 'The device sound isn\'t available',
+  'Звук устройства недоступен: {0}': 'The device sound isn\'t available: {0}',
+  'Разреши Segue «Запись экрана и системного звука»: Системные настройки → Конфиденциальность и безопасность. Потом перезапусти Segue': 'Allow Segue “Screen & System Audio Recording”: System Settings → Privacy & Security. Then restart Segue',
 };

@@ -49,6 +49,14 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
   String? _error;
   bool _permission = false;
 
+  /// Microphone or this device's own sound; the last choice is kept.
+  ListenSource _source = ListenSource.microphone;
+  bool _deviceOk = false;
+
+  /// Which listening run is current: a switch of source starts a new one,
+  /// and the old one's answer is ignored.
+  int _run = 0;
+
   /// Segue's own music was paused to hear the room; it comes back after.
   bool _paused = false;
 
@@ -57,11 +65,28 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
   // reading providers is no longer allowed.
   late final _player = ref.read(playerProvider);
 
+  static const _sourceKey = 'recognize_source';
+
   @override
   void initState() {
     super.initState();
     _player; // read now, while it's allowed
-    unawaited(_listen());
+    final library = ref.read(libraryProvider);
+    unawaited(() async {
+      _deviceOk = await SongListener.deviceSupported();
+      if (_deviceOk && library.getMeta(_sourceKey) == 'device') {
+        _source = ListenSource.device;
+      }
+      if (mounted) unawaited(_listen());
+    }());
+  }
+
+  Future<void> _switch(ListenSource source) async {
+    if (source == _source) return;
+    ref.read(libraryProvider).setMeta(_sourceKey, source.name);
+    setState(() => _source = source);
+    await _listener.cancel();
+    if (mounted) await _listen();
   }
 
   @override
@@ -78,6 +103,7 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
   }
 
   Future<void> _listen() async {
+    final run = ++_run;
     setState(() {
       _stage = _Stage.listening;
       _heard = 0;
@@ -85,29 +111,36 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
       _error = null;
       _permission = false;
     });
-    if (_player.playbackState.value.playing) {
+    // The room is heard through the microphone: Segue's own music would
+    // drown it. This device's sound leaves Segue out by itself.
+    if (_source == ListenSource.microphone &&
+        _player.playbackState.value.playing) {
       _paused = true;
       await _player.pause();
+    } else if (_source == ListenSource.device) {
+      _resume();
     }
     try {
       final song = await _listener.listen(
+        source: _source,
         heard: (s) {
-          if (mounted) setState(() => _heard = s);
+          if (mounted && run == _run) setState(() => _heard = s);
         },
         level: (l) {
+          if (run != _run) return;
           _levels
             ..removeAt(0)
             ..add(l);
         },
       );
-      if (!mounted || _listener.cancelled) return;
+      if (!mounted || run != _run) return;
       if (song != null) _listener.remember(song);
       setState(() {
         _song = song;
         _stage = song == null ? _Stage.unknown : _Stage.found;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || run != _run) return;
       setState(() {
         _stage = _Stage.failed;
         _error = '$e';
@@ -116,7 +149,7 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
     } finally {
       // Something was named, or nothing will be: the music goes on (unless
       // the user plays what was found, which starts it anyway).
-      if (mounted && _stage != _Stage.listening) _resume();
+      if (mounted && run == _run && _stage != _Stage.listening) _resume();
     }
   }
 
@@ -139,6 +172,26 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (_deviceOk) ...[
+                SegmentedButton<ListenSource>(
+                  segments: [
+                    ButtonSegment(
+                      value: ListenSource.microphone,
+                      icon: const Icon(Icons.mic_rounded),
+                      label: Text('Вокруг'.tr),
+                    ),
+                    ButtonSegment(
+                      value: ListenSource.device,
+                      icon: const Icon(Icons.laptop_mac_rounded),
+                      label: Text('На этом Mac'.tr),
+                    ),
+                  ],
+                  selected: {_source},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (v) => _switch(v.first),
+                ),
+                const SizedBox(height: 8),
+              ],
               AnimatedSwitcher(
                 duration: SegueMotion.medium,
                 child: KeyedSubtree(
@@ -227,12 +280,15 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
         const SegueLoader(size: 84),
         const SizedBox(height: 22),
         Text(
-          'Слушаю…'.tr,
+          // The microphone takes a few seconds to start on some Macs.
+          _heard == 0 ? 'Подключаюсь…'.tr : 'Слушаю…'.tr,
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 6),
         Text(
-          'Поднеси устройство к источнику звука'.tr,
+          _source == ListenSource.device
+              ? 'Включи песню в любом приложении на этом устройстве'.tr
+              : 'Поднеси устройство к источнику звука'.tr,
           textAlign: TextAlign.center,
           style: TextStyle(color: SegueColors.textDim),
         ),
