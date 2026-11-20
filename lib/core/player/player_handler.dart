@@ -1209,15 +1209,20 @@ class SegueAudioHandler extends BaseAudioHandler
       await _alignTail(tail);
       if (token != _loadToken) return;
       // From here the tail carries the old song; the main one goes on.
-      // A few milliseconds of crossover rather than a cut, so what is left
-      // of the difference doesn't click.
+      // Both play the same sound now, so the volume moves across in many
+      // small steps: each player applies a change at its own next block,
+      // a moment apart, and a small step leaves no audible dip or bump.
+      // The tail goes up before the main one comes down each time.
       final full = volume.value * _sleepGain * _tailNormGain * 100;
       final edge = _edgeGain;
-      for (var k = 1; k <= 4; k++) {
-        unawaited(tail.setVolume(full * k / 4));
-        _edgeGain = edge * (1 - k / 4);
+      const steps = 16;
+      for (var k = 1; k <= steps; k++) {
+        await tail.setVolume(full * k / steps);
+        _edgeGain = edge * (1 - k / steps);
         await _applyVolume();
-        if (k < 4) await Future<void>.delayed(const Duration(milliseconds: 12));
+        if (k < steps) {
+          await Future<void>.delayed(const Duration(milliseconds: 12));
+        }
       }
       _mixOldEnd = _trimEnd ?? mediaItem.value?.duration;
       if (token != _loadToken) return;
