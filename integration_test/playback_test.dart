@@ -456,7 +456,12 @@ void main() {
       MediaKit.ensureInitialized();
       final yt = _yt();
       final player = SegueAudioHandler({SourceKind.youtube: yt});
-      await player.setVolume(0); // silent
+      await player.setVolume(
+        // Heard (quietly) only when a check records what really comes out.
+        double.parse(
+          const String.fromEnvironment('MIX_VOLUME', defaultValue: '0'),
+        ),
+      );
       final sb = SponsorBlock();
       final catalog = Catalog();
       player
@@ -527,11 +532,11 @@ void main() {
         'speed at start $speed, 8s later $later, pitch kept: $pitchKept, '
         'hand-over slip ${player.lastMixSlip?.inMilliseconds} ms, '
         'tail lag ${player.lastMixTailLag?.inMilliseconds} ms, '
-        'aligned to ${((player.lastMixAlign ?? 9) * 1000).toStringAsFixed(1)} ms',
+        'aligned to ${((player.lastMixAlign ?? 9) * 1000).toStringAsFixed(2)} ms',
       );
       expect(pitchKept, 'yes'); // tempo changes, the key doesn't
       // At the swap both players are at the same sample: nothing plays twice.
-      expect(player.lastMixAlign!.abs(), lessThan(0.01));
+      expect(player.lastMixAlign!.abs(), lessThan(0.002));
       expect(player.lastMixSlip!.inMilliseconds.abs(), lessThan(150));
       // Position updates come every ~100 ms or so; a stall is far longer.
       expect(worstOld, lessThan(400));
@@ -674,7 +679,7 @@ void main() {
     // ignore: avoid_print
     print(
       'BEAT MIX matched ${player.lastMixWasBeatMatched}, '
-      'worst beat gap ${player.lastMixBeatError?.toStringAsFixed(1)} ms',
+      'worst beat gap ${player.lastMixBeatError?.toStringAsFixed(2)} ms',
     );
     expect(player.index, 1);
     expect(player.lastMixWasBeatMatched, isTrue);

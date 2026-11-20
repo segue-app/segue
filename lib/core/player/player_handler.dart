@@ -1226,7 +1226,7 @@ class SegueAudioHandler extends BaseAudioHandler
         'mix hand-over in ${sw.elapsedMilliseconds} ms (slip '
         '${lastMixSlip?.inMilliseconds} ms, tail lag '
         '${lastMixTailLag?.inMilliseconds} ms, aligned to '
-        '${((lastMixAlign ?? 0) * 1000).toStringAsFixed(1)} ms), beat plan '
+        '${((lastMixAlign ?? 0) * 1000).toStringAsFixed(2)} ms), beat plan '
         '${plan == null ? 'none' : '${plan.speed.toStringAsFixed(3)}x from ${plan.newStart.toStringAsFixed(2)}s'}',
       );
       _handedOver = true;
@@ -1308,35 +1308,42 @@ class SegueAudioHandler extends BaseAudioHandler
   /// Brings the (silent) second player level with the main one: a little
   /// faster or slower for a moment, so both are at the same sample.
   ///
-  /// Positions move in steps of one audio block (~20 ms), so the distance
-  /// is the average of several readings; then the second player runs
-  /// faster (or slower) for exactly as long as it takes, and it's measured
-  /// again.
+  /// The second player runs faster (or slower) for exactly as long as it
+  /// takes, then it's measured again.
   Future<void> _alignTail(Player tail) async {
     final main = _player.platform;
     final second = tail.platform;
     if (main is! NativePlayer || second is! NativePlayer) return;
     final base = _fx.mpvSpeedAt(_tempo);
+    // audio-pts follows the sound itself, to a fraction of a millisecond
+    // (time-pos moves in whole audio blocks). The first readings after a
+    // speed change are left out: it takes a moment to settle.
     Future<double?> gap() async {
-      var sum = 0.0;
-      const n = 8;
-      for (var i = 0; i < n; i++) {
-        final a = double.tryParse(await main.getProperty('time-pos'));
-        final b = double.tryParse(await second.getProperty('time-pos'));
+      final seen = <double>[];
+      for (var i = 0; i < 7; i++) {
+        final a = double.tryParse(await main.getProperty('audio-pts'));
+        final b = double.tryParse(await second.getProperty('audio-pts'));
         if (a == null || b == null) return null;
-        sum += a - b; // > 0: the second one is behind
-        await Future<void>.delayed(const Duration(milliseconds: 11));
+        if (i >= 2) seen.add(a - b); // > 0: the second one is behind
+        await Future<void>.delayed(const Duration(milliseconds: 12));
       }
-      return sum / n;
+      seen.sort();
+      return seen[seen.length ~/ 2];
     }
 
+    // Silent, so its pitch doesn't matter: plain resampling, no tempo
+    // filter whose own delay would change with every speed change.
+    final pitch = _fx.plainPitch ? 'yes' : 'no';
+    await second.setProperty('audio-pitch-correction', 'no');
     try {
-      for (var round = 0; round < 3; round++) {
+      for (var round = 0; round < 5; round++) {
         final g = await gap();
         if (g == null) return;
         lastMixAlign = g;
-        if (g.abs() < 0.004 || g.abs() > 1.5) return;
-        final nudge = g > 0 ? 0.25 : -0.2;
+        if (g.abs() < 0.0005 || g.abs() > 1.5) return;
+        // Big gaps quickly, the last bit gently.
+        final f = g.abs() > 0.02 ? 0.25 : 0.05;
+        final nudge = g > 0 ? f : -f;
         await second.setProperty(
           'speed',
           (base * (1 + nudge)).toStringAsFixed(6),
@@ -1345,10 +1352,14 @@ class SegueAudioHandler extends BaseAudioHandler
           Duration(microseconds: (g / (base * nudge) * 1e6).round()),
         );
         await second.setProperty('speed', base.toStringAsFixed(6));
+        // What was already queued for the sound device plays out first:
+        // only then does the change show.
+        await Future<void>.delayed(const Duration(milliseconds: 400));
       }
       lastMixAlign = await gap();
     } finally {
       await second.setProperty('speed', base.toStringAsFixed(6));
+      await second.setProperty('audio-pitch-correction', pitch);
     }
   }
 
