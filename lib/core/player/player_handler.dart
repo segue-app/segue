@@ -1092,9 +1092,9 @@ class SegueAudioHandler extends BaseAudioHandler
     final end = _trimEnd ?? mediaItem.value?.duration;
     if (end == null || end < const Duration(seconds: 30)) return;
     final left = end - pos;
-    // The hand-over takes ~2.5 s to prepare (see _startMix), more on a
+    // The hand-over takes ~3-4 s to prepare (see _startMix), more on a
     // slow network: begin early, so the crossfade keeps its full length.
-    if (left > Duration(milliseconds: (fadeSeconds * 1000).round() + 4000) ||
+    if (left > Duration(milliseconds: (fadeSeconds * 1000).round() + 6000) ||
         left < const Duration(seconds: 4)) {
       return;
     }
@@ -1189,19 +1189,25 @@ class SegueAudioHandler extends BaseAudioHandler
       if (_player.state.position >= at) {
         throw StateError('the second player was too slow');
       }
+      // Its sound device takes a moment to start (about as long as last
+      // time): started that much early, it is nearly level already.
+      final lead = Duration(
+        milliseconds: (lastMixTailLag?.inMilliseconds ?? 200).clamp(0, 400),
+      );
       await _player.stream.position
-          .firstWhere((p) => p >= at - const Duration(milliseconds: 25))
+          .firstWhere((p) => p >= at - lead - const Duration(milliseconds: 25))
           .timeout(Duration(seconds: attempt == 0 ? 4 : 7));
       if (token != _loadToken) return;
       final started = Stopwatch()..start();
       unawaited(tail.play());
-      lastMixSlip = _player.state.position - at;
+      lastMixSlip = _player.state.position - (at - lead);
       // Silent until it really plays (its sound device may take a moment
       // to start): only then does it take over, so there's no gap.
       await tail.stream.position
           .firstWhere((p) => p >= at + const Duration(milliseconds: 20))
           .timeout(const Duration(seconds: 2));
       lastMixTailLag = started.elapsed - const Duration(milliseconds: 20);
+      if (lastMixTailLag! < Duration.zero) lastMixTailLag = Duration.zero;
       if (token != _loadToken) return;
       // It started a little late, so it is behind by that much: swapping
       // now would play that bit twice (a stutter and a click). Still
@@ -1345,7 +1351,21 @@ class SegueAudioHandler extends BaseAudioHandler
         final g = await gap();
         if (g == null) return;
         lastMixAlign = g;
-        if (g.abs() < 0.0005 || g.abs() > 1.5) return;
+        if (g.abs() > 1.5) {
+          // It opened somewhere else in the song: taking over would jump.
+          throw StateError(
+            'the second player is ${g.toStringAsFixed(1)} s off',
+          );
+        }
+        if (g.abs() < 0.0005) return;
+        // Time is short (the song was moved near its end): the crossfade
+        // matters more than the last few milliseconds.
+        final end = _trimEnd ?? mediaItem.value?.duration;
+        if (round > 0 &&
+            end != null &&
+            end - _player.state.position < const Duration(seconds: 5)) {
+          return;
+        }
         // Big gaps quickly, the last bit gently.
         final f = g.abs() > 0.02 ? 0.25 : 0.05;
         final nudge = g > 0 ? f : -f;
@@ -1359,7 +1379,7 @@ class SegueAudioHandler extends BaseAudioHandler
         await second.setProperty('speed', base.toStringAsFixed(6));
         // What was already queued for the sound device plays out first:
         // only then does the change show.
-        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
       }
       lastMixAlign = await gap();
     } finally {
@@ -1377,6 +1397,36 @@ class SegueAudioHandler extends BaseAudioHandler
       unawaited(_runBeatMix(tail, plan, _loadToken));
       return;
     }
+    unawaited(_runPlainMix(tail, _loadToken));
+  }
+
+  /// How long the new song took to really sound after it was opened, at
+  /// the last mix (tests and the log).
+  @visibleForTesting
+  Duration? lastMixNewLag;
+
+  Future<void> _runPlainMix(Player tail, int token) async {
+    // The new song has only been opened: its sound may still be on the
+    // way (a stream buffering). Fading the old one out meanwhile left a
+    // hole, then the new one came in at once, loud. The crossfade starts
+    // when it really plays.
+    final wait = Stopwatch()..start();
+    final main = _player.platform;
+    if (main is NativePlayer) {
+      double? first;
+      while (wait.elapsedMilliseconds < 5000) {
+        if (token != _loadToken || _tail != tail) return;
+        final p = double.tryParse(await main.getProperty('audio-pts'));
+        if (p != null) {
+          first ??= p;
+          if (p > first + 0.04) break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 15));
+      }
+    }
+    if (token != _loadToken || _tail != tail) return;
+    lastMixNewLag = wait.elapsed;
+    debugPrint('mix: the new song sounds after ${wait.elapsedMilliseconds} ms');
     // Started late (slow network)? The fade is shortened so the old song
     // doesn't run out while the new one is still quiet.
     var total = fadeSeconds * 1000.0;
