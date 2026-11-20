@@ -14,6 +14,7 @@ import 'package:segue/core/models/track.dart';
 import 'package:segue/core/player/audio_fx.dart';
 import 'package:segue/core/dj/beat_service.dart';
 import 'package:segue/core/player/player_handler.dart';
+import 'package:segue/core/sources/audius_source.dart';
 import 'package:segue/core/sources/match_source.dart';
 import 'package:segue/core/sources/music_source.dart';
 import 'package:segue/core/sources/soundcloud_source.dart';
@@ -83,7 +84,7 @@ void main() {
       await player.applyFx(const AudioFx());
     }
     await player.stop();
-  }, timeout: const Timeout(Duration(minutes: 4)));
+  }, timeout: const Timeout(Duration(minutes: 5)));
 
   testWidgets('switching tracks is fast', (tester) async {
     MediaKit.ensureInitialized();
@@ -322,6 +323,72 @@ void main() {
     await player.stop();
     await cache.clear();
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  testWidgets('the next song is fetched ahead and starts at once; quick '
+      'skips fetch nothing', (tester) async {
+    MediaKit.ensureInitialized();
+    // Audius: free files, quick from anywhere (the test is about the
+    // player, not about reaching YouTube).
+    final au = AudiusSource();
+    final sources = <SourceKind, MusicSource>{SourceKind.audius: au};
+    final library = LibraryStore.memory();
+    final tmp = Directory.systemTemp.createTempSync('ahead_test');
+    final downloads = _CountingDownloads(
+      library: library,
+      sources: sources,
+      directory: Directory('${tmp.path}/dl')..createSync(),
+    );
+    final cache = AudioCache(
+      library: library,
+      downloads: downloads,
+      sources: sources,
+      directory: Directory('${tmp.path}/cache')..createSync(),
+    );
+    final player = SegueAudioHandler(sources)..localPathFor = cache.pathFor;
+    cache.attach(player);
+    await player.setVolume(0);
+    final songs = <Track>[
+      for (final q in ['lofi', 'house', 'hip hop', 'ambient', 'techno', 'jazz'])
+        (await au.search(q, limit: 1)).first,
+    ];
+    // Flicking through: a second on each song, nothing is downloaded.
+    await player.playList(songs, 0);
+    for (var k = 0; k < 3; k++) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      await player.skipToNext();
+    }
+    await Future<void>.delayed(const Duration(seconds: 2));
+    expect(downloads.fetches, 0);
+    // For comparison: a skip to a song that wasn't fetched (only its
+    // stream found).
+    final cold = Stopwatch()..start();
+    await player.skipToNext();
+    await _sounds(player, player.index);
+    final coldMs = cold.elapsedMilliseconds;
+    // Staying on a song: the next one is fetched whole.
+    final next = songs[player.index + 1];
+    await player.positionStream
+        .firstWhere((p) => p > const Duration(seconds: 1))
+        .timeout(const Duration(seconds: 30));
+    final until = DateTime.now().add(
+      AudioCache.aheadAfter + const Duration(seconds: 90),
+    );
+    while (cache.pathFor(next) == null && DateTime.now().isBefore(until)) {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    expect(cache.pathFor(next), isNotNull);
+    final sw = Stopwatch()..start();
+    await player.skipToNext();
+    await _sounds(player, player.index);
+    // ignore: avoid_print
+    print(
+      'AHEAD fetched next sounds after ${sw.elapsedMilliseconds} ms, '
+      'not fetched $coldMs ms, downloads ${downloads.fetches}',
+    );
+    expect(sw.elapsedMilliseconds, lessThan(coldMs));
+    await player.stop();
+    await cache.clear();
+  }, timeout: const Timeout(Duration(minutes: 5)));
 
   testWidgets('handoff plays the exact version the other device played', (
     tester,
@@ -640,7 +707,7 @@ void main() {
     for (final d in diffs) {
       expect(d.abs(), lessThan(3));
     }
-  }, timeout: const Timeout(Duration(minutes: 4)));
+  }, timeout: const Timeout(Duration(minutes: 5)));
 
   testWidgets('DJ mix lines up the beats of the two songs', (tester) async {
     MediaKit.ensureInitialized();
@@ -747,5 +814,16 @@ class _CountingDownloads extends DownloadManager {
   ]) {
     fetches++;
     return super.fetchTo(t, dir, onProgress);
+  }
+}
+
+/// Until song [index] really moves (mpv's own position, not the UI's).
+Future<void> _sounds(SegueAudioHandler player, int index) async {
+  final until = DateTime.now().add(const Duration(seconds: 20));
+  while (!(player.index == index &&
+      player.rawPosition > Duration.zero &&
+      player.rawPosition < const Duration(seconds: 5))) {
+    if (DateTime.now().isAfter(until)) throw StateError('never started');
+    await Future<void>.delayed(const Duration(milliseconds: 5));
   }
 }

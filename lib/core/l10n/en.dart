@@ -700,7 +700,8 @@ const en = <String, String>{
       'Play the song in any app on this device',
   'Вокруг': 'Around',
   'На этом Mac': 'On this Mac',
-  'Без разрешения Segue не слышит звук телефона': 'Without permission Segue can\'t hear the phone\'s sound',
+  'Без разрешения Segue не слышит звук телефона':
+      'Without permission Segue can\'t hear the phone\'s sound',
   'На телефоне': 'On this phone',
   'На компьютере': 'On this computer',
   'Звук устройства недоступен': 'The device sound isn\'t available',

@@ -59,7 +59,7 @@ class AudioCache {
 
   Directory? _dir;
   final _fetching = <String>{};
-  Timer? _listened, _save;
+  Timer? _listened, _ahead, _save;
 
   /// Track key → (file, size, last played ms).
   late final Map<String, ({String path, int size, int at})> _entries = _load();
@@ -132,8 +132,30 @@ class AudioCache {
     unawaited(_syncTee(clear: true));
     player.mediaItem.listen((_) {
       _listened?.cancel();
+      _ahead?.cancel();
       final t = player.current;
       if (t == null) return;
+      // The next song, whole, so it starts at once when this one ends.
+      // Only once this one has played a while: someone flicking through
+      // songs would otherwise download each next one for nothing.
+      void fetchNext() {
+        if (player.current?.key != t.key || player.output.value != null) {
+          return;
+        }
+        // Paused, or this song's own sound still coming in: ask again in a
+        // moment rather than take its bandwidth.
+        if (!player.isPlaying || !player.wellBuffered) {
+          _ahead = Timer(const Duration(seconds: 5), fetchNext);
+          return;
+        }
+        final i = player.index + 1;
+        final list = player.tracks;
+        if (i < list.length) {
+          unawaited(keep(list[i], always: true, ahead: true));
+        }
+      }
+
+      _ahead = Timer(aheadAfter, fetchNext);
       _listened = Timer(const Duration(seconds: 30), () {
         if (player.current?.key == t.key &&
             player.isPlaying &&
@@ -147,7 +169,12 @@ class AudioCache {
   /// Fetches [t] into the cache (if worth it and allowed now).
   /// With [always], even when keeping recent songs is off (Auto DJ
   /// fetching its set ahead).
-  Future<void> keep(Track t, {bool always = false}) async {
+  /// How long a song plays before the next one is fetched.
+  static const aheadAfter = Duration(seconds: 20);
+
+  /// [ahead]: the song that plays next. Fetched on mobile data too: it is
+  /// about to be streamed anyway.
+  Future<void> keep(Track t, {bool always = false, bool ahead = false}) async {
     if ((!enabled && !always) ||
         t.source == SourceKind.local ||
         contains(t) ||
@@ -164,8 +191,12 @@ class AudioCache {
       if (teed != null && teed.existsSync()) {
         file = await _moveInto(teed, t, await _folder());
       } else {
-        if (!await _onUnmeteredNetwork()) return;
+        if (!ahead && !await _onUnmeteredNetwork()) return;
+        final sw = Stopwatch()..start();
         file = await downloads.fetchTo(t, await _folder());
+        if (ahead) {
+          debugPrint('next ${t.title}: ready in ${sw.elapsedMilliseconds} ms');
+        }
       }
       _entries[t.key] = (
         path: file.path,

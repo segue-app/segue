@@ -107,7 +107,9 @@ class ChunkProxy {
     } catch (_) {
       // Player closed the connection (seek): nothing to do.
     }
-    await res.close();
+    // Nothing came at all (the source timed out): closing short of the
+    // promised length throws; the player sees a dropped connection.
+    await res.close().catchError((Object _) {});
   }
 
   /// The whole file behind [local] (a URL from [wrap]) once every byte of

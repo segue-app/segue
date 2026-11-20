@@ -590,6 +590,16 @@ class SegueAudioHandler extends BaseAudioHandler
     _prepareSongBeats();
     final i = _index + 1;
     if (i < _tracks.length) warm(_tracks[i], next: true);
+    // The one after it too, once this song has settled (a few seconds
+    // without a skip): two quick skips then still land on a ready song.
+    _afterNext?.cancel();
+    final key = current?.key;
+    _afterNext = Timer(const Duration(seconds: 3), () {
+      final j = _index + 2;
+      if (current?.key == key && j < _tracks.length) {
+        warm(_tracks[j], next: true);
+      }
+    });
     if (fadeSeconds >= 1 && i < _tracks.length) {
       // A mix comes at the end of this song: know its tempo, and have the
       // second player made (starting libmpv takes a moment) well before.
@@ -693,6 +703,23 @@ class SegueAudioHandler extends BaseAudioHandler
 
   bool get isPlayingNow => _player.state.playing;
 
+  /// mpv's own position, unthrottled (tests time starts with it).
+  @visibleForTesting
+  Duration get rawPosition => _player.state.position;
+
+  /// Whether what plays now has enough sound in hand (or comes from a
+  /// file) for another download not to starve it on a slow network.
+  bool get wellBuffered {
+    final u = _currentUri;
+    if (u == null) return false;
+    if (u.startsWith('file:') || u.startsWith('/')) return true;
+    final s = _player.state;
+    final end = _trimEnd ?? mediaItem.value?.duration ?? s.duration;
+    final ahead = s.buffer - s.position;
+    return ahead >= const Duration(seconds: 30) ||
+        (end > Duration.zero && s.buffer >= end - const Duration(seconds: 1));
+  }
+
   /// Where [t] starts playing: its trim, or where its music begins.
   Future<Duration> startOf(Track t) => _startOf(t);
 
@@ -737,6 +764,7 @@ class SegueAudioHandler extends BaseAudioHandler
   );
 
   int _warming = 0;
+  Timer? _afterNext;
 
   /// Gets [track] ready to start instantly. Cheap to call often: the UI
   /// calls it when the pointer rests on a track or a finger touches it.
@@ -755,8 +783,17 @@ class SegueAudioHandler extends BaseAudioHandler
       (_, v) => DateTime.now().difference(v.$2) > const Duration(minutes: 20),
     );
     // Keep a handful: hovering down a list must not pile up requests.
+    // The songs that play next are never the ones pushed out.
+    final upcoming = {
+      for (var k = _index + 1; k <= _index + 2 && k < _tracks.length; k++)
+        _tracks[k].key,
+    };
     while (_resolved.length >= 6) {
-      _resolved.remove(_resolved.keys.first);
+      final drop = _resolved.keys.firstWhere(
+        (k) => !upcoming.contains(k),
+        orElse: () => _resolved.keys.first,
+      );
+      _resolved.remove(drop);
     }
     _resolved[track.key] = (f, DateTime.now());
     _warming++;
