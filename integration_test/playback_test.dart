@@ -450,95 +450,102 @@ void main() {
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 2)));
 
-  testWidgets('DJ mix: skips the intro, crossfades, matches tempo', (
-    tester,
-  ) async {
-    MediaKit.ensureInitialized();
-    final yt = _yt();
-    final player = SegueAudioHandler({SourceKind.youtube: yt});
-    await player.setVolume(0); // silent
-    final sb = SponsorBlock();
-    final catalog = Catalog();
-    player
-      ..fadeSeconds = 6
-      ..autoBounds = ((t) => sb.musicBounds(t.id))
-      ..bpmFor = ((t) => catalog.bpm(t.artist, t.title));
-    final a = (await yt.search(
-      'Luis Fonsi Despacito ft. Daddy Yankee',
-      limit: 3,
-    )).firstWhere((t) => t.id == 'kJQP7kiw5Fk');
-    final b = (await yt.search(
-      'Ed Sheeran Shape of You official',
-      limit: 1,
-    )).first;
-    await player.playList([
-      a.copyWithArtist('Luis Fonsi', 'Despacito'),
-      b.copyWithArtist('Ed Sheeran', 'Shape of You'),
-    ], 0);
-    final first = await player.positionStream
-        .firstWhere((p) => p > const Duration(seconds: 1))
-        .timeout(const Duration(seconds: 40));
-    // SponsorBlock: the spoken intro (0:00–0:21) is skipped.
-    expect(first, greaterThan(const Duration(seconds: 20)));
-    // Near the end of the music (4:09 per SponsorBlock), the mix begins.
-    await player.seek(const Duration(seconds: 236));
-    final sw = Stopwatch()..start();
-    // Watch both songs every 50 ms: neither may stand still while heard.
-    var lastOld = Duration.zero, lastNew = Duration.zero;
-    var oldStill = 0, newStill = 0, worstOld = 0, worstNew = 0;
-    var switchedAt = -1;
-    final watch = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      // Not the buffering right after the seek itself.
-      if (sw.elapsedMilliseconds < 1500) return;
-      final p = player.debugMixPositions;
-      if (p.old == lastOld) {
-        oldStill += 50;
-        if (oldStill > worstOld) worstOld = oldStill;
-      } else {
-        oldStill = 0;
-      }
-      lastOld = p.old;
-      if (player.index == 1) {
-        if (switchedAt < 0) switchedAt = sw.elapsedMilliseconds;
-        if (p.incoming == lastNew && lastNew > Duration.zero) {
-          newStill += 50;
-          if (newStill > worstNew) worstNew = newStill;
+  testWidgets(
+    'DJ mix: skips the intro, crossfades, no stutter at the hand-over',
+    (tester) async {
+      MediaKit.ensureInitialized();
+      final yt = _yt();
+      final player = SegueAudioHandler({SourceKind.youtube: yt});
+      await player.setVolume(0); // silent
+      final sb = SponsorBlock();
+      final catalog = Catalog();
+      player
+        ..fadeSeconds = 6
+        ..autoBounds = ((t) => sb.musicBounds(t.id))
+        ..bpmFor = ((t) => catalog.bpm(t.artist, t.title));
+      final a = (await yt.search(
+        'Luis Fonsi Despacito ft. Daddy Yankee',
+        limit: 3,
+      )).firstWhere((t) => t.id == 'kJQP7kiw5Fk');
+      final b = (await yt.search(
+        'Ed Sheeran Shape of You official',
+        limit: 1,
+      )).first;
+      await player.playList([
+        a.copyWithArtist('Luis Fonsi', 'Despacito'),
+        b.copyWithArtist('Ed Sheeran', 'Shape of You'),
+      ], 0);
+      final first = await player.positionStream
+          .firstWhere((p) => p > const Duration(seconds: 1))
+          .timeout(const Duration(seconds: 40));
+      // SponsorBlock: the spoken intro (0:00–0:21) is skipped.
+      expect(first, greaterThan(const Duration(seconds: 20)));
+      // Near the end of the music (4:09 per SponsorBlock), the mix begins.
+      await player.seek(const Duration(seconds: 236));
+      final sw = Stopwatch()..start();
+      // Watch both songs every 50 ms: neither may stand still while heard.
+      var lastOld = Duration.zero, lastNew = Duration.zero;
+      var oldStill = 0, newStill = 0, worstOld = 0, worstNew = 0;
+      var switchedAt = -1;
+      final watch = Timer.periodic(const Duration(milliseconds: 50), (_) {
+        // Not the buffering right after the seek itself.
+        if (sw.elapsedMilliseconds < 1500) return;
+        final p = player.debugMixPositions;
+        if (p.old == lastOld) {
+          oldStill += 50;
+          if (oldStill > worstOld) worstOld = oldStill;
         } else {
-          newStill = 0;
+          oldStill = 0;
         }
-        lastNew = p.incoming;
+        lastOld = p.old;
+        if (player.index == 1) {
+          if (switchedAt < 0) switchedAt = sw.elapsedMilliseconds;
+          if (p.incoming == lastNew && lastNew > Duration.zero) {
+            newStill += 50;
+            if (newStill > worstNew) worstNew = newStill;
+          } else {
+            newStill = 0;
+          }
+          lastNew = p.incoming;
+        }
+      });
+      while (player.index == 0 && sw.elapsed < const Duration(seconds: 30)) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
       }
-    });
-    while (player.index == 0 && sw.elapsed < const Duration(seconds: 30)) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    }
 
-    final speed = double.parse(await player.debugProperty('speed'));
-    final pitchKept = await player.debugProperty('audio-pitch-correction');
-    await Future<void>.delayed(const Duration(seconds: 7)); // the fade
-    watch.cancel();
-    // ignore: avoid_print
-    print('MIX stalls: old song $worstOld ms, new song $worstNew ms');
-    await Future<void>.delayed(const Duration(seconds: 1));
-    final later = double.parse(await player.debugProperty('speed'));
-    // ignore: avoid_print
-    print(
-      'MIX switched after ${switchedAt}ms (music ends ~13s after the seek), '
-      'speed at start $speed, 8s later $later, pitch kept: $pitchKept, '
-      'hand-over slip ${player.lastMixSlip?.inMilliseconds} ms, '
-      'tail lag ${player.lastMixTailLag?.inMilliseconds} ms',
-    );
-    expect(pitchKept, 'yes'); // tempo changes, the key doesn't
-    expect(player.lastMixSlip!.inMilliseconds.abs(), lessThan(150));
-    // Position updates come every ~100 ms or so; a stall is far longer.
-    expect(worstOld, lessThan(400));
-    expect(worstNew, lessThan(400));
-    expect(player.index, 1);
-    expect(switchedAt, lessThan(11000)); // before the old song's music ended
-    expect(speed, lessThan(0.999)); // brought to Despacito's slower tempo
-    expect(later, greaterThan(speed)); // easing back to its own
-    await player.stop();
-  }, timeout: const Timeout(Duration(minutes: 3)));
+      final speed = double.parse(await player.debugProperty('speed'));
+      final pitchKept = await player.debugProperty('audio-pitch-correction');
+      await Future<void>.delayed(const Duration(seconds: 7)); // the fade
+      watch.cancel();
+      // ignore: avoid_print
+      print('MIX stalls: old song $worstOld ms, new song $worstNew ms');
+      await Future<void>.delayed(const Duration(seconds: 1));
+      final later = double.parse(await player.debugProperty('speed'));
+      // ignore: avoid_print
+      print(
+        'MIX switched after ${switchedAt}ms (music ends ~13s after the seek), '
+        'speed at start $speed, 8s later $later, pitch kept: $pitchKept, '
+        'hand-over slip ${player.lastMixSlip?.inMilliseconds} ms, '
+        'tail lag ${player.lastMixTailLag?.inMilliseconds} ms, '
+        'aligned to ${((player.lastMixAlign ?? 9) * 1000).toStringAsFixed(1)} ms',
+      );
+      expect(pitchKept, 'yes'); // tempo changes, the key doesn't
+      // At the swap both players are at the same sample: nothing plays twice.
+      expect(player.lastMixAlign!.abs(), lessThan(0.01));
+      expect(player.lastMixSlip!.inMilliseconds.abs(), lessThan(150));
+      // Position updates come every ~100 ms or so; a stall is far longer.
+      expect(worstOld, lessThan(400));
+      expect(worstNew, lessThan(400));
+      expect(player.index, 1);
+      expect(switchedAt, lessThan(11000)); // before the old song's music ended
+      // The catalogue has 89 against 140 bpm: too far apart to meet, so the
+      // new song keeps its own tempo rather than being pushed part way.
+      expect(speed, 1.0);
+      expect(later, 1.0);
+      await player.stop();
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
   testWidgets('DJ mix with a slow catalogue: no pause at the hand-over', (
     tester,
   ) async {

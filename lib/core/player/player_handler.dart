@@ -1139,7 +1139,17 @@ class SegueAudioHandler extends BaseAudioHandler
             );
         final (a, b) = both;
         if (a != null && b != null) {
-          _mixTempo = (a * _tempo / b).clamp(0.96, 1.04);
+          // Half or double time counts as the same beat; tempos that are
+          // simply far apart stay as they are (a push toward a tempo it
+          // can't come near only bends the sound).
+          var r = a * _tempo / b;
+          while (r > 1.4) {
+            r /= 2;
+          }
+          while (r < 0.7) {
+            r *= 2;
+          }
+          if ((r - 1).abs() <= 0.1) _mixTempo = r.clamp(0.96, 1.04);
         }
       }
       if (token != _loadToken) return;
@@ -1193,18 +1203,30 @@ class SegueAudioHandler extends BaseAudioHandler
           .timeout(const Duration(seconds: 2));
       lastMixTailLag = started.elapsed - const Duration(milliseconds: 20);
       if (token != _loadToken) return;
-      unawaited(
-        tail.setVolume(volume.value * _sleepGain * _tailNormGain * 100),
-      );
+      // It started a little late, so it is behind by that much: swapping
+      // now would play that bit twice (a stutter and a click). Still
+      // silent, it catches up first.
+      await _alignTail(tail);
+      if (token != _loadToken) return;
       // From here the tail carries the old song; the main one goes on.
+      // A few milliseconds of crossover rather than a cut, so what is left
+      // of the difference doesn't click.
+      final full = volume.value * _sleepGain * _tailNormGain * 100;
+      final edge = _edgeGain;
+      for (var k = 1; k <= 4; k++) {
+        unawaited(tail.setVolume(full * k / 4));
+        _edgeGain = edge * (1 - k / 4);
+        await _applyVolume();
+        if (k < 4) await Future<void>.delayed(const Duration(milliseconds: 12));
+      }
       _mixOldEnd = _trimEnd ?? mediaItem.value?.duration;
-      _edgeGain = 0;
-      await _applyVolume();
+      if (token != _loadToken) return;
       final plan = _beatPlan;
       debugPrint(
         'mix hand-over in ${sw.elapsedMilliseconds} ms (slip '
         '${lastMixSlip?.inMilliseconds} ms, tail lag '
-        '${lastMixTailLag?.inMilliseconds} ms), beat plan '
+        '${lastMixTailLag?.inMilliseconds} ms, aligned to '
+        '${((lastMixAlign ?? 0) * 1000).toStringAsFixed(1)} ms), beat plan '
         '${plan == null ? 'none' : '${plan.speed.toStringAsFixed(3)}x from ${plan.newStart.toStringAsFixed(2)}s'}',
       );
       _handedOver = true;
@@ -1277,6 +1299,58 @@ class SegueAudioHandler extends BaseAudioHandler
   /// How long the second player took to really start at the hand-over.
   @visibleForTesting
   Duration? lastMixTailLag;
+
+  /// How far behind the main player the second one was when the hand-over
+  /// happened (seconds; tests and the log).
+  @visibleForTesting
+  double? lastMixAlign;
+
+  /// Brings the (silent) second player level with the main one: a little
+  /// faster or slower for a moment, so both are at the same sample.
+  ///
+  /// Positions move in steps of one audio block (~20 ms), so the distance
+  /// is the average of several readings; then the second player runs
+  /// faster (or slower) for exactly as long as it takes, and it's measured
+  /// again.
+  Future<void> _alignTail(Player tail) async {
+    final main = _player.platform;
+    final second = tail.platform;
+    if (main is! NativePlayer || second is! NativePlayer) return;
+    final base = _fx.mpvSpeedAt(_tempo);
+    Future<double?> gap() async {
+      var sum = 0.0;
+      const n = 8;
+      for (var i = 0; i < n; i++) {
+        final a = double.tryParse(await main.getProperty('time-pos'));
+        final b = double.tryParse(await second.getProperty('time-pos'));
+        if (a == null || b == null) return null;
+        sum += a - b; // > 0: the second one is behind
+        await Future<void>.delayed(const Duration(milliseconds: 11));
+      }
+      return sum / n;
+    }
+
+    try {
+      for (var round = 0; round < 3; round++) {
+        final g = await gap();
+        if (g == null) return;
+        lastMixAlign = g;
+        if (g.abs() < 0.004 || g.abs() > 1.5) return;
+        final nudge = g > 0 ? 0.25 : -0.2;
+        await second.setProperty(
+          'speed',
+          (base * (1 + nudge)).toStringAsFixed(6),
+        );
+        await Future<void>.delayed(
+          Duration(microseconds: (g / (base * nudge) * 1e6).round()),
+        );
+        await second.setProperty('speed', base.toStringAsFixed(6));
+      }
+      lastMixAlign = await gap();
+    } finally {
+      await second.setProperty('speed', base.toStringAsFixed(6));
+    }
+  }
 
   /// Equal-power crossfade: the new song rises while the old one falls.
   void _runMix() {
