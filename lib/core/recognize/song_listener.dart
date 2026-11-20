@@ -58,15 +58,22 @@ class SongListener {
   static const _sysMethods = MethodChannel('fm.segue/sysaudio');
   static const _sysEvents = EventChannel('fm.segue/sysaudio/pcm');
 
-  /// Whether [ListenSource.device] works here: macOS 13 and newer for now.
+  /// Whether [ListenSource.device] works here: macOS 13+, Windows and
+  /// Android 10+ (the native side says).
   static Future<bool> deviceSupported() async {
-    if (!Platform.isMacOS) return false;
+    if (!Platform.isMacOS && !Platform.isWindows && !Platform.isAndroid) {
+      return false;
+    }
     try {
       return await _sysMethods.invokeMethod<bool>('supported') ?? false;
     } catch (_) {
       return false;
     }
   }
+
+  /// Windows hears everything the speakers play, Segue's own music too:
+  /// that has to pause, as for the microphone.
+  static bool get deviceHearsSegue => Platform.isWindows;
 
   bool _onDevice = false;
 
@@ -86,6 +93,14 @@ class SongListener {
     try {
       final Stream<Uint8List> stream;
       if (rec == null) {
+        // Android records other apps' sound under the microphone permission.
+        if (Platform.isAndroid && !await AudioRecorder().hasPermission()) {
+          throw ListenException(
+            'Нет доступа к микрофону. Разреши его Segue в настройках системы'
+                .tr,
+            permission: true,
+          );
+        }
         stream = await _deviceStream();
       } else {
         if (!await rec.hasPermission()) {
@@ -176,7 +191,7 @@ class SongListener {
     }
   }
 
-  /// The sound this Mac plays, from the window's native side.
+  /// The sound this device plays, from the native side.
   Future<Stream<Uint8List>> _deviceStream() async {
     final stream = _sysEvents.receiveBroadcastStream().map(
       (e) => e is Uint8List ? e : Uint8List.fromList((e as List).cast<int>()),
@@ -189,9 +204,11 @@ class SongListener {
     }
     if (error == 'permission') {
       throw ListenException(
-        'Разреши Segue «Запись экрана и системного звука»: Системные настройки → Конфиденциальность и безопасность. Потом перезапусти Segue'
-            .tr,
-        permission: true,
+        Platform.isAndroid
+            ? 'Без разрешения Segue не слышит звук телефона'.tr
+            : 'Разреши Segue «Запись экрана и системного звука»: Системные настройки → Конфиденциальность и безопасность. Потом перезапусти Segue'
+                  .tr,
+        permission: !Platform.isAndroid,
       );
     }
     if (error != null) {

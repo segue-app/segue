@@ -611,6 +611,37 @@ void main() {
     await player.stop();
   }, timeout: const Timeout(Duration(minutes: 3)));
 
+  testWidgets('measured loudness agrees with YouTube\'s', (tester) async {
+    MediaKit.ensureInitialized();
+    final yt = _yt();
+    final player = SegueAudioHandler({SourceKind.youtube: yt});
+    final svc = BeatService(uriFor: player.analysisUri);
+    final diffs = <double>[];
+    for (final q in [
+      'Daft Punk Get Lucky official audio',
+      'Billie Eilish bad guy official audio',
+      'Norah Jones Don\'t Know Why official audio',
+      'Metallica Enter Sandman official audio',
+      'Adele Someone Like You official audio',
+    ]) {
+      final t = (await yt.search(q, limit: 1)).first;
+      final info = await yt.resolveStream(t);
+      final want = info.loudnessDb;
+      final got = await svc.loudness(t, info.duration ?? t.duration);
+      // ignore: avoid_print
+      print('LOUDNESS ${t.title}: youtube $want, measured $got');
+      if (want != null && got != null) diffs.add(got - want);
+    }
+    final mean = diffs.reduce((a, b) => a + b) / diffs.length;
+    // ignore: avoid_print
+    print('LOUDNESS mean diff ${mean.toStringAsFixed(2)} dB, $diffs');
+    expect(diffs.length, greaterThanOrEqualTo(3));
+    expect(mean.abs(), lessThan(1.5));
+    for (final d in diffs) {
+      expect(d.abs(), lessThan(3));
+    }
+  }, timeout: const Timeout(Duration(minutes: 4)));
+
   testWidgets('DJ mix lines up the beats of the two songs', (tester) async {
     MediaKit.ensureInitialized();
     final yt = _yt();

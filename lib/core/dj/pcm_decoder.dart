@@ -57,7 +57,9 @@ class PcmDecoder {
       }
       final done = p.stream.completed.firstWhere((c) => c);
       await p.open(Media(uri.toString(), start: start), play: true);
-      await done.timeout(const Duration(seconds: 40));
+      // A whole song (loudness) takes longer to fetch than an end of it.
+      final long = length == null || length > const Duration(minutes: 1);
+      await done.timeout(Duration(seconds: long ? 120 : 40));
       await p.stop();
       if (!file.existsSync()) return null;
       final bytes = await file.readAsBytes();

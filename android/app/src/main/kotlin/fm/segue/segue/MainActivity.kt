@@ -1,6 +1,8 @@
 package fm.segue.segue
 
+import android.app.Activity
 import android.app.SearchManager
+import android.media.projection.MediaProjectionManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -10,6 +12,7 @@ import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
@@ -27,6 +30,68 @@ class MainActivity : AudioServiceActivity() {
             null
         }
 
+    // "Что играет?" → "На телефоне": waits for the system's consent dialog.
+    private var pendingListen: MethodChannel.Result? = null
+    private val listenRequest = 0x5E6
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != listenRequest) return
+        val result = pendingListen ?: return
+        pendingListen = null
+        if (resultCode != Activity.RESULT_OK || data == null ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+        ) {
+            result.success("permission")
+            return
+        }
+        SystemAudioService.onStarted = { error -> result.success(error) }
+        try {
+            SystemAudioService.start(this, resultCode, data)
+        } catch (e: Exception) {
+            SystemAudioService.onStarted = null
+            result.success(e.message ?: "start failed")
+        }
+    }
+
+    private fun listenChannels(engine: FlutterEngine) {
+        EventChannel(engine.dartExecutor.binaryMessenger, "fm.segue/sysaudio/pcm")
+            .setStreamHandler(
+                object : EventChannel.StreamHandler {
+                    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                        SystemAudioService.sink = events
+                    }
+
+                    override fun onCancel(arguments: Any?) {
+                        SystemAudioService.sink = null
+                    }
+                },
+            )
+        MethodChannel(engine.dartExecutor.binaryMessenger, "fm.segue/sysaudio")
+            .setMethodCallHandler { call, result ->
+                val q = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                when (call.method) {
+                    "supported" -> result.success(q)
+                    "start" -> {
+                        if (!q) return@setMethodCallHandler result.success("unsupported")
+                        pendingListen?.success("cancelled")
+                        pendingListen = result
+                        val manager = getSystemService(MediaProjectionManager::class.java)
+                        @Suppress("DEPRECATION")
+                        startActivityForResult(manager.createScreenCaptureIntent(), listenRequest)
+                    }
+                    "stop" -> {
+                        pendingListen?.success("cancelled")
+                        pendingListen = null
+                        if (q) SystemAudioService.stop(this)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         if (savedInstanceState == null) pendingVoice = voiceQuery(intent)
         super.onCreate(savedInstanceState)
@@ -41,6 +106,7 @@ class MainActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        listenChannels(flutterEngine)
         voice = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "fm.segue/voice")
             .apply {
                 setMethodCallHandler { call, result ->

@@ -488,6 +488,7 @@ class SegueAudioHandler extends BaseAudioHandler
       _currentUri = uri;
       _currentHls = info.hls;
       _normGain = _gainFor(track, info.loudnessDb);
+      if (info.loudnessDb == null) _measureLoudness(track, info.duration);
       if (!mixing) await _applyVolume();
       // In a mix the new song starts silent; the mix fades it in.
       if (mixing) {
@@ -1564,6 +1565,31 @@ class SegueAudioHandler extends BaseAudioHandler
     // its speed, so the reading is carried forward by the clock.
     final oldPos = _Tracked(tail, () => plan.oldSpeed);
     final newPos = _Tracked(_player, () => speed);
+    // Where each song really sounds: audio-pts, read from both players at
+    // the same moment (time-pos moves in whole audio blocks and arrives
+    // late, which alone made the beats look 100 ms apart).
+    final mainNp = _player.platform;
+    final tailNp = tail.platform;
+    ({double old, double neu})? pts;
+    var reading = false;
+    void readPts() {
+      if (reading || mainNp is! NativePlayer || tailNp is! NativePlayer) {
+        return;
+      }
+      reading = true;
+      () async {
+        try {
+          final o = double.tryParse(await tailNp.getProperty('audio-pts'));
+          final n = double.tryParse(await mainNp.getProperty('audio-pts'));
+          pts = o == null || n == null ? null : (old: o, neu: n);
+        } catch (_) {
+          pts = null;
+        } finally {
+          reading = false;
+        }
+      }();
+    }
+
     debugMixBeatTrace.clear();
     _mix?.cancel();
     _mix = Timer.periodic(const Duration(milliseconds: 50), (t) {
@@ -1583,8 +1609,12 @@ class SegueAudioHandler extends BaseAudioHandler
             math.cos(x * math.pi / 2),
       );
       // Beat lock: where each song is within its beat.
-      final po = plan.old.phaseAt(oldPos.now);
-      final xn = (newPos.now - plan.incoming.firstBeat) / plan.newPeriod;
+      final heard = pts;
+      readPts();
+      final po = plan.old.phaseAt(heard?.old ?? oldPos.now);
+      final xn =
+          ((heard?.neu ?? newPos.now) - plan.incoming.firstBeat) /
+          plan.newPeriod;
       var raw = (xn - xn.floorToDouble()) - po;
       if (raw > 0.5) raw -= 1;
       if (raw < -0.5) raw += 1;
@@ -1653,7 +1683,7 @@ class SegueAudioHandler extends BaseAudioHandler
     Duration? until;
     if (!mixing && fadeSeconds >= 1 && next != null && end != null) {
       final left = end - _player.state.position;
-      final lead = Duration(milliseconds: (fadeSeconds * 1000).round() + 4000);
+      final lead = Duration(milliseconds: (fadeSeconds * 1000).round() + 6000);
       until = left - lead;
       if (until.isNegative) until = Duration.zero;
     }
@@ -1868,6 +1898,42 @@ class SegueAudioHandler extends BaseAudioHandler
     if (!normalize || db == null) return 1;
     // Up by at most 3 dB: more would distort without a limiter.
     return math.pow(10, (_targetDb - db).clamp(-9.0, 3.0) / 20).toDouble();
+  }
+
+  /// Measures songs whose source doesn't say how loud they are (SoundCloud,
+  /// Audius, files), the next one ahead of time. The one already playing
+  /// eases to its level once known.
+  void _measureLoudness(Track track, Duration? length) {
+    final svc = beats;
+    if (svc == null || !normalize) return;
+    Future<void> one(Track t, Duration? len, bool now) async {
+      if (t.source == SourceKind.youtube || t.source == SourceKind.match) {
+        return;
+      }
+      if (storedLoudness?.call(t) != null) return;
+      final db = await svc.loudness(t, len);
+      if (db == null) return;
+      saveLoudness?.call(t, db);
+      if (!now || current?.key != t.key || _mix != null || _handedOver) {
+        return;
+      }
+      final from = _normGain, to = _gainFor(t, db);
+      for (var k = 1; k <= 15; k++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        if (current?.key != t.key || _mix != null) return;
+        _normGain = from + (to - from) * k / 15;
+        await _applyVolume();
+      }
+    }
+
+    unawaited(() async {
+      await one(track, length, true);
+      final i = _index + 1;
+      if (i < _tracks.length) {
+        final next = _tracks[i];
+        await one(next, next.duration, false);
+      }
+    }());
   }
 
   /// Switches normalisation on or off for what plays now too.

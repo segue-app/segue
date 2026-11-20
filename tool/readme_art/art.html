@@ -110,9 +110,30 @@
   .pill { font-size: 14px; font-weight: 600; padding: 9px 14px; border-radius: 999px; background: rgba(22,20,26,.86); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(8px); white-space: nowrap; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
   .pill em { font-style: normal; color: var(--dim); font-weight: 500; margin-right: 6px; }
 
+
+  /* What's playing? */
+  .seg { position: absolute; left: 50%; top: 26px; transform: translateX(-50%); display: flex; padding: 4px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--line); font-size: 14px; font-weight: 600; }
+  .seg span { padding: 7px 16px; border-radius: 999px; color: var(--dim); white-space: nowrap; }
+  .seg span.on { background: rgba(255,255,255,.12); color: var(--text); }
+  .rings { position: absolute; left: 50%; top: 150px; }
+  .rings i { position: absolute; border-radius: 50%; border: 2px solid; transform: translate(-50%, -50%); }
+  .rings b { position: absolute; width: 74px; height: 74px; border-radius: 50%; background: var(--grad); transform: translate(-50%, -50%); display: grid; place-items: center; font-size: 30px; box-shadow: 0 0 60px rgba(255,94,138,.55); }
+  .found { position: absolute; left: 50%; top: 214px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 9px 16px 9px 9px; border-radius: 16px; background: rgba(22,20,26,.9); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 16px 40px rgba(0,0,0,.45); white-space: nowrap; }
+  .found .a { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, #2b1d52, #ff5e8a); }
+  .found b { display: block; font-size: 15px; } .found span { font-size: 13px; color: var(--dim); }
+  .found em { font-style: normal; margin-left: 8px; font-size: 13px; font-weight: 700; padding: 6px 11px; border-radius: 999px; background: var(--grad); color: #1b1214; }
+
+  /* Story cards */
+  .story { position: absolute; width: 138px; height: 246px; border-radius: 20px; overflow: hidden; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 24px 60px rgba(0,0,0,.55); padding: 16px 14px; display: flex; flex-direction: column; }
+  .story .cv { width: 100%; aspect-ratio: 1; border-radius: 12px; box-shadow: 0 10px 26px rgba(0,0,0,.4); }
+  .story b { margin-top: 12px; font-size: 14px; line-height: 1.2; }
+  .story span { font-size: 12px; color: rgba(255,255,255,.7); margin-top: 3px; }
+  .story .qr { margin-top: auto; width: 40px; height: 40px; border-radius: 6px; background: #fff; padding: 3px; }
+  .story .mk { position: absolute; right: 12px; bottom: 12px; width: 18px; height: 18px; opacity: .9; }
+
   /* Import */
-  .src { position: absolute; left: 44px; width: 196px; height: 50px; border-radius: 14px; background: #1a181e; border: 1px solid var(--line); display: flex; align-items: center; gap: 12px; padding: 0 16px; font-weight: 700; font-size: 16px; }
-  .src i { width: 22px; height: 22px; border-radius: 7px; flex: none; }
+  .src { position: absolute; left: 44px; width: 196px; height: 36px; border-radius: 11px; background: #1a181e; border: 1px solid var(--line); display: flex; align-items: center; gap: 11px; padding: 0 14px; font-weight: 700; font-size: 15px; }
+  .src i { width: 18px; height: 18px; border-radius: 6px; flex: none; }
   .dest { position: absolute; right: 36px; top: 54px; width: 262px; border-radius: 20px; background: #19171d; border: 1px solid rgba(255,255,255,.12); padding: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
   .dest .head { display: flex; gap: 12px; align-items: center; }
   .dest .cover { width: 50px; height: 50px; border-radius: 12px; background: var(--grad); display: grid; place-items: center; font-size: 22px; }
@@ -272,15 +293,19 @@
     <div class="stage">
       <svg class="lines" width="620" height="288">
         <defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#ffb86b" stop-opacity=".2"/><stop offset="1" stop-color="#ff5e8a" stop-opacity=".9"/></linearGradient></defs>
-        <path d="M240 59 C 300 59, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.5" fill="none"/>
-        <path d="M240 119 C 300 119, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.5" fill="none"/>
-        <path d="M240 179 C 300 179, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.5" fill="none"/>
-        <path d="M240 239 C 300 239, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.5" fill="none"/>
+        <path d="M240 30 C 300 30, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.2" fill="none"/>
+        <path d="M240 73 C 300 73, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.2" fill="none"/>
+        <path d="M240 116 C 300 116, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.2" fill="none"/>
+        <path d="M240 159 C 300 159, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.2" fill="none"/>
+        <path d="M240 202 C 300 202, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.2" fill="none"/>
+        <path d="M240 245 C 300 245, 290 140, 340 140" stroke="url(#lg)" stroke-width="2.2" fill="none"/>
       </svg>
-      <div class="src" style="top:34px"><i style="background:#1ed760"></i>Spotify</div>
-      <div class="src" style="top:94px"><i style="background:#ffcc00"></i><span data-t="imp.yandex"></span></div>
-      <div class="src" style="top:154px"><i style="background:#ff2a2a"></i>YouTube</div>
-      <div class="src" style="top:214px"><i style="background:#ff7700"></i>SoundCloud</div>
+      <div class="src" style="top:12px"><i style="background:#1ed760"></i>Spotify</div>
+      <div class="src" style="top:55px"><i style="background:#ffcc00"></i><span data-t="imp.yandex"></span></div>
+      <div class="src" style="top:98px"><i style="background:#fa2d48"></i>Apple Music</div>
+      <div class="src" style="top:141px"><i style="background:#a238ff"></i>Deezer</div>
+      <div class="src" style="top:184px"><i style="background:#ff2a2a"></i>YouTube</div>
+      <div class="src" style="top:227px"><i style="background:#ff7700"></i>SoundCloud</div>
       <div class="dest">
         <div class="head"><div class="cover">♥</div><div><div class="t" data-t="imp.title"></div><div class="s" data-t="imp.count"></div></div></div>
         <div class="row"><div class="a" style="background:url(../../docs/screenshots/en/home.jpg) -124.6px -126.3px / 293.5px auto"></div><div class="n"><b>У батарей</b><span>nyan.mp3</span></div><span class="ok">✓</span></div>
@@ -292,6 +317,52 @@
       <div class="eyebrow grad-text" data-t="imp.e"></div>
       <h2 data-t="imp.h"></h2>
       <p data-t="imp.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- WHAT'S PLAYING? -->
+<div class="art card" id="listen">
+  <div class="panel"><div class="glow g-mix"></div><div class="noise"></div>
+    <div class="stage">
+      <div class="seg"><span data-t="lis.mic"></span><span class="on" data-t="lis.dev"></span></div>
+      <div class="rings">
+        <i style="width:250px;height:250px;border-color:rgba(123,92,255,.16)"></i>
+        <i style="width:186px;height:186px;border-color:rgba(255,94,138,.24)"></i>
+        <i style="width:128px;height:128px;border-color:rgba(255,184,107,.36)"></i>
+        <b>♪</b>
+      </div>
+      <div class="found"><div class="a"></div><div><b>Midnight City</b><span>M83</span></div><em data-t="lis.play"></em></div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="lis.e"></div>
+      <h2 data-t="lis.h"></h2>
+      <p data-t="lis.p"></p>
+    </div>
+  </div>
+</div>
+
+<!-- STORY CARDS -->
+<div class="art card" id="story">
+  <div class="panel"><div class="glow g-warm"></div><div class="noise"></div>
+    <div class="stage">
+      <div class="story" style="left:92px; top:34px; transform:rotate(-8deg); background:linear-gradient(160deg,#3a1f5c,#0f0b18);">
+        <div class="cv" style="background:linear-gradient(135deg,#7b5cff,#2b1d52)"></div><b>Nightcall</b><span>Kavinsky</span>
+        <svg class="qr"></svg><img class="mk" src="../../assets/brand/segue_mark.svg">
+      </div>
+      <div class="story" style="left:241px; top:20px; z-index:2; background:linear-gradient(160deg,#5c2a1f,#140c0b);">
+        <div class="cv" style="background:linear-gradient(135deg,#ffb86b,#ff5e8a)"></div><b>Sunset Lover</b><span>Petit Biscuit</span>
+        <svg class="qr"></svg><img class="mk" src="../../assets/brand/segue_mark.svg">
+      </div>
+      <div class="story" style="left:390px; top:34px; transform:rotate(8deg); background:linear-gradient(160deg,#1f3d5c,#0b1014);">
+        <div class="cv" style="background:linear-gradient(135deg,#4fd1c5,#2b6cb0)"></div><b>Intro</b><span>The xx</span>
+        <svg class="qr"></svg><img class="mk" src="../../assets/brand/segue_mark.svg">
+      </div>
+    </div>
+    <div class="text">
+      <div class="eyebrow grad-text" data-t="sto.e"></div>
+      <h2 data-t="sto.h"></h2>
+      <p data-t="sto.p"></p>
     </div>
   </div>
 </div>
@@ -458,7 +529,7 @@
     </svg>
     <div class="col" style="left:60px; width:292px;">
       <h3 data-t="arch.in"></h3>
-      <div class="box"><b>YouTube · SoundCloud</b><span data-t="arch.s1"></span></div>
+      <div class="box"><b>YouTube · SoundCloud · Audius</b><span data-t="arch.s1"></span></div>
       <div class="box"><b>Deezer</b><span data-t="arch.s2"></span></div>
       <div class="box"><b>NetEase · LRCLIB</b><span data-t="arch.s3"></span></div>
       <div class="box"><b data-t="arch.imp"></b><span data-t="arch.s4"></span></div>
@@ -484,13 +555,18 @@
 const T = {
   en: {
     'hero.h1': 'One player for <span class="grad-text">all your music</span>',
-    'hero.sub': 'YouTube and SoundCloud in one search, your Spotify and Yandex Music library, in sync on every device.',
+    'hero.sub': 'YouTube, SoundCloud and Audius in one search, your library from Spotify, Yandex Music, Apple Music or Deezer, in sync on every device.',
     'hero.c1': 'Free and open source', 'hero.c2': 'No account', 'hero.c3': 'No ads',
     'wave.e': 'My wave', 'wave.h': 'A mix that learns from you',
     'wave.p': 'Songs you finish bring more of that artist, skips bring less. Plus radios by genre and mood.',
     'wave.k1': 'Mood', 'wave.v1': 'Calm', 'wave.k2': 'Activity', 'wave.v2': 'Workout', 'wave.v3': 'never again',
+    'lis.e': "What's playing?", 'lis.h': 'Name any song you hear',
+    'lis.p': 'Through the microphone, or straight from another app on this computer or phone. Then play it, like it or start a radio from it.',
+    'lis.mic': 'Around', 'lis.dev': 'On this device', 'lis.play': '▶ Play',
+    'sto.e': 'Share', 'sto.h': 'A story card for every song',
+    'sto.p': 'Cover, colours, a line from the lyrics and a code that opens the song in Segue. Ready for Instagram or Telegram stories.',
     'imp.e': 'Import', 'imp.h': 'Bring your library with you',
-    'imp.p': 'Paste a playlist link or your whole Spotify or Yandex Music library. Each song is matched to the right version.',
+    'imp.p': 'Paste a playlist link or bring your whole library from Spotify, Yandex Music, Apple Music or Deezer. Each song is matched to the right version.',
     'imp.yandex': 'Yandex Music', 'imp.title': 'Liked', 'imp.count': '248 songs matched',
     'lyr.e': 'Lyrics', 'lyr.h': 'Karaoke, word by word',
     'lyr.p': 'Each word lights up as it\'s sung, with a translation under every line.',
@@ -513,7 +589,7 @@ const T = {
     'btn.get': 'Download for',
     'arch.in': 'Sources', 'arch.out': 'Your other devices',
     'arch.s1': 'Audio streams, search', 'arch.s2': 'Catalogue, charts, covers',
-    'arch.s3': 'Word- and line-timed lyrics', 'arch.s4': 'Playlists and likes to import', 'arch.imp': 'Spotify · Yandex Music',
+    'arch.s3': 'Word- and line-timed lyrics', 'arch.s4': 'Spotify, Yandex Music, Apple Music, Deezer', 'arch.imp': 'Playlist and likes import',
     'arch.p': 'Player', 'arch.p2': 'libmpv via media_kit: gapless, crossfades, EQ',
     'arch.m': 'Matching', 'arch.m2': 'Finds the right version of every imported song',
     'arch.l': 'Library', 'arch.l2': 'SQLite on the device; the newest change wins',
@@ -522,13 +598,18 @@ const T = {
   },
   ru: {
     'hero.h1': 'Один плеер для <span class="grad-text">всей твоей музыки</span>',
-    'hero.sub': 'YouTube и SoundCloud в одном поиске, твоя библиотека из Spotify и Яндекс Музыки, синхронно на всех устройствах.',
+    'hero.sub': 'YouTube, SoundCloud и Audius в одном поиске, твоя библиотека из Spotify, Яндекс Музыки, Apple Music или Deezer — синхронно на всех устройствах.',
     'hero.c1': 'Бесплатно и открыто', 'hero.c2': 'Без аккаунта', 'hero.c3': 'Без рекламы',
     'wave.e': 'Моя волна', 'wave.h': 'Микс, который учится на тебе',
     'wave.p': 'Дослушал — этого артиста станет больше, пропустил — меньше. И радио по жанрам и настроению.',
     'wave.k1': 'Настроение', 'wave.v1': 'Спокойное', 'wave.k2': 'Занятие', 'wave.v2': 'Тренировка', 'wave.v3': 'больше не играть',
+    'lis.e': 'Что играет?', 'lis.h': 'Узнай любую песню вокруг',
+    'lis.p': 'Через микрофон или прямо из другого приложения на компьютере и телефоне. Потом включи её, лайкни или запусти радио.',
+    'lis.mic': 'Вокруг', 'lis.dev': 'На этом устройстве', 'lis.play': '▶ Играть',
+    'sto.e': 'Поделиться', 'sto.h': 'Карточка для сторис',
+    'sto.p': 'Обложка, цвета, строчка из текста и код, который открывает песню в Segue. Готово для сторис в Instagram и Telegram.',
     'imp.e': 'Импорт', 'imp.h': 'Забери свою библиотеку',
-    'imp.p': 'Вставь ссылку на плейлист или перенеси всю библиотеку Spotify или Яндекс Музыки. Каждая песня найдётся в нужной версии.',
+    'imp.p': 'Вставь ссылку на плейлист или перенеси библиотеку из Spotify, Яндекс Музыки, Apple Music или Deezer. Каждая песня найдётся в нужной версии.',
     'imp.yandex': 'Яндекс Музыка', 'imp.title': 'Мне нравится', 'imp.count': '248 треков подобрано',
     'lyr.e': 'Текст песен', 'lyr.h': 'Караоке, слово за словом',
     'lyr.p': 'Каждое слово загорается, когда его поют, а под строкой — перевод.',
@@ -551,7 +632,7 @@ const T = {
     'btn.get': 'Скачать для',
     'arch.in': 'Источники', 'arch.out': 'Твои другие устройства',
     'arch.s1': 'Аудиопотоки и поиск', 'arch.s2': 'Каталог, чарты, обложки',
-    'arch.s3': 'Текст по словам и строкам', 'arch.s4': 'Плейлисты и лайки для импорта', 'arch.imp': 'Spotify · Яндекс Музыка',
+    'arch.s3': 'Текст по словам и строкам', 'arch.s4': 'Spotify, Яндекс, Apple Music, Deezer', 'arch.imp': 'Импорт плейлистов и лайков',
     'arch.p': 'Плеер', 'arch.p2': 'libmpv (media_kit): без пауз, переходы, EQ',
     'arch.m': 'Подбор', 'arch.m2': 'Находит нужную версию каждой песни',
     'arch.l': 'Библиотека', 'arch.l2': 'SQLite; побеждает более новое изменение',
@@ -593,6 +674,18 @@ document.documentElement.lang = lang;
     const d = document.createElement('div'); d.innerHTML = `<i style="height:${h}%"></i><b style="bottom:${h}%"></b>`; eq.appendChild(d);
   });
 })();
+
+// Story cards: a little code on each.
+document.querySelectorAll('svg.qr').forEach((svg, k) => {
+  let seed = 7 + k * 13, d = '';
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
+    const corner = (x < 3 && y < 3) || (x > 7 && y < 3) || (x < 3 && y > 7);
+    if (corner ? !(x % 8 === 1 && y % 8 === 1) : rnd() > .5) d += `M${x} ${y}h1v1h-1z`;
+  }
+  svg.setAttribute('viewBox', '0 0 11 11');
+  svg.innerHTML = `<path d="${d}" fill="#111"/>`;
+});
 
 // Lights: the strip, the keyboard and a beat pulse, mid-flash.
 (() => {

@@ -32,7 +32,7 @@
 
 <p align="center">
   <img src="assets/readme/en/wave.webp" width="49%" alt="My wave: a mix that learns from you">
-  <img src="assets/readme/en/import.webp" width="49%" alt="Import from Spotify, Yandex Music, YouTube and SoundCloud">
+  <img src="assets/readme/en/import.webp" width="49%" alt="Import from Spotify, Yandex Music, Apple Music and Deezer">
 </p>
 
 <p align="center">
@@ -50,6 +50,11 @@
   <img src="assets/readme/en/lights.webp" width="49%" alt="LED strips and keyboard RGB flashing on the beat">
 </p>
 
+<p align="center">
+  <img src="assets/readme/en/listen.webp" width="49%" alt="What's playing? Recognise a song from the room or from another app">
+  <img src="assets/readme/en/story.webp" width="49%" alt="Story cards with the cover and a code that opens the song">
+</p>
+
 ## Why Segue
 
 - **Everything in one place.** One search across YouTube, SoundCloud and
@@ -57,7 +62,7 @@
   Music and Deezer. A song YouTube won't play here comes from SoundCloud
   or Audius instead.
 - **What's playing?** Segue names a song from the room through the
-  microphone, or one playing in any app on your Mac.
+  microphone, or one playing in another app on your computer or phone.
 - **Yours, not a service's.** No account, no subscription, no Segue server.
   Your library is a file on your device.
 - **All your devices as one player.** Start on the laptop, continue on the
@@ -108,9 +113,11 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - **One search** across YouTube, SoundCloud and Audius, with source
   filters. An empty search shows what you searched and opened before
 - **What's playing?**: the microphone button in search names the song
-  around you, the way Shazam does, and keeps a list of what it found. On a
-  Mac it can also listen to what plays on the Mac itself (a browser, a
-  video), without the microphone
+  around you, the way Shazam does, and keeps a list of what it found. It
+  can also listen to what plays on the device itself (a browser, a video,
+  another player), without the microphone: on macOS 13+, Windows and
+  Android 10+ (Android asks each time; apps that forbid recording, such as
+  some streaming apps, stay silent)
 - Artist and album pages, charts by genre, similar artists, and
   **collections** for a workout, an evening, the road, studying, sleep…
 - **Your library**: liked songs, playlists, **albums** (♥ on an album
@@ -161,7 +168,9 @@ iOS has no prebuilt app (it needs Apple signing); you can
   (OpenRGB) flash on the beat
 - **High quality**: YouTube in Opus (~130–160 kbps, the best it serves)
   instead of AAC 128, about the same data; downloads are always Opus
-- **Even loudness**: quiet and loud tracks play at the same level
+- **Even loudness**: quiet and loud tracks play at the same level, from
+  any source (YouTube says how loud a song is; SoundCloud, Audius and your
+  files are measured once by BS.1770 and remembered)
 - 10-band equalizer with presets, speed and pitch
 - Trim any track to the part you want
 - Sleep timer that fades out
@@ -273,7 +282,7 @@ Android Auto's settings on the phone, tap **Version** 10 times, then
 | **Playback** | [media_kit](https://github.com/media-kit/media-kit) (libmpv) on every platform, so the equalizer and effects are the same FFmpeg filters everywhere. A loopback proxy keeps HLS streams on one connection and preloads the next track; the next song is queued inside mpv for gapless playback. Opus files are read in ranges and written to disk as they play, so the offline cache takes them without a second download |
 | **Sources** | YouTube through its player API, SoundCloud through its public web API, Audius through its open API. The catalogue, charts, collections, waves and album covers come from Deezer's public API; those songs are matched on YouTube when they play. If YouTube doesn't answer, search goes through public Invidious/Piped mirrors and the song plays from SoundCloud or Audius when the same recording is there |
 | **Matching** | An imported song is found by title, artist and length, preferring the artist's own channel and rejecting covers, live versions and remixes. The chosen version travels with the song when playback moves to another device |
-| **Recognition** | Shazam's audio fingerprint, computed on the device (a Dart port of [SongRec](https://github.com/marin-m/SongRec)'s algorithm: FFT peaks in four frequency bands), sent to Shazam's public endpoint. Sound comes from the built-in microphone, or on macOS 13+ from the Mac's own output through ScreenCaptureKit |
+| **Recognition** | Shazam's audio fingerprint, computed on the device (a Dart port of [SongRec](https://github.com/marin-m/SongRec)'s algorithm: FFT peaks in four frequency bands), sent to Shazam's public endpoint. Sound comes from the built-in microphone, or from the device's own output: ScreenCaptureKit on macOS 13+, WASAPI loopback on Windows, AudioPlaybackCapture on Android 10+ |
 | **Lyrics** | Word timing from NetEase Cloud Music when it has the song, line timing from [LRCLIB](https://lrclib.net) otherwise; both are checked against title, artist and length |
 | **Library** | SQLite on the device. Sync merges per item; the newest change wins |
 | **Sync** | Bonjour/mDNS on the local network; across networks, two public MQTT brokers at once (HiveMQ and EMQX), so either can be down. Nothing connects until a second device is paired; edits go out within seconds, plays every few minutes, encoded off the UI thread. Invite codes are stretched with PBKDF2 and expire after 10 minutes |

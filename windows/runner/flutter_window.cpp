@@ -4,6 +4,14 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+#include <flutter/event_stream_handler_functions.h>
+#include <flutter/standard_method_codec.h>
+
+namespace {
+// Posted by the capture thread: sound is waiting in SystemAudio.
+constexpr UINT kAudioMessage = WM_APP + 0x5E6;
+}  // namespace
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -26,6 +34,7 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  SetUpSystemAudio();
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -39,7 +48,52 @@ bool FlutterWindow::OnCreate() {
   return true;
 }
 
+void FlutterWindow::SetUpSystemAudio() {
+  auto* messenger = flutter_controller_->engine()->messenger();
+  system_audio_ = std::make_unique<SystemAudio>(GetHandle(), kAudioMessage);
+  audio_events_ = std::make_unique<flutter::EventChannel<flutter::EncodableValue>>(
+      messenger, "fm.segue/sysaudio/pcm",
+      &flutter::StandardMethodCodec::GetInstance());
+  audio_events_->SetStreamHandler(
+      std::make_unique<flutter::StreamHandlerFunctions<flutter::EncodableValue>>(
+          [this](const flutter::EncodableValue*,
+                 std::unique_ptr<flutter::EventSink<flutter::EncodableValue>>&& events)
+              -> std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> {
+            audio_sink_ = std::move(events);
+            return nullptr;
+          },
+          [this](const flutter::EncodableValue*)
+              -> std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> {
+            audio_sink_ = nullptr;
+            return nullptr;
+          }));
+  audio_methods_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      messenger, "fm.segue/sysaudio", &flutter::StandardMethodCodec::GetInstance());
+  audio_methods_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        const auto& name = call.method_name();
+        if (name == "supported") {
+          result->Success(flutter::EncodableValue(true));
+        } else if (name == "start") {
+          const std::string error = system_audio_->Start();
+          if (error.empty()) {
+            result->Success();
+          } else {
+            result->Success(flutter::EncodableValue(error));
+          }
+        } else if (name == "stop") {
+          system_audio_->Stop();
+          result->Success();
+        } else {
+          result->NotImplemented();
+        }
+      });
+}
+
 void FlutterWindow::OnDestroy() {
+  if (system_audio_) system_audio_->Stop();
+  audio_sink_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -62,6 +116,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case kAudioMessage:
+      if (system_audio_) {
+        auto pcm = system_audio_->Take();
+        if (audio_sink_ && !pcm.empty()) {
+          audio_sink_->Success(flutter::EncodableValue(pcm));
+        }
+      }
+      return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

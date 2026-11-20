@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -113,11 +114,12 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
     });
     // The room is heard through the microphone: Segue's own music would
     // drown it. This device's sound leaves Segue out by itself.
-    if (_source == ListenSource.microphone &&
-        _player.playbackState.value.playing) {
+    final hearsSegue =
+        _source == ListenSource.microphone || SongListener.deviceHearsSegue;
+    if (hearsSegue && _player.playbackState.value.playing) {
       _paused = true;
       await _player.pause();
-    } else if (_source == ListenSource.device) {
+    } else if (!hearsSegue) {
       _resume();
     }
     try {
@@ -182,8 +184,18 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
                     ),
                     ButtonSegment(
                       value: ListenSource.device,
-                      icon: const Icon(Icons.laptop_mac_rounded),
-                      label: Text('На этом Mac'.tr),
+                      icon: Icon(
+                        Platform.isAndroid
+                            ? Icons.smartphone_rounded
+                            : Icons.laptop_mac_rounded,
+                      ),
+                      label: Text(
+                        Platform.isMacOS
+                            ? 'На этом Mac'.tr
+                            : Platform.isAndroid
+                            ? 'На телефоне'.tr
+                            : 'На компьютере'.tr,
+                      ),
                     ),
                   ],
                   selected: {_source},
