@@ -52,9 +52,12 @@
 
 ## Why Segue
 
-- **Everything in one place.** One search across YouTube and SoundCloud, and
-  your playlists and likes from Spotify and Yandex Music. A song YouTube
-  won't play here comes from SoundCloud instead.
+- **Everything in one place.** One search across YouTube, SoundCloud and
+  Audius, and your playlists and likes from Spotify, Yandex Music, Apple
+  Music and Deezer. A song YouTube won't play here comes from SoundCloud
+  or Audius instead.
+- **What's playing?** Segue names a song from the room through the
+  microphone, or one playing in any app on your Mac.
 - **Yours, not a service's.** No account, no subscription, no Segue server.
   Your library is a file on your device.
 - **All your devices as one player.** Start on the laptop, continue on the
@@ -78,7 +81,7 @@ After the first install, Segue updates itself: **Settings → Update**.
 | --- | --- | --- |
 | **Android** | `segue-android-arm64.apk` | Most phones. Older ones: `-armv7`; emulators: `-x86_64`. Works with [Android Auto](#all-features). "App not installed"? Versions before 0.3.4 used another signing key: save a backup, remove the old Segue and install again |
 | **Windows** | `segue-windows-x64.zip` | Unzip anywhere and run `segue.exe` |
-| **macOS** | `segue-macos.zip` | Unzip and move to Applications. The app isn't notarized: the first time, right-click → **Open** |
+| **macOS** | `segue-macos.zip` | Unzip and move to Applications. The app isn't notarized: the first time, right-click → **Open**. Recognizing the Mac's own sound needs macOS 13+ and the "Screen & System Audio Recording" permission |
 | **Linux** | `segue-linux-x64.tar.gz` | Needs libmpv: `sudo apt install libmpv2` |
 
 iOS has no prebuilt app (it needs Apple signing); you can
@@ -102,20 +105,27 @@ iOS has no prebuilt app (it needs Apple signing); you can
 <details open>
 <summary><b>Listen</b></summary>
 
-- **One search** across YouTube and SoundCloud, with source filters. An
-  empty search shows what you searched and opened before
+- **One search** across YouTube, SoundCloud and Audius, with source
+  filters. An empty search shows what you searched and opened before
+- **What's playing?**: the microphone button in search names the song
+  around you, the way Shazam does, and keeps a list of what it found. On a
+  Mac it can also listen to what plays on the Mac itself (a browser, a
+  video), without the microphone
 - Artist and album pages, charts by genre, similar artists, and
   **collections** for a workout, an evening, the road, studying, sleep…
 - **Your library**: liked songs, playlists, **albums** (♥ on an album
   page), downloads, your own files and a **listening history** by day,
   with search inside every list
-- **My wave**: an endless mix that learns from you. Songs you play to the
-  end bring more of that artist, songs you skip bring less, and 👎 removes
-  a song for good. Tune it by activity, mood, character and language
-- **Radios** by genre and mood, and **smart playlists** that fill
-  themselves: On repeat, Not heard in a while, This month's likes
-- **Import** playlists by link from Spotify, Yandex Music, YouTube and
-  SoundCloud, or your whole library (a Yandex Music profile, Spotify via
+- **My wave**: an endless mix that learns from you. It starts from the
+  artists you really play, mixes in the ones close to them and doesn't
+  repeat itself. Songs you play to the end bring more of that artist,
+  songs you skip bring less, and 👎 removes a song for good. Tune it by
+  activity, mood, character and language
+- **Radios** by genre and mood, a **radio from any song**, and **smart
+  playlists** that fill themselves: On repeat, Not heard in a while, This
+  month's likes
+- **Import** playlists by link from Spotify, Yandex Music, Apple Music,
+  Deezer, YouTube and SoundCloud, or your whole library (a Yandex Music profile, Spotify via
   Exportify or your data export). Imported songs are matched to the right
   version automatically, and you can pick another one by hand
 - **Offline**: download what you want, and the songs you played recently are
@@ -123,9 +133,11 @@ iOS has no prebuilt app (it needs Apple signing); you can
   internet)
 - Your own music folders
 - **Share a song** as a short link: it opens in Segue, or on a web page
-  with the cover and a YouTube player for anyone without the app
+  with the cover and a YouTube player for anyone without the app. Or as a
+  **story card**: the cover, a line of the lyrics you pick and a QR code,
+  ready for Instagram or Telegram stories
 - **When a service is blocked** on your network: a song YouTube won't play
-  comes from SoundCloud, search falls back to public YouTube mirrors, and
+  comes from SoundCloud or Audius, search falls back to public YouTube mirrors, and
   **Settings → About → Connection check** shows what your network reaches
   and sends a problem report in one tap
 
@@ -135,8 +147,10 @@ iOS has no prebuilt app (it needs Apple signing); you can
 <summary><b>Sound</b></summary>
 
 - **Gapless playback**: live albums and mixes flow without a pause
-- **DJ-style mixing**: overlapping crossfades with the next song brought to
-  the current tempo, spoken intros and end skits of music videos skipped
+- **DJ-style mixing**: overlapping crossfades, the next song brought to the
+  current tempo when the two are close, spoken intros and end skits of
+  music videos skipped. The old song is handed between players to a
+  fraction of a millisecond, so there's no stutter or click
 - **Beat-matched mixes**: Segue finds each song's beats itself and brings
   the next one in on the first beat of a bar, kept in step through the fade
 - **DJ screen**: two turning decks with tempo and beat lights, a crossfader
@@ -194,7 +208,8 @@ iOS has no prebuilt app (it needs Apple signing); you can
   controls, scroll for volume, swipe to skip
 - Made for a mouse too: rows of albums and artists scroll with ‹ › arrows
   or by dragging, the volume pops up on hover
-- Desktop now-playing card on macOS, home-screen widget on Android
+- Desktop now-playing card on macOS, the media overlay and media keys on
+  Windows, home-screen widget on Android
 - Keyboard shortcuts:
 
   | Key | Action |
@@ -215,7 +230,8 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - My wave, liked songs, playlists and recent plays on the car screen
 - A song you pick plays with the rest of its list
 - Search and voice: "play … on Segue" looks in your library first, then
-  on YouTube; "play Segue" starts My wave
+  on YouTube; "play Segue" starts My wave. The same works with Google
+  Assistant on the phone, even when Segue is closed
 
 Android Auto shows apps from Google Play only, so allow Segue once: in
 Android Auto's settings on the phone, tap **Version** 10 times, then
@@ -237,6 +253,10 @@ Android Auto's settings on the phone, tap **Version** 10 times, then
 - **No account and no Segue server.** The app talks to the music services
   directly from your device.
 - **No analytics, no ads, no tracking.**
+- **Song recognition sends no recording.** Segue turns a few seconds of
+  sound into a fingerprint on the device and sends only that to Shazam's
+  service; the microphone is on only while the recognition screen
+  listens.
 - **Sync is end-to-end encrypted.** Across networks it goes through public
   MQTT brokers, which only see random topic names and AES-256-GCM
   ciphertext; the key exists only on your devices. On the same Wi-Fi the
@@ -251,18 +271,19 @@ Android Auto's settings on the phone, tap **Version** 10 times, then
 | Part | How |
 | --- | --- |
 | **Playback** | [media_kit](https://github.com/media-kit/media-kit) (libmpv) on every platform, so the equalizer and effects are the same FFmpeg filters everywhere. A loopback proxy keeps HLS streams on one connection and preloads the next track; the next song is queued inside mpv for gapless playback. Opus files are read in ranges and written to disk as they play, so the offline cache takes them without a second download |
-| **Sources** | YouTube through its player API, SoundCloud through its public web API. The catalogue, charts, collections, waves and album covers come from Deezer's public API; those songs are matched on YouTube when they play. If YouTube doesn't answer, search goes through public Invidious/Piped mirrors and the song plays from SoundCloud when the same recording is there |
+| **Sources** | YouTube through its player API, SoundCloud through its public web API, Audius through its open API. The catalogue, charts, collections, waves and album covers come from Deezer's public API; those songs are matched on YouTube when they play. If YouTube doesn't answer, search goes through public Invidious/Piped mirrors and the song plays from SoundCloud or Audius when the same recording is there |
 | **Matching** | An imported song is found by title, artist and length, preferring the artist's own channel and rejecting covers, live versions and remixes. The chosen version travels with the song when playback moves to another device |
+| **Recognition** | Shazam's audio fingerprint, computed on the device (a Dart port of [SongRec](https://github.com/marin-m/SongRec)'s algorithm: FFT peaks in four frequency bands), sent to Shazam's public endpoint. Sound comes from the built-in microphone, or on macOS 13+ from the Mac's own output through ScreenCaptureKit |
 | **Lyrics** | Word timing from NetEase Cloud Music when it has the song, line timing from [LRCLIB](https://lrclib.net) otherwise; both are checked against title, artist and length |
 | **Library** | SQLite on the device. Sync merges per item; the newest change wins |
 | **Sync** | Bonjour/mDNS on the local network; across networks, two public MQTT brokers at once (HiveMQ and EMQX), so either can be down. Nothing connects until a second device is paired; edits go out within seconds, plays every few minutes, encoded off the UI thread. Invite codes are stretched with PBKDF2 and expire after 10 minutes |
-| **Beats** | Segue analyses songs itself: a short stretch is decoded by a silent second libmpv, then spectral flux, autocorrelation for the tempo and a comb search for the bar give a beat grid (in a background isolate, kept between sessions). A mix starts the next song on a bar at the old song's tempo and nudges its speed by up to 2.5% to keep the beats within a few milliseconds |
+| **Beats** | Segue analyses songs itself: a short stretch is decoded by a silent second libmpv, then spectral flux, autocorrelation for the tempo and a comb search for the bar give a beat grid (in a background isolate, kept between sessions). A mix starts the next song on a bar at the old song's tempo and nudges its speed by up to 2.5% to keep the beats within a few milliseconds. For the crossfade the old song moves to a second player, which first catches up with the first one in silence (matched on mpv's `audio-pts`, to under a millisecond) |
 | **Lights** | The beat grid is known ahead, so the lights are sent a little early and land with the beat: WLED over its UDP realtime protocol, Govee over LAN, OpenRGB over its SDK. 30 small packets a second, only while music plays |
 | **Performance** | Decorative motion runs on one shared 30 fps beat and stops when paused or out of sight; the full player hides the screens behind it; big blurs are drawn once per song on a small copy; covers are cached on disk and fetched at the size shown; each library list refreshes only on its own kind of change |
 
 ```
 lib/
-  core/      sources, player, library, sync, catalog, lyrics, dj, lights, integrations
+  core/      sources, player, library, sync, catalog, lyrics, recognize, dj, lights, integrations
   ui/        screens, widgets, theme
 test/                unit tests
 integration_test/    real playback (muted) and screenshot runs on a desktop
