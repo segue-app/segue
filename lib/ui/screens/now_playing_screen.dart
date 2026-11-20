@@ -136,8 +136,10 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     // Fetching here also preloads lyrics before they're opened.
     final lyricsState = track == null ? null : ref.watch(lyricsProvider(track));
     final hasLyrics = lyricsState?.value?.lines.isNotEmpty ?? false;
-    final showLyrics =
-        _lyrics && (hasLyrics || (lyricsState?.isLoading ?? false));
+    // Only once there are lyrics: while the next song's are still loading
+    // the cover stays, so a song without any doesn't flash the lyrics view
+    // and turn back. The choice to see lyrics stays on for the next one.
+    final showLyrics = _lyrics && hasLyrics;
 
     return Listener(
       onPointerDown: (_) => _wake(),

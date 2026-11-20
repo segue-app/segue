@@ -282,9 +282,20 @@ class _ShellState extends ConsumerState<Shell> {
     ),
   );
 
+  /// A short note above the player: two lines at most, its button on the
+  /// same line (Material moves a long one below, which made a song that
+  /// wouldn't play take half a phone screen).
   void _toast(String msg, {SnackBarAction? action}) => _messenger.currentState
     ?..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(msg), action: action));
+    ..showSnackBar(
+      SnackBar(
+        content: Text(msg, maxLines: 2, overflow: TextOverflow.ellipsis),
+        action: action,
+        actionOverflowThreshold: 1,
+        padding: const EdgeInsetsDirectional.only(start: 16, end: 6),
+        duration: const Duration(seconds: 3),
+      ),
+    );
 
   Timer? _updateCheck;
   StreamSubscription<void>? _prefsApplied;

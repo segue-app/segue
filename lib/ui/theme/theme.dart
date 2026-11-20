@@ -87,7 +87,8 @@ ThemeData buildTheme({String font = 'Manrope'}) {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: SegueColors.surfaceHigh,
-      contentTextStyle: text.bodyMedium,
+      contentTextStyle: text.bodyMedium?.copyWith(fontSize: 14, height: 1.3),
+      insetPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       actionTextColor: SegueColors.accent,
       closeIconColor: SegueColors.textDim,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
