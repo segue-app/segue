@@ -326,7 +326,19 @@ class SegueApp extends ConsumerWidget {
             textScaler: TextScaler.linear(settings.textScale),
             disableAnimations: settings.reduceMotion || mq.disableAnimations,
           ),
-          child: child!,
+          // Full screen on macOS: room for the menu bar and title strip
+          // while they're slid down over the top.
+          child: ValueListenableBuilder<double>(
+            valueListenable: AppVisibility.topCover,
+            builder: (_, top, child) => ColoredBox(
+              color: const Color(0xFF000000),
+              child: Padding(
+                padding: EdgeInsets.only(top: top),
+                child: child,
+              ),
+            ),
+            child: child!,
+          ),
         );
       },
       home: const Shell(),

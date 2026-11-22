@@ -45,7 +45,7 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
   double _heard = 0;
 
   /// Recent loudness, oldest first: the bars while listening.
-  final _levels = List<double>.filled(_LevelBars.count, 0);
+  final _levels = List<double>.filled(_LevelBars.count, 0, growable: true);
   RecognizedSong? _song;
   String? _error;
   bool _permission = false;

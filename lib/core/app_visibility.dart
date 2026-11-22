@@ -20,6 +20,10 @@ class AppVisibility {
   /// Changes when [visible] does (the app mutes its animations on it).
   static final visibleNotifier = ValueNotifier<bool>(true);
 
+  /// How much of the window's top the macOS menu bar and title strip
+  /// cover right now (in full screen they slide down over it), in points.
+  static final topCover = ValueNotifier<double>(0);
+
   static void attach() {
     WidgetsBinding.instance.addObserver(_Observer());
     if (Platform.isMacOS) {
@@ -29,6 +33,8 @@ class AppVisibility {
           _nativeVisible = a['visible'] == true;
           _nativeActive = a['active'] == true;
           _update();
+        } else if (call.method == 'titlebar') {
+          topCover.value = (call.arguments as num).toDouble();
         }
       });
     }

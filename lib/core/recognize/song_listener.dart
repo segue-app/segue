@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
@@ -128,6 +129,7 @@ class SongListener {
       }
       final bytes = BytesBuilder(copy: false);
       var next = 0;
+      var loudest = 0.0;
       final done = Completer<RecognizedSong?>();
       Future<void>? asking;
 
@@ -135,9 +137,16 @@ class SongListener {
       sub = stream.listen(
         (chunk) {
           bytes.add(chunk);
-          level?.call(loudness(chunk));
+          final l = loudness(chunk);
+          if (l > loudest) loudest = l;
           final seconds = bytes.length / 2 / _rate;
-          heard?.call(seconds);
+          // What the screen does with it must not stop the listening.
+          try {
+            level?.call(l);
+            heard?.call(seconds);
+          } catch (e) {
+            debugPrint('listen ${source.name}: screen failed $e');
+          }
           if (next >= tries.length ||
               seconds < tries[next] ||
               asking != null ||
@@ -146,19 +155,31 @@ class SongListener {
           }
           final last = next == tries.length - 1;
           next++;
-          final pcm = _samples(bytes.toBytes());
-          asking = _shazam
-              .recognize(pcm)
+          final Int16List pcm;
+          try {
+            pcm = _samples(bytes.toBytes());
+          } catch (e, st) {
+            debugPrint('listen ${source.name}: samples failed $e\n$st');
+            return;
+          }
+          debugPrint(
+            'listen ${source.name}: try at ${seconds.toStringAsFixed(1)} s, '
+            'loudest ${loudest.toStringAsFixed(2)}',
+          );
+          asking = Future.sync(() => _shazam.recognize(pcm))
               .then((song) {
+                debugPrint('listen ${source.name}: shazam says ${song?.title}');
                 if (done.isCompleted) return;
                 if (song != null || last) done.complete(song);
               })
               .catchError((Object e) {
+                debugPrint('listen ${source.name}: shazam error $e');
                 if (!done.isCompleted && last) done.completeError(e);
               })
               .whenComplete(() => asking = null);
         },
         onError: (Object e) {
+          debugPrint('listen ${source.name}: stream error $e');
           if (!done.isCompleted) {
             done.completeError(ListenException('Микрофон не отвечает'.tr));
           }
@@ -173,11 +194,23 @@ class SongListener {
         if (!done.isCompleted) done.complete(null);
       });
       try {
-        return await done.future;
+        final song = await done.future;
+        debugPrint(
+          'listen ${source.name}: done, heard '
+          '${(bytes.length / 2 / _rate).toStringAsFixed(1)} s, '
+          'loudest ${loudest.toStringAsFixed(2)}, song ${song?.title}',
+        );
+        if (song == null && !_cancelled) {
+          _silence(source, bytes.length / 2 / _rate, loudest);
+        }
+        return song;
       } finally {
         limit.cancel();
         await sub.cancel();
       }
+    } catch (e) {
+      debugPrint('listen ${source.name}: failed $e');
+      rethrow;
     } finally {
       _rec = null;
       if (rec != null) {
@@ -189,6 +222,27 @@ class SongListener {
         await _sysMethods.invokeMethod<void>('stop').catchError((Object _) {});
       }
     }
+  }
+
+  /// Nothing to recognise came in: says why, rather than "not known".
+  /// [seconds] of sound arrived, the loudest piece at [loudest] (0..1).
+  static void _silence(ListenSource source, double seconds, double loudest) {
+    // Under about -54 dBFS: nothing but noise.
+    if (seconds >= 1 && loudest >= 0.1) return;
+    if (source == ListenSource.microphone) {
+      throw ListenException(
+        seconds < 1
+            ? 'Микрофон не отвечает'.tr
+            : 'Микрофон ничего не слышит. Сделай музыку громче или поднеси устройство ближе'
+                  .tr,
+      );
+    }
+    throw ListenException(
+      deviceHearsSegue
+          ? 'Сейчас ничего не играет'.tr
+          : 'Сейчас ничего не играет. Музыку из самого Segue узнавать не нужно: включи песню в другой программе или во вкладке браузера'
+                .tr,
+    );
   }
 
   /// The sound this device plays, from the native side.

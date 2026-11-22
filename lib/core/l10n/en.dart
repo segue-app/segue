@@ -690,6 +690,10 @@ const en = <String, String>{
   'Нет доступа к микрофону. Разреши его Segue в настройках системы':
       'No access to the microphone. Allow it for Segue in the system settings',
   'Микрофон не отвечает': 'The microphone isn\'t responding',
+  'Микрофон ничего не слышит. Сделай музыку громче или поднеси устройство ближе':
+      'The microphone hears nothing. Turn the music up or bring the device closer',
+  'Сейчас ничего не играет. Музыку из самого Segue узнавать не нужно: включи песню в другой программе или во вкладке браузера':
+      'Nothing is playing right now. Segue\'s own music needs no recognising: play the song in another app or a browser tab',
   'Нет связи с Shazam': 'Can\'t reach Shazam',
   'Shazam просит подождать. Попробуй через минуту':
       'Shazam asks to wait. Try again in a minute',

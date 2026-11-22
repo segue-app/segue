@@ -11,6 +11,8 @@ class MainFlutterWindow: NSWindow {
   private var updateChannel: FlutterMethodChannel?
   private let systemAudio = SystemAudio()
   private var lastForeground: [String: Bool]?
+  private var titlebarTimer: Timer?
+  private var lastTitlebar: CGFloat = -1
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -109,9 +111,48 @@ class MainFlutterWindow: NSWindow {
     }
     DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
       self?.reportForeground()
+      if self?.styleMask.contains(.fullScreen) == true { self?.watchTitlebar(true) }
     }
+    // Full screen: the menu bar and the title strip slide down over the
+    // top of the window (on coming back to the app, or the cursor at the
+    // top edge). Flutter is told how far, and moves its content down.
+    nc.addObserver(
+      forName: NSWindow.willEnterFullScreenNotification, object: self, queue: .main
+    ) { [weak self] _ in self?.watchTitlebar(true) }
+    nc.addObserver(
+      forName: NSWindow.didExitFullScreenNotification, object: self, queue: .main
+    ) { [weak self] _ in self?.watchTitlebar(false) }
 
     super.awakeFromNib()
+  }
+
+  private func watchTitlebar(_ on: Bool) {
+    titlebarTimer?.invalidate()
+    titlebarTimer = nil
+    if on {
+      let t = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
+        self?.reportTitlebar()
+      }
+      RunLoop.main.add(t, forMode: .common)
+      titlebarTimer = t
+    } else {
+      sendTitlebar(0)
+    }
+  }
+
+  private func reportTitlebar() {
+    // Hidden or in another Space: nothing covers anything worth moving.
+    guard styleMask.contains(.fullScreen), NSApp.isActive,
+      let strip = standardWindowButton(.closeButton)?.window, strip !== self
+    else { return sendTitlebar(0) }
+    sendTitlebar(max(0, frame.maxY - strip.frame.minY))
+  }
+
+  private func sendTitlebar(_ h: CGFloat) {
+    let v = h.rounded()
+    if v == lastTitlebar { return }
+    lastTitlebar = v
+    windowChannel?.invokeMethod("titlebar", arguments: Double(v))
   }
 
   @objc private func reportForeground() {

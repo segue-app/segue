@@ -17,7 +17,8 @@ class AppLog {
       m.startsWith('mix') ||
       m.startsWith('beat') ||
       m.startsWith('load ') ||
-      m.startsWith('play ');
+      m.startsWith('play ') ||
+      m.startsWith('listen');
 
   static Future<void> start() async {
     try {
