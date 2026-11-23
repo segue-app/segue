@@ -143,9 +143,24 @@ class MainFlutterWindow: NSWindow {
   private func reportTitlebar() {
     // Hidden or in another Space: nothing covers anything worth moving.
     guard styleMask.contains(.fullScreen), NSApp.isActive,
-      let strip = standardWindowButton(.closeButton)?.window, strip !== self
+      let strip = standardWindowButton(.closeButton)?.window, strip !== self,
+      strip.alphaValue > 0,
+      let bar = titlebarView()
     else { return sendTitlebar(0) }
-    sendTitlebar(max(0, frame.maxY - strip.frame.minY))
+    // The strip's own frame stays put (on a Mac with a camera notch it
+    // sits over the window even when hidden); the bar inside it is what
+    // slides, from above the window's top down onto it.
+    let r = strip.convertToScreen(bar.convert(bar.bounds, to: nil))
+    sendTitlebar(min(r.height, max(0, frame.maxY - r.minY)))
+  }
+
+  /// The view with the window's buttons and title that slides in full screen.
+  private func titlebarView() -> NSView? {
+    var v = standardWindowButton(.closeButton)?.superview
+    while let x = v, String(describing: type(of: x)) != "NSTitlebarContainerView" {
+      v = x.superview
+    }
+    return v ?? standardWindowButton(.closeButton)?.superview
   }
 
   private func sendTitlebar(_ h: CGFloat) {
