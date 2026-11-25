@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/import/import.dart';
 import '../../core/import/playlist_importer.dart';
 import '../../core/library/library.dart';
+import '../../core/player/player.dart';
 import '../theme/theme.dart';
 import 'library_import_sheet.dart';
 import 'track_actions.dart';
@@ -63,6 +64,18 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
       if (playlist.tracks.isEmpty) {
         throw ImportException('В плейлисте нет доступных треков'.tr);
       }
+      if (playlist.single) {
+        final t = playlist.tracks.first;
+        await ref.read(playerProvider).playList([t], 0, context: 'link');
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text('Играет «{0}» — {1}'.trArgs([t.title, t.artist])),
+          ),
+        );
+        return;
+      }
       final library = ref.read(libraryProvider);
       final id = library.createPlaylist(playlist.name);
       library.addToPlaylist(id, playlist.tracks);
@@ -114,7 +127,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Вставь ссылку на публичный плейлист или альбом.'.tr,
+              'Вставь ссылку на песню, публичный плейлист или альбом.'.tr,
               style: TextStyle(color: SegueColors.textDim, height: 1.4),
             ),
             const SizedBox(height: 14),

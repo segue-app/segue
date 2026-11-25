@@ -226,6 +226,28 @@ class _RecognizeSheetState extends ConsumerState<_RecognizeSheet> {
                   },
                 ),
               ),
+              if (_stage == _Stage.failed && _permission && Platform.isMacOS) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => SongListener.openPrivacySettings(_source),
+                      icon: const Icon(Icons.settings_rounded),
+                      label: Text('Открыть настройки'.tr),
+                    ),
+                    // Screen & system audio reaches Segue only after a restart.
+                    if (_source == ListenSource.device)
+                      OutlinedButton.icon(
+                        onPressed: SongListener.relaunch,
+                        icon: const Icon(Icons.restart_alt_rounded),
+                        label: Text('Перезапустить Segue'.tr),
+                      ),
+                  ],
+                ),
+              ],
               if (_stage != _Stage.listening) ...[
                 const SizedBox(height: 14),
                 OutlinedButton.icon(

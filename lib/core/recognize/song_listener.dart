@@ -260,7 +260,7 @@ class SongListener {
       throw ListenException(
         Platform.isAndroid
             ? 'Без разрешения Segue не слышит звук телефона'.tr
-            : 'Разреши Segue «Запись экрана и системного звука»: Системные настройки → Конфиденциальность и безопасность. Потом перезапусти Segue'
+            : 'Включи Segue в «Запись экрана и системного звука» и перезапусти его. Если он там уже включён, удали его кнопкой «−» и разреши заново'
                   .tr,
         permission: !Platform.isAndroid,
       );
@@ -285,6 +285,19 @@ class SongListener {
     } catch (_) {}
     return null;
   }
+
+  /// macOS: opens Privacy & Security at the list that decides [source].
+  static Future<void> openPrivacySettings(ListenSource source) => _sysMethods
+      .invokeMethod<bool>(
+        'openSettings',
+        source == ListenSource.microphone ? 'microphone' : 'screen',
+      )
+      .catchError((Object _) => false);
+
+  /// macOS: starts Segue anew (screen & system audio access only reaches
+  /// a fresh process).
+  static Future<void> relaunch() =>
+      _sysMethods.invokeMethod<String>('relaunch').catchError((Object _) => null);
 
   /// Stops listening early (the sheet was closed).
   Future<void> cancel() async {

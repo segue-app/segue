@@ -83,6 +83,26 @@ class MainFlutterWindow: NSWindow {
       case "stop":
         audio.stop()
         result(nil)
+      case "openSettings":
+        // Straight to the list in Privacy & Security.
+        let pane = (call.arguments as? String) == "microphone"
+          ? "Privacy_Microphone" : "Privacy_ScreenCapture"
+        let url = URL(
+          string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!
+        result(NSWorkspace.shared.open(url))
+      case "relaunch":
+        // macOS gives a running app screen & system audio only after a
+        // restart: a fresh Segue starts, this one quits.
+        let cfg = NSWorkspace.OpenConfiguration()
+        cfg.createsNewApplicationInstance = true
+        cfg.activates = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: cfg) {
+          _, error in
+          DispatchQueue.main.async {
+            result(error?.localizedDescription)
+            if error == nil { NSApp.terminate(nil) }
+          }
+        }
       default:
         result(FlutterMethodNotImplemented)
       }

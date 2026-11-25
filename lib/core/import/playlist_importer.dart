@@ -12,7 +12,11 @@ class ImportedPlaylist {
     required this.name,
     required this.service,
     required this.tracks,
+    this.single = false,
   });
+
+  /// The link was to one song, not a list: it's played, not saved.
+  final bool single;
 
   final String name;
 
@@ -50,7 +54,11 @@ class PlaylistImporter {
   /// Which service a link belongs to, or null if unsupported.
   static String? serviceOf(String url) {
     final u = url.toLowerCase();
-    if (u.contains('spotify.com') || u.startsWith('spotify:')) return 'Spotify';
+    if (u.contains('spotify.com') ||
+        u.contains('spotify.link') ||
+        u.startsWith('spotify:')) {
+      return 'Spotify';
+    }
     if (u.contains('music.yandex.')) return 'Яндекс Музыка';
     if (u.contains('music.apple.com')) return 'Apple Music';
     if (u.contains('deezer.com') || u.contains('deezer.page.link')) {
@@ -79,11 +87,15 @@ class PlaylistImporter {
 
   // --- Spotify: public embed page (up to 100 tracks, no login) -------------
 
-  Future<ImportedPlaylist> _spotify(String url) async {
-    final m = RegExp(r'(playlist|album)[/:]([a-zA-Z0-9]{22})').firstMatch(url);
+  Future<ImportedPlaylist> _spotify(String link) async {
+    // The phone app shares short links (spotify.link/…) that redirect.
+    final url = link.contains('spotify.link') ? await _resolve(link) : link;
+    final m = RegExp(
+      r'(playlist|album|track)[/:]([a-zA-Z0-9]{22})',
+    ).firstMatch(url);
     if (m == null) {
       throw ImportException(
-        'Не похоже на ссылку на плейлист или альбом Spotify'.tr,
+        'Не похоже на ссылку на песню, плейлист или альбом Spotify'.tr,
       );
     }
     final res = await _get(
@@ -98,12 +110,26 @@ class PlaylistImporter {
     final entity = (jsonDecode(
       data[1]!,
     ) as Map)['props']?['pageProps']?['state']?['data']?['entity'];
+    final cover = RegExp(r'"(https://image-cdn[^"]+)"')
+        .firstMatch(res.body)?[1];
+    if (m[1] == 'track') {
+      final title = (entity?['title'] ?? entity?['name']) as String?;
+      if (title == null || title.isEmpty) {
+        throw ImportException('Spotify не отдал песню'.tr);
+      }
+      final artist = [
+        for (final a in (entity['artists'] as List?) ?? const [])
+          (a as Map)['name'],
+      ].join(', ');
+      return _single(
+        'Spotify',
+        _matched(title, artist, entity['duration'] as int?, cover),
+      );
+    }
     final list = (entity?['trackList'] as List?) ?? const [];
     if (list.isEmpty) {
       throw ImportException('В плейлисте Spotify нет доступных треков'.tr);
     }
-    final cover = RegExp(r'"(https://image-cdn[^"]+)"')
-        .firstMatch(res.body)?[1];
     return ImportedPlaylist(
       name: (entity['name'] as String?) ?? 'Плейлист Spotify'.tr,
       service: 'Spotify',
@@ -127,6 +153,8 @@ class PlaylistImporter {
     final user = RegExp(r'users/([^/]+)/playlists/(\d+)').firstMatch(url);
     final uuid = RegExp(r'playlists/((?:lk\.)?[0-9a-f-]{36})').firstMatch(url);
     final album = RegExp(r'album/(\d+)').firstMatch(url);
+    final song = RegExp(r'track/(\d+)').firstMatch(url);
+    if (song != null) return _yandexTrack(song[1]!);
     final Uri api;
     if (user != null) {
       api = Uri.parse(
@@ -140,7 +168,7 @@ class PlaylistImporter {
       );
     } else {
       throw ImportException(
-        'Не похоже на ссылку на плейлист или альбом Яндекс Музыки'.tr,
+        'Не похоже на ссылку на песню, плейлист или альбом Яндекс Музыки'.tr,
       );
     }
     final res = await yandexGet(_http, api);
@@ -186,12 +214,49 @@ class PlaylistImporter {
     );
   }
 
+  Future<ImportedPlaylist> _yandexTrack(String id) async {
+    final res = await yandexGet(
+      _http,
+      Uri.parse('https://api.music.yandex.net/tracks/$id'),
+    );
+    final list = (jsonDecode(res.body) as Map)['result'];
+    final t = list is List && list.isNotEmpty ? list.first as Map : null;
+    if (t == null || t['title'] == null) {
+      throw ImportException(
+        '{0}\n\n{1}'.trArgs(['Яндекс Музыка не отдала песню'.tr, yandexAbroad.tr]),
+      );
+    }
+    return _single(
+      'Яндекс Музыка',
+      _matched(
+        [t['title'], if (t['version'] != null) '(${t['version']})'].join(' '),
+        [
+          for (final a in (t['artists'] as List?) ?? const [])
+            (a as Map)['name'],
+        ].join(', '),
+        t['durationMs'] as int?,
+        t['coverUri'] == null
+            ? null
+            : 'https://${(t['coverUri'] as String).replaceAll('%%', '400x400')}',
+      ),
+    );
+  }
+
   // --- Apple Music: the public web page carries the track list -------------
 
   Future<ImportedPlaylist> _apple(String url) async {
+    // A song: …/song/name/123, or a song inside an album page (…?i=123).
+    final song =
+        RegExp(r'[?&]i=(\d+)').firstMatch(url) ??
+        RegExp(r'/song/(?:[^/?]+/)?(\d+)').firstMatch(url);
+    if (song != null) {
+      final country =
+          RegExp(r'music\.apple\.com/([a-z]{2})/').firstMatch(url)?[1] ?? 'us';
+      return _appleTrack(song[1]!, country);
+    }
     if (!RegExp(r'/(playlist|album)/').hasMatch(url)) {
       throw ImportException(
-        'Не похоже на ссылку на плейлист или альбом Apple Music'.tr,
+        'Не похоже на ссылку на песню, плейлист или альбом Apple Music'.tr,
       );
     }
     final res = await _get(Uri.parse(url), headers: {'User-Agent': _ua});
@@ -242,6 +307,26 @@ class PlaylistImporter {
     );
   }
 
+  Future<ImportedPlaylist> _appleTrack(String id, String country) async {
+    final res = await _get(
+      Uri.https('itunes.apple.com', '/lookup', {'id': id, 'country': country}),
+    );
+    final results = (jsonDecode(res.body) as Map)['results'] as List?;
+    final t = results == null || results.isEmpty ? null : results.first as Map;
+    if (t == null || t['trackName'] == null) {
+      throw ImportException('Apple Music не отдал песню'.tr);
+    }
+    return _single(
+      'Apple Music',
+      _matched(
+        t['trackName'] as String,
+        (t['artistName'] as String?) ?? '',
+        (t['trackTimeMillis'] as num?)?.toInt(),
+        (t['artworkUrl100'] as String?)?.replaceAll('100x100', '400x400'),
+      ),
+    );
+  }
+
   static String? _appleCover(Object? artwork) {
     if (artwork is! Map) return null;
     final url = (artwork['dictionary'] as Map?)?['url'];
@@ -259,18 +344,35 @@ class PlaylistImporter {
     var link = url;
     // Share links (link.deezer.com/s/…, deezer.page.link/…) redirect to
     // the real page.
-    if (!RegExp(r'deezer\.com/(?:[a-z]{2}/)?(?:playlist|album)/')
+    if (!RegExp(r'deezer\.com/(?:[a-z]{2}/)?(?:playlist|album|track)/')
         .hasMatch(link)) {
       link = await _resolve(link);
     }
-    final m = RegExp(r'deezer\.com/(?:[a-z]{2}/)?(playlist|album)/(\d+)')
+    final m = RegExp(r'deezer\.com/(?:[a-z]{2}/)?(playlist|album|track)/(\d+)')
         .firstMatch(link);
     if (m == null) {
       throw ImportException(
-        'Не похоже на ссылку на плейлист или альбом Deezer'.tr,
+        'Не похоже на ссылку на песню, плейлист или альбом Deezer'.tr,
       );
     }
     final kind = m[1]!, id = m[2]!;
+    if (kind == 'track') {
+      final t = jsonDecode(
+        (await _get(Uri.parse('https://api.deezer.com/track/$id'))).body,
+      ) as Map;
+      if (t['error'] != null || t['title'] == null) {
+        throw ImportException('Песня не найдена. Проверь ссылку'.tr);
+      }
+      return _single(
+        'Deezer',
+        _matched(
+          t['title'] as String,
+          ((t['artist'] as Map?)?['name'] as String?) ?? '',
+          t['duration'] == null ? null : (t['duration'] as num).toInt() * 1000,
+          (t['album'] as Map?)?['cover_medium'] as String?,
+        ),
+      );
+    }
     final head = jsonDecode(
       (await _get(Uri.parse('https://api.deezer.com/$kind/$id'))).body,
     ) as Map;
@@ -327,37 +429,48 @@ class PlaylistImporter {
   // --- YouTube: playable directly -----------------------------------------
 
   Future<ImportedPlaylist> _youtube(String url) async {
-    final id = yt.PlaylistId.parsePlaylistId(url);
-    if (id == null) {
-      throw ImportException(
-        'В ссылке нет плейлиста YouTube (параметр list=)'.tr,
-      );
-    }
+    var id = yt.PlaylistId.parsePlaylistId(url);
+    // Mixes (RD…) can't be read as playlists: the video itself is meant.
+    if (id != null && id.startsWith('RD')) id = null;
+    final video = yt.VideoId.parseVideoId(url);
     final client = yt.YoutubeExplode();
+    if (id == null) {
+      if (video == null) {
+        client.close();
+        throw ImportException(
+          'Не похоже на ссылку на видео или плейлист YouTube'.tr,
+        );
+      }
+      try {
+        final v = await client.videos.get(video);
+        return _single('YouTube', _youtubeTrack(v));
+      } finally {
+        client.close();
+      }
+    }
     try {
       final playlist = await client.playlists.get(id);
       final videos = await client.playlists.getVideos(id).take(300).toList();
       return ImportedPlaylist(
         name: playlist.title,
         service: 'YouTube',
-        tracks: [
-          for (final v in videos)
-            Track(
-              id: v.id.value,
-              source: SourceKind.youtube,
-              title: v.title,
-              artist: v.author.endsWith(' - Topic')
-                  ? v.author.substring(0, v.author.length - 8)
-                  : v.author,
-              artworkUrl: 'https://i.ytimg.com/vi/${v.id.value}/hq720.jpg',
-              duration: v.duration,
-            ),
-        ],
+        tracks: [for (final v in videos) _youtubeTrack(v)],
       );
     } finally {
       client.close();
     }
   }
+
+  static Track _youtubeTrack(yt.Video v) => Track(
+    id: v.id.value,
+    source: SourceKind.youtube,
+    title: v.title,
+    artist: v.author.endsWith(' - Topic')
+        ? v.author.substring(0, v.author.length - 8)
+        : v.author,
+    artworkUrl: 'https://i.ytimg.com/vi/${v.id.value}/hq720.jpg',
+    duration: v.duration,
+  );
 
   // --- SoundCloud sets: playable directly ----------------------------------
 
@@ -375,8 +488,14 @@ class PlaylistImporter {
       }),
     );
     final set = jsonDecode(res.body) as Map;
+    if (set['kind'] == 'track') {
+      if (set['policy'] == 'BLOCK') {
+        throw ImportException('Эта песня SoundCloud недоступна'.tr);
+      }
+      return _single('SoundCloud', _soundcloudTrack(set));
+    }
     if (set['kind'] != 'playlist') {
-      throw ImportException('Это не плейлист SoundCloud'.tr);
+      throw ImportException('Это не песня и не плейлист SoundCloud'.tr);
     }
     var items = ((set['tracks'] as List?) ?? const []).cast<Map>();
     // Long sets only include full data for the first few tracks.
@@ -406,24 +525,34 @@ class PlaylistImporter {
       tracks: [
         for (final t in items)
           if (t['title'] != null && t['policy'] == 'ALLOW')
-            Track(
-              id: '${t['id']}',
-              source: SourceKind.soundcloud,
-              title: t['title'] as String,
-              artist: ((t['user'] as Map?)?['username'] as String?) ?? '',
-              artworkUrl: (t['artwork_url'] as String?)?.replaceAll(
-                '-large.',
-                '-t500x500.',
-              ),
-              duration: t['duration'] == null
-                  ? null
-                  : Duration(milliseconds: t['duration'] as int),
-            ),
+            _soundcloudTrack(t),
       ],
     );
   }
 
+  static Track _soundcloudTrack(Map t) => Track(
+    id: '${t['id']}',
+    source: SourceKind.soundcloud,
+    title: t['title'] as String,
+    artist: ((t['user'] as Map?)?['username'] as String?) ?? '',
+    artworkUrl: (t['artwork_url'] as String?)?.replaceAll(
+      '-large.',
+      '-t500x500.',
+    ),
+    duration: t['duration'] == null
+        ? null
+        : Duration(milliseconds: t['duration'] as int),
+  );
+
   // --- helpers -------------------------------------------------------------
+
+  /// A link to one song: it's played rather than saved as a playlist.
+  static ImportedPlaylist _single(String service, Track t) => ImportedPlaylist(
+    name: t.title,
+    service: service,
+    tracks: [t],
+    single: true,
+  );
 
   static Track _matched(
     String title,

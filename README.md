@@ -59,8 +59,8 @@
 
 - **Everything in one place.** One search across YouTube, SoundCloud and
   Audius, and your playlists and likes from Spotify, Yandex Music, Apple
-  Music and Deezer. A song YouTube won't play here comes from SoundCloud
-  or Audius instead.
+  Music and Deezer. Paste a link to a song from any of them and it plays.
+  A song YouTube won't play here comes from SoundCloud or Audius instead.
 - **What's playing?** Segue names a song from the room through the
   microphone, or one playing in another app on your computer or phone.
 - **Yours, not a service's.** No account, no subscription, no Segue server.
@@ -86,7 +86,7 @@ After the first install, Segue updates itself: **Settings → Update**.
 | --- | --- | --- |
 | **Android** | `segue-android-arm64.apk` | Most phones. Older ones: `-armv7`; emulators: `-x86_64`. Works with [Android Auto](#all-features). "App not installed"? Versions before 0.3.4 used another signing key: save a backup, remove the old Segue and install again |
 | **Windows** | `segue-windows-x64.zip` | Unzip anywhere and run `segue.exe` |
-| **macOS** | `segue-macos.zip` | Unzip and move to Applications. The app isn't notarized: the first time, right-click → **Open**. Recognizing the Mac's own sound needs macOS 13+ and the "Screen & System Audio Recording" permission |
+| **macOS** | `segue-macos.zip` | Unzip and move to Applications. The app isn't notarized: the first time, right-click → **Open**. Recognizing the Mac's own sound needs macOS 13+ and the "Screen & System Audio Recording" permission. Every release is signed with the same certificate, so permissions you give stay after updates (since 0.3.37; macOS asks once more when coming from an older version) |
 | **Linux** | `segue-linux-x64.tar.gz` | Needs libmpv: `sudo apt install libmpv2` |
 
 iOS has no prebuilt app (it needs Apple signing); you can
@@ -117,7 +117,9 @@ iOS has no prebuilt app (it needs Apple signing); you can
   can also listen to what plays on the device itself (a browser, a video,
   another player), without the microphone: on macOS 13+, Windows and
   Android 10+ (Android asks each time; apps that forbid recording, such as
-  some streaming apps, stay silent)
+  some streaming apps, stay silent). When it hears nothing it says so, and
+  on a Mac without the permission it opens the right Settings page and
+  restarts itself in one tap
 - Artist and album pages, charts by genre, similar artists, and
   **collections** for a workout, an evening, the road, studying, sleep…
 - **Your library**: liked songs, playlists, **albums** (♥ on an album
@@ -131,13 +133,17 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - **Radios** by genre and mood, a **radio from any song**, and **smart
   playlists** that fill themselves: On repeat, Not heard in a while, This
   month's likes
-- **Import** playlists by link from Spotify, Yandex Music, Apple Music,
-  Deezer, YouTube and SoundCloud, or your whole library (a Yandex Music profile, Spotify via
+- **Links**: paste a link to a song from Spotify, Yandex Music, Apple
+  Music, Deezer, YouTube or SoundCloud and it plays at once
+- **Import** playlists and albums by link from the same services, or your whole library (a Yandex Music profile, Spotify via
   Exportify or your data export). Imported songs are matched to the right
   version automatically, and you can pick another one by hand
 - **Offline**: download what you want, and the songs you played recently are
   kept on the device by themselves (they start at once and play without
   internet)
+- **No waiting between songs**: once a song has played for 20 seconds, the
+  next one in the queue is downloaded whole, so it starts at once (flicking
+  through songs downloads nothing)
 - Your own music folders
 - **Share a song** as a short link: it opens in Segue, or on a web page
   with the cover and a YouTube player for anyone without the app. Or as a
@@ -328,6 +334,17 @@ flutter build ios --release                   # iOS (needs signing)
 ```sh
 flutter build windows --release --dart-define=DISCORD_CLIENT_ID=<your id>
 ```
+
+**macOS signing.** `flutter build macos` signs ad hoc, and macOS then treats
+every build as a new app (the microphone and system audio permissions are
+asked again). To keep them, sign with one certificate of your own:
+
+```sh
+macos/sign.sh build/macos/Build/Products/Release/Segue.app [keychain]
+```
+
+The release workflow does this with the `MACOS_CERT_P12` and
+`MACOS_CERT_PASSWORD` secrets.
 
 **Android signing.** Without a key the APK is signed with debug keys. For
 your own permanent key, create `android/key.properties`:
