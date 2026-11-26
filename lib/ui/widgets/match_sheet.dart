@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/track.dart';
+import '../../core/downloads/audio_cache.dart';
+import '../../core/downloads/downloads.dart';
 import '../../core/player/player.dart';
 import '../../core/sources/match_source.dart';
 import '../../core/sources/sources.dart';
@@ -51,8 +53,20 @@ class _MatchSheetState extends ConsumerState<_MatchSheet> {
 
   Future<void> _pick(Track t) async {
     _match.choose(widget.track, t);
+    // The old version may be kept on the device: it would play again.
+    ref.read(audioCacheProvider).drop(widget.track);
+    final downloads = ref.read(downloadsProvider);
+    downloads.forgetCopy(widget.track);
+    final player = ref.read(playerProvider);
     Navigator.pop(context);
-    await ref.read(playerProvider).reloadTrack(widget.track);
+    if (downloads.isDownloaded(widget.track)) {
+      // Downloaded: the file is replaced with the chosen version.
+      await downloads.delete(widget.track);
+      await player.reloadTrack(widget.track);
+      downloads.download([widget.track]);
+      return;
+    }
+    await player.reloadTrack(widget.track);
   }
 
   @override

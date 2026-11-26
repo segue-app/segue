@@ -172,6 +172,9 @@ class DownloadManager {
         throw e;
       });
 
+  /// Another version of [t] was chosen: its seekable copy is the old one.
+  void forgetCopy(Track t) => _seekCache.remove(t.key);
+
   static String _extFor(String? mime, Uri url) {
     final m = mime ?? '';
     if (m.contains('mp4') || m.contains('m4a') || m.contains('aac')) {

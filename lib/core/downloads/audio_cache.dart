@@ -123,6 +123,21 @@ class AudioCache {
 
   bool contains(Track t) => _entries.containsKey(t.key);
 
+  /// Keys dropped while a fetch of them may still be running: that file
+  /// is the old version and is thrown away.
+  final _dropped = <String>{};
+
+  /// Forgets the kept file for [t] (another version of it was chosen).
+  void drop(Track t) {
+    _dropped.add(t.key);
+    final e = _entries.remove(t.key);
+    if (e == null) return;
+    try {
+      File(e.path).deleteSync();
+    } catch (_) {}
+    _persist();
+  }
+
   /// Watches what plays and keeps songs listened to for 30 s.
   SegueAudioHandler? _player;
 
@@ -183,6 +198,7 @@ class AudioCache {
         !_fetching.add(t.key)) {
       return;
     }
+    _dropped.remove(t.key);
     try {
       // Playing it fetched the whole file already: take that one instead
       // of downloading the song a second time.
@@ -197,6 +213,10 @@ class AudioCache {
         if (ahead) {
           debugPrint('next ${t.title}: ready in ${sw.elapsedMilliseconds} ms');
         }
+      }
+      if (_dropped.remove(t.key)) {
+        await file.delete().catchError((Object _) => file);
+        return;
       }
       _entries[t.key] = (
         path: file.path,
