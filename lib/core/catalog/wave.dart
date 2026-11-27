@@ -295,18 +295,31 @@ class Wave {
 
   /// Personal endless mix, shaped by [settings] ("Настроить волну").
   /// With an empty library it starts from the charts.
-  Future<void> myWave([WaveSettings settings = const WaveSettings()]) {
-    // Plain My wave (or "Любимое"): YouTube's mixes of your songs, steered
-    // by how you listen. Themes and the other characters: Deezer's.
+  /// A My wave restored from where it stopped (its queue already plays):
+  /// it goes on refilling itself.
+  void continueMyWave(WaveSettings settings) {
+    final batch = _myWaveBatches(settings);
+    if (batch == null) {
+      player?.continueEndless(() => myWaveBatch(settings), myWaveTitle);
+      return;
+    }
+    _offered.clear();
+    _resetSession(true);
+    player?.continueEndless(batch, myWaveTitle);
+  }
+
+  /// The steered portions of My wave for [settings]; null when those
+  /// settings are Deezer's.
+  Future<List<Track>> Function()? _myWaveBatches(WaveSettings settings) {
     final steer =
         youtube != null &&
         settings.activity == null &&
         settings.mood == null &&
         settings.language == null &&
         (settings.character == null || settings.character == 'Любимое');
-    if (!steer) return _play(() => myWaveBatch(settings), myWaveTitle);
+    if (!steer) return null;
     final likedOnly = settings.character == 'Любимое';
-    Future<List<Track>> batch() async {
+    return () async {
       try {
         final b = await _steeredBatch(likedOnly: likedOnly);
         if (b.isNotEmpty) return b;
@@ -315,8 +328,14 @@ class Wave {
       }
       // YouTube gave nothing (unreachable, nothing known yet): Deezer's.
       return myWaveBatch(settings);
-    }
+    };
+  }
 
+  Future<void> myWave([WaveSettings settings = const WaveSettings()]) {
+    // Plain My wave (or "Любимое"): YouTube's mixes of your songs, steered
+    // by how you listen. Themes and the other characters: Deezer's.
+    final batch = _myWaveBatches(settings);
+    if (batch == null) return _play(() => myWaveBatch(settings), myWaveTitle);
     return _play(batch, myWaveTitle, steered: true);
   }
 
@@ -923,6 +942,57 @@ class Wave {
       final id = _videoOf(t);
       if (id != null && !_mixed.contains(id) && _hot.length < 3) _hot.add(id);
     }
+  }
+
+  /// "Открытия недели": songs by artists you've never played, from the
+  /// mixes of your songs. Put together again once a week.
+  Future<void> refreshDiscoveries({bool force = false}) async {
+    if (youtube == null) return;
+    final at = library.discoveriesAt();
+    if (!force &&
+        at != null &&
+        DateTime.now().difference(at) < const Duration(days: 7)) {
+      return;
+    }
+    final known = <String>{
+      for (final a in library.topArtists(days: 3650, limit: 5000))
+        _norm(a.artist),
+    };
+    bool isNew(Track t) =>
+        !known.contains(_artistKey(t)) &&
+        !known.contains(_norm(t.artist)) &&
+        _feel(t) >= 0 &&
+        !taste.isDisliked(t) &&
+        _songLike(t);
+    final seeds = _seedSongs(likedOnly: false);
+    final ids = <String>[];
+    for (final t in seeds) {
+      if (ids.length >= 10) break;
+      final id = _videoOf(t);
+      if (id != null && !ids.contains(id)) ids.add(id);
+    }
+    if (ids.isEmpty) return;
+    final mixes = await Future.wait(
+      ids.map((id) => youtube!.mix(id).catchError((Object _) => <Track>[])),
+    );
+    // Round-robin over the mixes, two songs per new artist at most. Only
+    // the start of a mix: further on it drifts to whatever is popular.
+    final out = <Track>[];
+    final perArtist = <String, int>{};
+    final names = <String>{};
+    for (var pos = 0; pos < 10 && out.length < 30; pos++) {
+      for (final mix in mixes) {
+        if (pos >= mix.length || out.length >= 30) continue;
+        final t = mix[pos];
+        final a = _artistKey(t);
+        if (!isNew(t) || (perArtist[a] ?? 0) >= 2 || !names.add(_songKey(t))) {
+          continue;
+        }
+        perArtist[a] = (perArtist[a] ?? 0) + 1;
+        out.add(t);
+      }
+    }
+    if (out.length >= 5) library.setDiscoveries(out);
   }
 
   /// A song liked while its wave plays: more like it, from the next song.

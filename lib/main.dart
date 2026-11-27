@@ -12,6 +12,7 @@ import 'core/catalog/taste.dart';
 import 'core/downloads/audio_cache.dart';
 import 'core/models/track.dart';
 import 'core/player/player.dart';
+import 'core/player/resume.dart';
 import 'core/player/trims.dart';
 import 'core/catalog/deezer.dart';
 import 'core/catalog/wave.dart';
@@ -275,6 +276,16 @@ Future<void> main() async {
     taste.liked(t);
     unawaited(wave.liked(t).catchError((Object e) => debugPrint('wave: $e')));
   };
+  // Where listening stopped, for "Продолжить" on the home screen.
+  final resume = ResumePoint(library, handler)..attach();
+  // "Открытия недели", put together once a week, after the start.
+  Timer(const Duration(seconds: 20), () {
+    unawaited(
+      wave.refreshDiscoveries().catchError(
+        (Object e) => debugPrint('discoveries: $e'),
+      ),
+    );
+  });
   handler.car = CarBrowser(
     library: library,
     playList: handler.playList,
@@ -298,6 +309,7 @@ Future<void> main() async {
         audioCacheProvider.overrideWithValue(audioCache),
         catalogProvider.overrideWithValue(catalog),
         waveProvider.overrideWithValue(wave),
+        resumeProvider.overrideWithValue(resume),
         tasteProvider.overrideWithValue(taste),
         autoDjProvider.overrideWithValue(autoDj),
         lightSyncProvider.overrideWithValue(lights),

@@ -103,7 +103,7 @@ final foldersProvider = Provider<List<String>>(
 );
 
 /// Smart playlists, put together from listening (see LibraryStore).
-enum SmartList { onRepeat, forgotten, newLikes }
+enum SmartList { onRepeat, forgotten, newLikes, discoveries }
 
 final smartTracksProvider = Provider.family<List<Track>, SmartList>(
   (ref, kind) => _read(
@@ -112,6 +112,7 @@ final smartTracksProvider = Provider.family<List<Track>, SmartList>(
       SmartList.onRepeat => s.smartOnRepeat(),
       SmartList.forgotten => s.smartForgotten(),
       SmartList.newLikes => s.smartNewLikes(),
+      SmartList.discoveries => s.discoveries(),
     },
     _Area.plays,
   ),

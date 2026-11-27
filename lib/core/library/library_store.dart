@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -760,9 +761,9 @@ class LibraryStore {
   );
 
   /// "Давно не включал": songs you used to play (3+ times) or liked, not
-  /// heard for 45 days.
+  /// heard for three weeks.
   List<Track> smartForgotten({int limit = 50}) {
-    final cutoff = DateTime.now().millisecondsSinceEpoch - 45 * _day;
+    final cutoff = DateTime.now().millisecondsSinceEpoch - 21 * _day;
     return _tracks(
       'SELECT t.json FROM tracks t '
       'LEFT JOIN (SELECT track_key, COUNT(*) AS n, MAX(played_at) AS last '
@@ -791,6 +792,83 @@ class LibraryStore {
     'WHERE l.deleted = 0 AND l.liked_at > ? ORDER BY l.liked_at DESC LIMIT ?',
     [DateTime.now().millisecondsSinceEpoch - 30 * _day, limit],
   );
+
+  /// The artists you listen to most lately: plays of the last [days]
+  /// days, a like counting as three. Names as the songs carry them; the
+  /// newest song of each comes along (its cover stands in for a photo).
+  List<({String artist, double score, Track latest})> topArtists({
+    int days = 90,
+    int limit = 30,
+  }) {
+    final since = DateTime.now().millisecondsSinceEpoch - days * _day;
+    final rows = _db.select(
+      'SELECT t.json AS json, COALESCE(p.n, 0) AS n, COALESCE(p.last, 0) AS last, '
+      'l.liked_at AS liked FROM tracks t '
+      'LEFT JOIN (SELECT track_key, COUNT(*) AS n, MAX(played_at) AS last '
+      'FROM history WHERE played_at > ? GROUP BY track_key) p ON p.track_key = t.key '
+      'LEFT JOIN likes l ON l.track_key = t.key AND l.deleted = 0 '
+      'WHERE p.n IS NOT NULL OR l.track_key IS NOT NULL',
+      [since],
+    );
+    final by = <String, ({String artist, double score, Track latest, int at})>{};
+    for (final r in rows) {
+      final t = Track.fromJson(
+        jsonDecode(r['json'] as String) as Map<String, dynamic>,
+      );
+      final name = t.artist.trim();
+      if (name.isEmpty) continue;
+      final key = name.toLowerCase();
+      final at = max(r['last'] as int, (r['liked'] as int?) ?? 0);
+      final score = (r['n'] as int) + (r['liked'] == null ? 0 : 3);
+      final had = by[key];
+      by[key] = (
+        artist: had?.artist ?? name,
+        score: (had?.score ?? 0) + score,
+        latest: had == null || at > had.at ? t : had.latest,
+        at: had == null ? at : max(at, had.at),
+      );
+    }
+    final list = by.values.toList()..sort((a, b) => b.score.compareTo(a.score));
+    return [
+      for (final e in list.take(limit))
+        (artist: e.artist, score: e.score, latest: e.latest),
+    ];
+  }
+
+  /// "Открытия недели": songs of artists new to you, put together by
+  /// My wave once a week (see Wave.discoveries).
+  List<Track> discoveries() {
+    try {
+      final j = jsonDecode(getMeta('discoveries') ?? '{}') as Map;
+      return [
+        for (final t in (j['tracks'] as List? ?? const []))
+          Track.fromJson((t as Map).cast<String, dynamic>()),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// When the discoveries were put together (null: never).
+  DateTime? discoveriesAt() {
+    try {
+      final at = (jsonDecode(getMeta('discoveries') ?? '{}') as Map)['at'];
+      return at is int ? DateTime.fromMillisecondsSinceEpoch(at) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void setDiscoveries(List<Track> tracks) {
+    setMeta(
+      'discoveries',
+      jsonEncode({
+        'at': DateTime.now().millisecondsSinceEpoch,
+        'tracks': [for (final t in tracks) t.toJson()],
+      }),
+    );
+    _changed(LibChange.history);
+  }
 
   void recordPlay(Track t) {
     _saveTrack(t);

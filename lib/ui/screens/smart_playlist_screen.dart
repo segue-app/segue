@@ -17,7 +17,7 @@ smartInfo(SmartList kind) => switch (kind) {
   ),
   SmartList.forgotten => (
     title: 'Давно не включал'.tr,
-    subtitle: 'Любимое, что не звучало полтора месяца'.tr,
+    subtitle: 'Любимое, что не звучало три недели'.tr,
     icon: Icons.history_rounded,
     gradient: const [Color(0xFF5B8CFF), Color(0xFF7B5CFF)],
   ),
@@ -26,6 +26,12 @@ smartInfo(SmartList kind) => switch (kind) {
     subtitle: 'Всё, что понравилось за последние 30 дней'.tr,
     icon: Icons.auto_awesome_rounded,
     gradient: const [Color(0xFF3CCB9A), Color(0xFF2A9BD8)],
+  ),
+  SmartList.discoveries => (
+    title: 'Открытия недели'.tr,
+    subtitle: 'Новые для тебя исполнители, похожие на твоих'.tr,
+    icon: Icons.explore_rounded,
+    gradient: const [Color(0xFFFFC14D), Color(0xFFFF6B6B)],
   ),
 };
 

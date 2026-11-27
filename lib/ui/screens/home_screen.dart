@@ -36,6 +36,12 @@ import 'smart_playlist_screen.dart';
 import 'mix_screen.dart';
 import '../widgets/h_scroll.dart';
 import '../widgets/segue_loader.dart';
+import '../../core/catalog/home_feed.dart';
+import '../../core/player/resume.dart';
+import 'album_screen.dart';
+import 'artist_screen.dart';
+
+part 'home_sections.dart';
 
 /// Start page: quick access to liked songs and playlists, and what you
 /// listened to recently.
@@ -88,6 +94,7 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               const _Radios(),
               const SizedBox(height: 18),
+              const _Continue(),
               if (empty)
                 _Welcome(
                   onSearch: onOpenSearch,
@@ -108,6 +115,8 @@ class HomeScreen extends ConsumerWidget {
                   },
                 ),
                 const _ForYou(),
+                const _NewReleases(),
+                const _YourArtists(),
                 if (recent.isNotEmpty) ...[
                   _SectionTitle('Недавно слушали'.tr),
                   _Shelf(

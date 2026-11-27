@@ -325,6 +325,12 @@ class SegueAudioHandler extends BaseAudioHandler
     waveTitle.value = title;
   }
 
+  /// A queue restored from where it stopped goes on as [title]'s wave.
+  void continueEndless(Future<List<Track>> Function() more, String title) {
+    _refill = more;
+    waveTitle.value = title;
+  }
+
   @override
   Future<void> addNext(Track t) async {
     if (_out != null) return _out!.send('add', {'track': t.toJson()});

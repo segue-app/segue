@@ -473,8 +473,8 @@ const en = <String, String>{
   'Часто слушаю': 'On repeat',
   'Что играло больше всего за месяц': 'What you played most this month',
   'Давно не включал': 'Not heard in a while',
-  'Любимое, что не звучало полтора месяца':
-      'Favourites you haven\'t played for six weeks',
+  'Любимое, что не звучало три недели':
+      'Favourites you haven\'t played for three weeks',
   'Лайки за месяц': 'This month\'s likes',
   'Всё, что понравилось за последние 30 дней':
       'Everything you liked in the last 30 days',
@@ -727,4 +727,10 @@ const en = <String, String>{
   'Включи Segue в «Запись экрана и системного звука» и перезапусти его. Если он там уже включён, удали его кнопкой «−» и разреши заново': 'Turn Segue on in “Screen & System Audio Recording” and restart it. If it is already on there, remove it with “−” and allow it again',
   'Открыть настройки': 'Open Settings',
   'Перезапустить Segue': 'Restart Segue',
+  'Продолжить': 'Continue',
+  'с {0}': 'from {0}',
+  'Новинки твоих исполнителей': 'New from your artists',
+  'Твои исполнители': 'Your artists',
+  'Открытия недели': 'Discoveries of the week',
+  'Новые для тебя исполнители, похожие на твоих': 'Artists new to you, like the ones you play',
 };

@@ -59,11 +59,15 @@ class Album {
     this.cover,
     this.year,
     this.type,
+    this.released,
   });
 
   final int id;
   final String title;
   final String artist;
+
+  /// The day it came out, when Deezer says.
+  final DateTime? released;
   final String? cover;
   final int? year;
 
@@ -102,6 +106,7 @@ class Album {
     cover: (j['cover_xl'] ?? j['cover_big'] ?? j['cover_medium']) as String?,
     year: int.tryParse(((j['release_date'] as String?) ?? '').split('-').first),
     type: j['record_type'] as String?,
+    released: DateTime.tryParse(j['release_date'] as String? ?? ''),
   );
 }
 
