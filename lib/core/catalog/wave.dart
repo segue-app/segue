@@ -1,10 +1,13 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../library/library_store.dart';
 import '../models/track.dart';
 import '../player/player_handler.dart';
+import '../sources/youtube_source.dart';
 import 'deezer.dart';
 import 'taste.dart';
 import 'wave_settings.dart';
@@ -17,8 +20,21 @@ import 'package:segue/core/l10n/l10n.dart';
 /// artists you like and listen to. Recently played tracks are skipped and
 /// the queue refills itself as it runs out.
 class Wave {
-  Wave(this.catalog, this.library, this.player, {Taste? taste})
-    : taste = taste ?? Taste(library);
+  Wave(
+    this.catalog,
+    this.library,
+    this.player, {
+    Taste? taste,
+    this.youtube,
+    this.videoIdOf,
+  }) : taste = taste ?? Taste(library);
+
+  /// YouTube's mixes: what My wave and a song's radio are made of. Null
+  /// (tests): Deezer's artist radios only.
+  final YouTubeSource? youtube;
+
+  /// The YouTube video a library song plays from, when known.
+  final String? Function(Track t)? videoIdOf;
 
   final Catalog catalog;
   final LibraryStore library;
@@ -114,10 +130,13 @@ class Wave {
     Future<List<Track>> Function() batch,
     String title, {
     List<Track> lead = const [],
+    bool steered = false,
   }) async {
     _offered
       ..clear()
       ..addAll(lead.map((t) => t.key));
+    _resetSession(steered);
+    _songs.addAll(lead.map(_songKey));
     final first = await batch();
     if (first.isEmpty) throw StateError('Волна пустая'.tr);
     await player!.playEndless([...lead, ...first], batch, title: title);
@@ -138,6 +157,13 @@ class Wave {
   /// artists like them. The similar artists are picked anew for each batch,
   /// so the radio keeps moving instead of circling one artist.
   Future<void> trackWave(Track track) async {
+    if (youtube != null) {
+      try {
+        return await _steeredTrackWave(track);
+      } catch (e) {
+        debugPrint('wave ${track.title}: $e');
+      }
+    }
     final artist = await catalog.findArtist(track.artist, strict: true);
     if (artist == null) {
       throw StateError('Не нашёл исполнителя «{0}»'.trArgs([track.artist]));
@@ -269,8 +295,30 @@ class Wave {
 
   /// Personal endless mix, shaped by [settings] ("Настроить волну").
   /// With an empty library it starts from the charts.
-  Future<void> myWave([WaveSettings settings = const WaveSettings()]) =>
-      _play(() => myWaveBatch(settings), myWaveTitle);
+  Future<void> myWave([WaveSettings settings = const WaveSettings()]) {
+    // Plain My wave (or "Любимое"): YouTube's mixes of your songs, steered
+    // by how you listen. Themes and the other characters: Deezer's.
+    final steer =
+        youtube != null &&
+        settings.activity == null &&
+        settings.mood == null &&
+        settings.language == null &&
+        (settings.character == null || settings.character == 'Любимое');
+    if (!steer) return _play(() => myWaveBatch(settings), myWaveTitle);
+    final likedOnly = settings.character == 'Любимое';
+    Future<List<Track>> batch() async {
+      try {
+        final b = await _steeredBatch(likedOnly: likedOnly);
+        if (b.isNotEmpty) return b;
+      } catch (e) {
+        debugPrint('wave: $e');
+      }
+      // YouTube gave nothing (unreachable, nothing known yet): Deezer's.
+      return myWaveBatch(settings);
+    }
+
+    return _play(batch, myWaveTitle, steered: true);
+  }
 
   static const myWaveTitle = 'Моя волна';
 
@@ -512,6 +560,382 @@ class Wave {
       }
     }
     return out;
+  }
+
+  // --- steered waves: YouTube mixes, re-ranked before every few songs ----
+
+  /// Songs in one portion of a steered wave: few, so a skip or a like
+  /// changes what comes within a song or two.
+  static const steerSize = 5;
+
+  bool _steered = false;
+
+  /// Songs found and not offered yet; [pos]: where in its mix (0 is the
+  /// song the mix was made from: the nearer, the more alike).
+  final _pool = <({Track track, String seed, int pos})>[];
+
+  /// Videos whose mix is already in the pool.
+  final _mixed = <String>{};
+
+  /// Videos to take mixes of next: songs liked or played through now.
+  final _hot = <String>[];
+
+  /// How this session feels about artists and mixes (skips, likes).
+  final _now = <String, double>{};
+  final _seedFeel = <String, double>{};
+  final _fromSeed = <String, String>{};
+
+  /// Songs offered, by name: one song uploaded by several channels
+  /// comes once.
+  final _songs = <String>{};
+
+  /// Artists of the last songs offered, newest last.
+  final _lastArtists = <String>[];
+
+  int _quickSkips = 0;
+
+  void _resetSession(bool steered) {
+    _steered = steered;
+    _pool.clear();
+    _mixed.clear();
+    _hot.clear();
+    _now.clear();
+    _seedFeel.clear();
+    _fromSeed.clear();
+    _songs.clear();
+    _lastArtists.clear();
+    _quickSkips = 0;
+  }
+
+  static final _dash = RegExp(r'\s[-–—]\s');
+  static final _split = RegExp(
+    r'\s*(,|&|\bfeat\.?|\bft\.?|\bx\b|\band\b|\bи\b)\s*',
+    caseSensitive: false,
+  );
+
+  /// The main artist, from "Artist - Song" titles too (the channel is often
+  /// a label).
+  static String _artistKey(Track t) {
+    final d = t.source == SourceKind.youtube ? _dash.firstMatch(t.title) : null;
+    final who = d == null ? t.artist : t.title.substring(0, d.start);
+    return _norm(who.split(_split).first);
+  }
+
+  /// The song itself, whoever uploaded it: artist and title without
+  /// "(Official Video)", "| Lyrics" and the like.
+  static String _songKey(Track t) {
+    var title = t.title;
+    final d = t.source == SourceKind.youtube ? _dash.firstMatch(title) : null;
+    if (d != null) title = title.substring(d.end);
+    title = title
+        .replaceAll(RegExp(r'[(\[].*?[)\]]'), ' ')
+        .split(RegExp(r'\s[|/]\s'))
+        .first;
+    final letters = RegExp(r'[^\p{L}\p{N}]', unicode: true);
+    return '${_artistKey(t).replaceAll(letters, '')}|'
+        '${title.toLowerCase().replaceAll(letters, '')}';
+  }
+
+  /// Hours of music, compilations, live streams: not a song.
+  static final _notASong = RegExp(
+    r'full album|playlist|сборник|подборк|\bhours?\b|\bчас(а|ов)?\b|non-?stop|'
+    r'\bmix\s*20\d\d|top \d+|\blive stream|топ \d+',
+    caseSensitive: false,
+  );
+
+  static bool _songLike(Track t) {
+    final d = t.duration;
+    if (d != null && (d.inSeconds < 60 || d.inMinutes >= 9)) return false;
+    return !_notASong.hasMatch(t.title);
+  }
+
+  /// How you feel about the song's artist, all along (channel and name).
+  double _feel(Track t) {
+    final a = taste.artist(t.artist);
+    final b = taste.artist(_artistKey(t));
+    return a < 0 || b < 0 ? min(a, b) : max(a, b);
+  }
+
+  static const _seenFor = Duration(days: 10);
+
+  /// Played in a wave lately: not offered again for a while.
+  bool _seenLately(Track t) {
+    final at = library.kvGet('wave_seen', t.key);
+    return at is int &&
+        DateTime.now().millisecondsSinceEpoch - at < _seenFor.inMilliseconds;
+  }
+
+  String? _videoOf(Track t) =>
+      t.source == SourceKind.youtube ? t.id : videoIdOf?.call(t);
+
+  /// Songs of yours to make mixes from: newer likes and songs you come
+  /// back to most likely, artists you skip never.
+  List<Track> _seedSongs({required bool likedOnly}) {
+    final w = <String, ({Track t, double w})>{};
+    void add(Track t, double weight) {
+      if (_feel(t) < 0 || (_now[_artistKey(t)] ?? 0) < 0) return;
+      final had = w[t.key];
+      w[t.key] = (t: t, w: (had?.w ?? 0) + weight);
+    }
+
+    final liked = library.likedTracks();
+    for (var i = 0; i < liked.length && i < 300; i++) {
+      add(liked[i], 1 + 3 * exp(-i / 40));
+    }
+    if (!likedOnly) {
+      final played = library.playedAtLeast(2, limit: 300);
+      for (var i = 0; i < played.length; i++) {
+        add(played[i], 0.5 + 1.5 * exp(-i / 80));
+      }
+    }
+    // Weighted draw without putting back.
+    final pool = w.values.toList();
+    final out = <Track>[];
+    while (pool.isNotEmpty && out.length < 12) {
+      final total = pool.fold(0.0, (a, b) => a + b.w);
+      var r = _rnd.nextDouble() * total;
+      var i = pool.indexWhere((e) => (r -= e.w) <= 0);
+      if (i < 0) i = pool.length - 1;
+      out.add(pool.removeAt(i).t);
+    }
+    return out;
+  }
+
+  /// Adds the mixes of [count] songs to the pool: songs just liked or
+  /// played through first, then songs of yours.
+  Future<void> _grow(int count, {bool likedOnly = false}) async {
+    final ids = <String>[];
+    while (_hot.isNotEmpty && ids.length < count) {
+      final id = _hot.removeAt(0);
+      if (_mixed.add(id)) ids.add(id);
+    }
+    if (ids.length < count) {
+      Track? unknown;
+      for (final t in _seedSongs(likedOnly: likedOnly)) {
+        if (ids.length >= count) break;
+        final id = _videoOf(t);
+        if (id == null) {
+          unknown ??= t;
+        } else if (_mixed.add(id)) {
+          ids.add(id);
+        }
+      }
+      // Songs from SoundCloud or never played yet: found on YouTube.
+      if (ids.isEmpty && unknown != null) {
+        final found = await youtube!
+            .searchDetailed('${unknown.artist} ${unknown.title}', limit: 1)
+            .catchError((Object _) => <({Track track, bool official})>[]);
+        if (found.isNotEmpty && _mixed.add(found.first.track.id)) {
+          ids.add(found.first.track.id);
+        }
+      }
+    }
+    if (ids.isEmpty) return;
+    final mixes = await Future.wait(
+      ids.map((id) => youtube!.mix(id).catchError((Object _) => <Track>[])),
+    );
+    for (var i = 0; i < ids.length; i++) {
+      final mix = mixes[i];
+      for (var pos = 0; pos < mix.length; pos++) {
+        final t = mix[pos];
+        if (!_songLike(t) || _fromSeed.containsKey(t.key)) continue;
+        _fromSeed[t.key] = ids[i];
+        _pool.add((track: t, seed: ids[i], pos: pos));
+      }
+    }
+  }
+
+  /// One portion of the steered My wave (tests).
+  @visibleForTesting
+  Future<List<Track>> steeredBatch({bool likedOnly = false}) {
+    _steered = true;
+    return _steeredBatch(likedOnly: likedOnly);
+  }
+
+  /// The next few songs of a steered wave, ranked as of now.
+  Future<List<Track>> _steeredBatch({
+    bool likedOnly = false,
+    int size = steerSize,
+  }) async {
+    final recentSongs = library.recentlyPlayed(limit: 250);
+    final recent = {for (final t in recentSongs) t.key, ..._offered};
+    final recentNames = {for (final t in recentSongs) _songKey(t), ..._songs};
+    bool fresh(Track t) =>
+        !recent.contains(t.key) &&
+        !recentNames.contains(_songKey(t)) &&
+        !taste.isDisliked(t) &&
+        _feel(t) > -4 &&
+        (_now[_artistKey(t)] ?? 0) > -2 &&
+        !_seenLately(t);
+
+    _pool.removeWhere((c) => !fresh(c.track));
+    for (var round = 0; round < 3 && _pool.length < 25; round++) {
+      final before = _pool.length;
+      await _grow(_pool.isEmpty ? 3 : 2, likedOnly: likedOnly);
+      _pool.removeWhere((c) => !fresh(c.track));
+      if (_pool.length == before && _hot.isEmpty) break;
+    }
+
+    double score(({Track track, String seed, int pos}) c) =>
+        1.5 * (1 - c.pos / 30).clamp(0.0, 1.0) +
+        (_seedFeel[c.seed] ?? 0) +
+        (_now[_artistKey(c.track)] ?? 0) +
+        _feel(c.track).clamp(-4.0, 6.0) * 0.25 +
+        _rnd.nextDouble() * 1.2;
+    final scored = {for (final c in _pool) c.track.key: score(c)};
+    final ranked = [..._pool]
+      ..sort((a, b) => scored[b.track.key]!.compareTo(scored[a.track.key]!));
+
+    // Your own songs now and then, as Yandex's wave does.
+    final own = _familiar().where(fresh).toList();
+    final out = <Track>[];
+    bool fits(Track t) {
+      final a = _artistKey(t);
+      final near = _lastArtists.length < 4
+          ? _lastArtists
+          : _lastArtists.sublist(_lastArtists.length - 4);
+      if (near.contains(a)) return false;
+      final window = _lastArtists.length < 15
+          ? _lastArtists
+          : _lastArtists.sublist(_lastArtists.length - 15);
+      return window.where((x) => x == a).length < 2;
+    }
+
+    void place(Track t) {
+      out.add(t);
+      _offered.add(t.key);
+      _songs.add(_songKey(t));
+      _lastArtists.add(_artistKey(t));
+      if (_lastArtists.length > 30) _lastArtists.removeAt(0);
+    }
+
+    final wantOwn = likedOnly ? 2 : (_rnd.nextDouble() < 0.6 ? 1 : 0);
+    var ownLeft = wantOwn;
+    for (final c in ranked) {
+      if (out.length >= size) break;
+      final t = c.track;
+      if (ownLeft > 0 && out.isNotEmpty && _rnd.nextDouble() < 0.4) {
+        final i = own.indexWhere(fits);
+        if (i >= 0) {
+          place(own.removeAt(i));
+          ownLeft--;
+          if (out.length >= size) break;
+        }
+      }
+      if (_songs.contains(_songKey(t)) || !fits(t)) continue;
+      place(t);
+    }
+    _pool.removeWhere((c) => _offered.contains(c.track.key));
+    // Too few artists to space them out: closer is better than nothing.
+    if (out.length < size) {
+      for (final c in ranked) {
+        if (out.length >= size) break;
+        if (_offered.contains(c.track.key) || _songs.contains(_songKey(c.track))) {
+          continue;
+        }
+        place(c.track);
+      }
+      _pool.removeWhere((c) => _offered.contains(c.track.key));
+    }
+    return out;
+  }
+
+  /// Radio from one song: its own mix first, then mixes of the songs you
+  /// like in it.
+  Future<void> _steeredTrackWave(Track track) async {
+    var id = _videoOf(track);
+    if (id == null) {
+      final found = await youtube!.searchDetailed(
+        '${track.artist} ${track.title}',
+        limit: 1,
+      );
+      if (found.isEmpty) throw StateError('not on YouTube');
+      id = found.first.track.id;
+    }
+    final seed = id;
+    var first = true;
+    Future<List<Track>> batch() async {
+      if (first) {
+        first = false;
+        _hot.add(seed);
+        _seedFeel[seed] = 1.5;
+      } else if (_hot.isEmpty && _pool.length < 25) {
+        // The radio keeps to this song's world: more of its mix's songs.
+        final near = _pool.where((c) => c.seed == seed && c.pos < 12).toList()
+          ..shuffle(_rnd);
+        for (final c in near.take(2)) {
+          if (!_mixed.contains(c.track.id)) _hot.add(c.track.id);
+        }
+      }
+      return _steeredBatch();
+    }
+
+    await _play(
+      batch,
+      'Радио: {0}'.trArgs([track.title]),
+      lead: [track],
+      steered: true,
+    );
+  }
+
+  bool get _active => _steered && player?.waveTitle.value != null;
+
+  /// How a wave song was left: steers what comes next at once.
+  void heard(Track t, Duration played, Duration? length, bool skipped) {
+    if (!_active) return;
+    library.kvPut(
+      'wave_seen',
+      t.key,
+      DateTime.now().millisecondsSinceEpoch,
+      keep: 4000,
+    );
+    final a = _artistKey(t);
+    final seed = _fromSeed[t.key];
+    final fraction = length == null || length.inMilliseconds <= 0
+        ? null
+        : played.inMilliseconds / length.inMilliseconds;
+    final quick =
+        skipped &&
+        played < const Duration(seconds: 30) &&
+        (fraction == null || fraction < 0.3);
+    if (quick) {
+      _quickSkips++;
+      _now[a] = (_now[a] ?? 0) - 1.5;
+      if (seed != null) {
+        _seedFeel[seed] = (_seedFeel[seed] ?? 0) - 0.6;
+        if (_seedFeel[seed]! <= -1.2) _pool.removeWhere((c) => c.seed == seed);
+      }
+      // That artist leaves the queue now; after two skips in a row the
+      // rest of it is picked anew.
+      player?.removeUpcomingWhere(
+        (x) =>
+            _offered.contains(x.key) &&
+            (_quickSkips >= 2 || _artistKey(x) == a),
+        keep: _quickSkips >= 2 ? 1 : 0,
+      );
+      if (_quickSkips >= 2) _quickSkips = 0;
+      return;
+    }
+    _quickSkips = 0;
+    if (!skipped || (fraction != null && fraction > 0.7)) {
+      _now[a] = (_now[a] ?? 0) + 0.6;
+      if (seed != null) _seedFeel[seed] = (_seedFeel[seed] ?? 0) + 0.3;
+      final id = _videoOf(t);
+      if (id != null && !_mixed.contains(id) && _hot.length < 3) _hot.add(id);
+    }
+  }
+
+  /// A song liked while its wave plays: more like it, from the next song.
+  Future<void> liked(Track t) async {
+    if (!_active) return;
+    final a = _artistKey(t);
+    _now[a] = (_now[a] ?? 0) + 1.5;
+    final id = _videoOf(t);
+    if (id == null || _mixed.contains(id)) return;
+    _hot.insert(0, id);
+    _seedFeel[id] = 1.5;
+    await _grow(1);
+    player?.removeUpcomingWhere((x) => _offered.contains(x.key), keep: 1);
   }
 }
 

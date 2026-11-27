@@ -471,7 +471,11 @@ class LibraryStore {
       (jsonDecode(r['json'] as String) as Map).cast<String, dynamic>(),
   ];
 
+  /// Told when a song is liked or unliked here (My wave steers by it).
+  void Function(Track t, bool liked)? onLikeChanged;
+
   void setLiked(Track t, bool liked) {
+    onLikeChanged?.call(t, liked);
     _saveTrack(t);
     _db.execute(
       'INSERT INTO likes (track_key, liked_at, deleted, updated_at, seq) VALUES (?, ?, ?, ?, ?) '

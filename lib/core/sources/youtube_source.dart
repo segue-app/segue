@@ -146,6 +146,82 @@ class YouTubeSource implements MusicSource, FileSource {
     return out;
   }
 
+  /// YouTube's own mix for a video ("Микс" on the website): songs that
+  /// people who play it play too, the video itself first. It knows every
+  /// artist on YouTube, the small ones Deezer has never heard of too.
+  Future<List<Track>> mix(String videoId) async {
+    final visitor = await _visitor('jNQXAC9IVRw');
+    final res = await _http
+        .post(
+          Uri.parse('https://www.youtube.com/youtubei/v1/next?prettyPrint=false'),
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': _webUa,
+            'Origin': 'https://www.youtube.com',
+            'X-Goog-Visitor-Id': ?visitor,
+          },
+          body: jsonEncode({
+            'context': {
+              'client': {
+                'clientName': 'WEB',
+                'clientVersion': '2.20251110.01.00',
+                'hl': 'en',
+                'visitorData': ?visitor,
+              },
+            },
+            'videoId': videoId,
+            'playlistId': 'RD$videoId',
+          }),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (res.statusCode != 200) throw StateError('mix ${res.statusCode}');
+    String text(Object? o) {
+      if (o is! Map) return '';
+      if (o['simpleText'] is String) return o['simpleText'] as String;
+      return [
+        for (final r in (o['runs'] as List? ?? const []))
+          (r as Map)['text'] ?? '',
+      ].join();
+    }
+
+    final out = <Track>[];
+    final seen = <String>{};
+    void walk(Object? o) {
+      if (o is Map) {
+        final v = o['playlistPanelVideoRenderer'];
+        if (v is Map) {
+          final id = v['videoId'] as String?;
+          final length = text(v['lengthText']);
+          if (id != null && length.isNotEmpty && seen.add(id)) {
+            var secs = 0;
+            for (final part in length.split(':')) {
+              secs = secs * 60 + (int.tryParse(part) ?? 0);
+            }
+            final title = text(v['title']);
+            // Mixes are full of lyric channels ("7clouds"): the artist is
+            // the one the title names.
+            final named = RegExp(r'^(.+?)\s[-–—]\s').firstMatch(title);
+            out.add(
+              _track(
+                id,
+                title,
+                named?.group(1)!.trim() ?? text(v['longBylineText']),
+                Duration(seconds: secs),
+              ),
+            );
+          }
+          return;
+        }
+        o.values.forEach(walk);
+      } else if (o is List) {
+        o.forEach(walk);
+      }
+    }
+
+    walk(jsonDecode(res.body));
+    return out;
+  }
+
   ({Track track, bool official})? _fromRenderer(Map v) {
     String text(Object? o) {
       if (o is! Map) return '';

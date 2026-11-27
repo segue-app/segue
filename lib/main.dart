@@ -169,8 +169,10 @@ Future<void> main() async {
   final lastFm = LastFm(library)..attach(handler);
   // My wave learns from how you listen.
   final taste = Taste(library);
+  Wave? waveRef;
   handler.onTrackLeft = (t, played, length, skipped) {
     taste.record(t, played, length, skipped);
+    waveRef?.heard(t, played, length, skipped);
     // In the wave, an artist you keep skipping leaves the queue at once.
     if (handler.waveTitle.value != null && taste.artist(t.artist) <= -3) {
       final a = Taste.norm(t.artist);
@@ -259,7 +261,20 @@ Future<void> main() async {
     load: () => library.getMeta('lights'),
     save: (j) => library.setMeta('lights', j),
   );
-  final wave = Wave(catalog, library, handler, taste: taste);
+  final wave = Wave(
+    catalog,
+    library,
+    handler,
+    taste: taste,
+    youtube: youtube,
+    videoIdOf: (t) => t.source == SourceKind.match ? match.matched(t)?.id : null,
+  );
+  waveRef = wave;
+  library.onLikeChanged = (t, liked) {
+    if (!liked) return;
+    taste.liked(t);
+    unawaited(wave.liked(t).catchError((Object e) => debugPrint('wave: $e')));
+  };
   handler.car = CarBrowser(
     library: library,
     playList: handler.playList,

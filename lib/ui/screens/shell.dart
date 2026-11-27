@@ -290,13 +290,22 @@ class _ShellState extends ConsumerState<Shell> {
     ?..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text(msg, maxLines: 2, overflow: TextOverflow.ellipsis),
+        // A padding of our own drops Flutter's one above and below the
+        // text (it sat on the edges): given back here, not around the
+        // button, which has room of its own.
+        content: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Text(msg, maxLines: 2, overflow: TextOverflow.ellipsis),
+        ),
         action: action,
         actionOverflowThreshold: 1,
         // With a button Flutter keeps a note until it's closed by hand:
         // these go by themselves.
         persist: false,
-        padding: const EdgeInsetsDirectional.only(start: 16, end: 6),
+        padding: EdgeInsetsDirectional.only(
+          start: 18,
+          end: action == null ? 18 : 6,
+        ),
         duration: const Duration(seconds: 3),
       ),
     );

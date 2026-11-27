@@ -357,11 +357,14 @@ class SegueAudioHandler extends BaseAudioHandler
 
   /// Takes upcoming songs matching [test] out of the queue (the wave
   /// dropping an artist you just skipped twice).
-  void removeUpcomingWhere(bool Function(Track t) test) {
+  /// [keep]: the first that many upcoming songs stay whatever they are
+  /// (the next one is usually loaded already).
+  void removeUpcomingWhere(bool Function(Track t) test, {int keep = 0}) {
     if (_out != null) return;
     final before = _tracks.length;
-    final head = _tracks.sublist(0, _index + 1);
-    final rest = _tracks.sublist(_index + 1)..removeWhere(test);
+    final cut = math.min(_tracks.length, _index + 1 + keep);
+    final head = _tracks.sublist(0, cut);
+    final rest = _tracks.sublist(cut)..removeWhere(test);
     if (head.length + rest.length == before) return;
     _tracks
       ..clear()
