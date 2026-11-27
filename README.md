@@ -125,14 +125,19 @@ iOS has no prebuilt app (it needs Apple signing); you can
 - **Your library**: liked songs, playlists, **albums** (♥ on an album
   page), downloads, your own files and a **listening history** by day,
   with search inside every list
-- **My wave**: an endless mix that learns from you. It starts from the
-  artists you really play, mixes in the ones close to them and doesn't
-  repeat itself. Songs you play to the end bring more of that artist,
-  songs you skip bring less, and 👎 removes a song for good. Tune it by
-  activity, mood, character and language
+- **My wave**: an endless mix that learns from you, made of YouTube's
+  mixes of the songs you like and play, so it knows small artists too.
+  It reacts at once: skip a song and that artist leaves the queue, skip
+  two in a row and the rest is picked anew, like a song or play it
+  through and more like it comes next. It doesn't repeat itself, now and
+  then brings back your own songs, and 👎 removes a song for good. Tune
+  it by activity, mood, character and language
+- **Home that changes every day**: **Continue** from the very second you
+  stopped, **new releases** of your artists, **your artists** one tap
+  away, **Discoveries of the week** (artists new to you, close to yours)
 - **Radios** by genre and mood, a **radio from any song**, and **smart
   playlists** that fill themselves: On repeat, Not heard in a while, This
-  month's likes
+  month's likes, Discoveries of the week
 - **Links**: paste a link to a song from Spotify, Yandex Music, Apple
   Music, Deezer, YouTube or SoundCloud and it plays at once
 - **Import** playlists and albums by link from the same services, or your whole library (a Yandex Music profile, Spotify via
@@ -286,7 +291,7 @@ Android Auto's settings on the phone, tap **Version** 10 times, then
 | Part | How |
 | --- | --- |
 | **Playback** | [media_kit](https://github.com/media-kit/media-kit) (libmpv) on every platform, so the equalizer and effects are the same FFmpeg filters everywhere. A loopback proxy keeps HLS streams on one connection and preloads the next track; the next song is queued inside mpv for gapless playback. Opus files are read in ranges and written to disk as they play, so the offline cache takes them without a second download |
-| **Sources** | YouTube through its player API, SoundCloud through its public web API, Audius through its open API. The catalogue, charts, collections, waves and album covers come from Deezer's public API; those songs are matched on YouTube when they play. If YouTube doesn't answer, search goes through public Invidious/Piped mirrors and the song plays from SoundCloud or Audius when the same recording is there |
+| **Sources** | YouTube through its player API, SoundCloud through its public web API, Audius through its open API. My wave and song radios are built from YouTube's mixes. The catalogue, charts, collections, new releases, genre and mood radios and album covers come from Deezer's public API; those songs are matched on YouTube when they play. If YouTube doesn't answer, search goes through public Invidious/Piped mirrors and the song plays from SoundCloud or Audius when the same recording is there |
 | **Matching** | An imported song is found by title, artist and length, preferring the artist's own channel and rejecting covers, live versions and remixes. The chosen version travels with the song when playback moves to another device |
 | **Recognition** | Shazam's audio fingerprint, computed on the device (a Dart port of [SongRec](https://github.com/marin-m/SongRec)'s algorithm: FFT peaks in four frequency bands), sent to Shazam's public endpoint. Sound comes from the built-in microphone, or from the device's own output: ScreenCaptureKit on macOS 13+, WASAPI loopback on Windows, AudioPlaybackCapture on Android 10+ |
 | **Lyrics** | Word timing from NetEase Cloud Music when it has the song, line timing from [LRCLIB](https://lrclib.net) otherwise; both are checked against title, artist and length |
